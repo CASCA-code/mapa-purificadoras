@@ -1,5 +1,10 @@
 # Bitácora Purificadoras
 
+## 2026-09-12 (lista completa)
+
+- Ranking en sidebar: **todas** las colonias (no solo top 15) + buscador.
+- Botón **Color chico**: relleno del mapa más suave (fillOpacity 0.22) y chips más pequeños.
+
 ## 2026-09-12 (layout móvil)
 
 - Mapa a pantalla casi completa en teléfono.
