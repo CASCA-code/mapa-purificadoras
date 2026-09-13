@@ -445,18 +445,18 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   box-shadow:0 12px 32px rgba(43,38,32,.28); padding:14px 14px 16px;
 }
 #fieldAddSheet.show{ display:block }
-#fieldAddSheet h2{ margin:0 0 8px; font:700 16px/1.2 Fraunces,Georgia,serif }
-#fieldAddSheet .hint{ color:var(--ink-muted); font-size:12px; margin:0 0 10px }
+#fieldAddSheet h2{ margin:0 0 8px; font:700 16px/1.2 Fraunces,Georgia,serif; color:#111 }
+#fieldAddSheet .hint{ color:#3f3a34; font-size:12px; margin:0 0 10px }
 #fieldAddSheet .opts{ display:flex; flex-direction:column; gap:8px; margin:0 0 10px }
 #fieldAddSheet .opt{
   text-align:left; border:1px solid var(--hair); background:#fff; border-radius:12px;
-  padding:10px 12px; font:600 13px/1.25 IBM Plex Sans,system-ui,sans-serif; cursor:pointer; color:var(--ink);
+  padding:10px 12px; font:600 13px/1.25 IBM Plex Sans,system-ui,sans-serif; cursor:pointer; color:#111!important;
 }
 #fieldAddSheet .opt.on{ outline:2px solid #0f766e; background:#f0fdfa }
-#fieldAddSheet label{ display:block; font:600 11px/1.2 IBM Plex Sans,system-ui,sans-serif; color:var(--ink-muted); margin:8px 0 4px }
+#fieldAddSheet label{ display:block; font:600 11px/1.2 IBM Plex Sans,system-ui,sans-serif; color:#1c1916; margin:8px 0 4px }
 #fieldAddSheet input, #fieldAddSheet textarea{
   width:100%; box-sizing:border-box; border:1px solid var(--hair); border-radius:10px;
-  padding:10px 12px; font:14px/1.3 IBM Plex Sans,system-ui,sans-serif; background:#fff; color:var(--ink);
+  padding:10px 12px; font:14px/1.3 IBM Plex Sans,system-ui,sans-serif; background:#fff; color:#111;
 }
 #fieldAddSheet .row{ display:flex; gap:8px; margin-top:12px }
 #fieldAddSheet .row button{
@@ -489,29 +489,23 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <h2 id="fieldAddTitle">Añadir aquí</h2>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
-  <div class="opts" role="radiogroup" aria-label="Tipo">
-    <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
-    <button type="button" class="opt" data-kind="ancla">Ancla (Bodega / Soriana / Oxxo / banco / cerveza)</button>
-    <button type="button" class="opt" data-kind="otra">Otra…</button>
+  <div id="fieldAddNameWrap" style="display:block">
+    <label for="fieldAddName">Nombre (opcional) — ej. Oxxo, El Punto, Modelorama…</label>
+    <input id="fieldAddName" type="text" placeholder="¿Qué hay aquí?" autocomplete="off"/>
   </div>
-  <div id="fieldAddOtraWrap">
-    <label for="fieldAddOtra">¿Qué hay? (escribe libre; yo lo interpreto después)</label>
-    <textarea id="fieldAddOtra" rows="3" placeholder="ej. llenado informal, Modelorama, depa estudiante…"></textarea>
-  </div>
-  <div id="fieldAddNameWrap">
-    <label for="fieldAddName">Nombre (opcional)</label>
-    <input id="fieldAddName" type="text" placeholder="ej. El Punto / Bodega X" autocomplete="off"/>
-  </div>
-  <div id="fieldAddPriceWrap">
-    <label for="fieldAddPrice">Precio recarga $ (opcional)</label>
-    <input id="fieldAddPrice" type="number" inputmode="decimal" min="0" step="1" placeholder="12"/>
+  <div id="fieldAddPriceWrap" style="display:block">
+    <label for="fieldAddPriceGarrafon">Precio recarga garrafón $ (opc.)</label>
+    <input id="fieldAddPriceGarrafon" type="number" inputmode="decimal" min="0" step="1" placeholder="ej. 12"/>
+    <label for="fieldAddPriceMedio">Precio medio garrafón $ (opc.)</label>
+    <input id="fieldAddPriceMedio" type="number" inputmode="decimal" min="0" step="1" placeholder="ej. 7"/>
+    <label for="fieldAddPriceGalon">Precio galón $ (opc.)</label>
+    <input id="fieldAddPriceGalon" type="number" inputmode="decimal" min="0" step="1" placeholder="ej. 5"/>
   </div>
   <div class="row">
     <button type="button" class="btnCancel" id="fieldAddCancel">Cancelar</button>
-    <button type="button" class="btnSave" id="fieldAddSave" disabled>Guardar</button>
+    <button type="button" class="btnSave" id="fieldAddSave">Guardar</button>
   </div>
 </div>
-
 <div id="coloniaCard" hidden>
   <button type="button" id="coloniaCardClose" aria-label="Cerrar">×</button>
   <div id="coloniaCardBody"></div>
@@ -1903,17 +1897,13 @@ if (window.ResizeObserver){
   if (!btn || !sheet || typeof map === 'undefined') return;
 
   const coordsEl = document.getElementById('fieldAddCoords');
-  const otraWrap = document.getElementById('fieldAddOtraWrap');
-  const nameWrap = document.getElementById('fieldAddNameWrap');
-  const priceWrap = document.getElementById('fieldAddPriceWrap');
-  const otraIn = document.getElementById('fieldAddOtra');
   const nameIn = document.getElementById('fieldAddName');
-  const priceIn = document.getElementById('fieldAddPrice');
+  const priceGarrafon = document.getElementById('fieldAddPriceGarrafon');
+  const priceMedio = document.getElementById('fieldAddPriceMedio');
+  const priceGalon = document.getElementById('fieldAddPriceGalon');
   const btnSave = document.getElementById('fieldAddSave');
   const btnCancel = document.getElementById('fieldAddCancel');
-  const opts = Array.prototype.slice.call(sheet.querySelectorAll('.opt'));
 
-  let kind = null;
   const layer = L.layerGroup().addTo(map);
   const pinIcon = L.divIcon({
     className: '', iconSize: [14, 14], iconAnchor: [7, 7],
@@ -1946,29 +1936,21 @@ if (window.ResizeObserver){
     const c = f.geometry && f.geometry.coordinates;
     if (!c) return;
     const m = L.marker([c[1], c[0]], { icon: pinIcon, zIndexOffset: 1500 });
-    const title = p.name || p.nota_raw || p.kind || 'Hallazgo';
-    m.bindPopup('<b>' + title + '</b><br>' + (p.kind || '') +
-      (p.precio_recarga_mxn != null ? ('<br>$' + p.precio_recarga_mxn) : '') +
-      '<br><small>campo</small>');
+    const title = p.name || p.nota_raw || 'Hallazgo';
+    const prices = [];
+    if (p.precio_garrafon_mxn != null) prices.push('garrafón $' + p.precio_garrafon_mxn);
+    if (p.precio_medio_garrafon_mxn != null) prices.push('medio $' + p.precio_medio_garrafon_mxn);
+    if (p.precio_galon_mxn != null) prices.push('galón $' + p.precio_galon_mxn);
+    // legacy
+    if (!prices.length && p.precio_recarga_mxn != null) prices.push('recarga $' + p.precio_recarga_mxn);
+    m.bindPopup('<b>' + title + '</b>' +
+      (prices.length ? ('<br>' + prices.join(' · ')) : '') +
+      '<br><small>campo · ' + (p.kind || 'inbox') + '</small>');
     m.addTo(layer);
   }
   function refreshMarkers(list){
     layer.clearLayers();
     (list || []).forEach(featureToMarker);
-  }
-  function setKind(k){
-    kind = k;
-    opts.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-kind') === k); });
-    otraWrap.style.display = k === 'otra' ? 'block' : 'none';
-    nameWrap.style.display = (k === 'purificadora' || k === 'ancla') ? 'block' : 'none';
-    priceWrap.style.display = k === 'purificadora' ? 'block' : 'none';
-    validate();
-  }
-  function validate(){
-    const g = geoFresh();
-    let ok = !!g && !!kind;
-    if (kind === 'otra') ok = ok && !!(otraIn.value || '').trim();
-    btnSave.disabled = !ok;
   }
   function openSheet(){
     const g = geoFresh();
@@ -1980,7 +1962,6 @@ if (window.ResizeObserver){
     sheet.classList.add('show');
     coordsEl.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5) +
       (g.accuracy != null ? (' · ±' + Math.round(g.accuracy) + ' m') : '');
-    validate();
   }
   function closeSheet(){
     sheet.classList.remove('show');
@@ -1989,23 +1970,29 @@ if (window.ResizeObserver){
   function uuid(){
     return 'fa_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
   }
+  function numOrNull(el){
+    if (!el || el.value === '') return null;
+    const n = Number(el.value);
+    return isFinite(n) ? n : null;
+  }
   function buildFeature(g){
-    const raw = (otraIn.value || '').trim();
     const name = (nameIn.value || '').trim();
-    let price = null;
-    if (kind === 'purificadora' && priceIn.value !== '') {
-      const n = Number(priceIn.value);
-      if (isFinite(n)) price = n;
-    }
+    const pg = numOrNull(priceGarrafon);
+    const pm = numOrNull(priceMedio);
+    const pgal = numOrNull(priceGalon);
     return {
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [g.lon, g.lat] },
       properties: {
         id: uuid(),
-        kind: kind,
-        name: name || (kind === 'otra' ? raw.slice(0, 80) : ''),
-        nota_raw: kind === 'otra' ? raw : '',
-        precio_recarga_mxn: price,
+        kind: 'inbox',
+        name: name,
+        nota_raw: name,
+        precio_garrafon_mxn: pg,
+        precio_medio_garrafon_mxn: pm,
+        precio_galon_mxn: pgal,
+        // alias for older readers
+        precio_recarga_mxn: pg,
         accuracy_m: g.accuracy != null ? Math.round(g.accuracy) : null,
         ts: new Date(g.ts || Date.now()).toISOString(),
         fuente: 'campo',
@@ -2015,7 +2002,7 @@ if (window.ResizeObserver){
   }
   function openGitHubIssue(feat){
     const p = feat.properties;
-    const title = 'field-add: ' + p.kind + ' @ ' +
+    const title = 'field-add: ' + (p.name || 'sin-nombre') + ' @ ' +
       feat.geometry.coordinates[1].toFixed(5) + ',' + feat.geometry.coordinates[0].toFixed(5);
     const body = [
       '<!-- field-add inbox: do not edit the JSON fence -->',
@@ -2023,8 +2010,8 @@ if (window.ResizeObserver){
       JSON.stringify(feat, null, 2),
       '```',
       '',
-      'Enviado desde el mapa (Ubicarme + Añadir).'
-    ].join('\n');
+      'Enviado desde el mapa (Ubicarme + Añadir). Purificador interpreta el nombre.'
+    ].join('\\n');
     const url = 'https://github.com/' + ISSUE_REPO + '/issues/new?title=' +
       encodeURIComponent(title) + '&body=' + encodeURIComponent(body) + '&labels=' +
       encodeURIComponent('field-add');
@@ -2032,28 +2019,21 @@ if (window.ResizeObserver){
   }
   function onSave(){
     const g = geoFresh();
-    if (!g || !kind) return;
-    if (kind === 'otra' && !(otraIn.value || '').trim()) return;
+    if (!g) return;
     const feat = buildFeature(g);
     const arr = loadLocal();
     arr.push(feat);
     saveLocal(arr);
     refreshMarkers(arr);
     try { openGitHubIssue(feat); } catch (e) {}
-    // reset soft
-    otraIn.value = '';
     nameIn.value = '';
-    priceIn.value = '';
+    priceGarrafon.value = '';
+    priceMedio.value = '';
+    priceGalon.value = '';
     closeSheet();
-    alert('Guardado en el mapa (este teléfono). Se abrió GitHub para mandarlo a la bandeja del repo — confirma el issue si te pide login.');
+    alert('Guardado en el mapa (este teléfono). Se abrió GitHub para la bandeja — confirma el issue si pide login.');
   }
 
-  opts.forEach(function(b){
-    b.addEventListener('click', function(){ setKind(b.getAttribute('data-kind')); });
-  });
-  [otraIn, nameIn, priceIn].forEach(function(el){
-    el.addEventListener('input', validate);
-  });
   btn.addEventListener('click', function(e){ e.stopPropagation(); openSheet(); });
   btnCancel.addEventListener('click', closeSheet);
   btnSave.addEventListener('click', onSave);
@@ -2061,7 +2041,6 @@ if (window.ResizeObserver){
   setInterval(syncBtn, 2000);
   syncBtn();
 
-  // local + published inbox
   refreshMarkers(loadLocal());
   fetch('data/field_adds.geojson', { cache: 'no-store' })
     .then(function(r){ return r.ok ? r.json() : null; })
