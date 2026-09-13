@@ -96,7 +96,7 @@ table.pp td:last-child{text-align:right;font-family:"IBM Plex Mono", ui-monospac
 table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:var(--ink);font-weight:600;}
 
 /* ---------- icon rail + accordion panel ---------- */
-#rail{position:absolute;z-index:1000;top:12px;left:12px;
+#rail{position:absolute;z-index:1350;top:12px;left:12px;
   display:flex;flex-direction:column;gap:4px;
   background:var(--surface);border:1px solid var(--hair);border-radius:13px;
   box-shadow:var(--shadow);padding:6px;}
@@ -109,7 +109,7 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
 .railbtn small{display:block;font:500 6.5px/1 "IBM Plex Mono", monospace;
   letter-spacing:.04em;text-transform:uppercase;margin-top:2px;opacity:.85}
 
-#panelHost{position:absolute;z-index:1000;top:12px;left:60px;
+#panelHost{position:absolute;z-index:1350;top:12px;left:60px;
   width:302px;max-width:calc(100% - 74px);max-height:calc(100% - 24px);
   overflow-y:auto;overscroll-behavior:contain;
   background:var(--surface);border:1px solid var(--hair);border-radius:13px;
@@ -357,9 +357,12 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
     max-width:min(240px, calc(100vw - 24px));
     z-index:1100;
   }
-  #rail{ z-index:1250 }
+  #rail{ z-index:1350 }
+  #panelHost{ z-index:1350 }
   #btnUbicarme{ z-index:1250 }
   #sidebar{ z-index:1400 }
+  /* geoPanel debajo de score/base/capas para que no tape el menú izq */
+  #geoPanel{ z-index:1100 }
 }
 
 #live[hidden], #detailTitle[hidden]{ display:none !important }

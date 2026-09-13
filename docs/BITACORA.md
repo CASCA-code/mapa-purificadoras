@@ -1,5 +1,10 @@
 # Bitácora Purificadoras
 
+## 2026-09-12 (z-index menú izq)
+
+- Rail / panelHost (score, base, capas) por encima del geoPanel de Ubicarme para que no los tape.
+
+
 ## 2026-09-12 (Ubicarme nombre siempre)
 
 - Ubicarme muestra **siempre** el nombre de la colonia (en estudio = polígono; fuera = reverse Nominatim).
