@@ -270,6 +270,7 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
   font:14px/1.35 IBM Plex Sans,system-ui,sans-serif; color:var(--ink);
 }
 #geoPanel.show{display:block}
+#geoPanel[data-tap="1"]{ outline:1px solid rgba(37,99,235,.35) }
 #geoPanel .g-title{font:700 15px/1.2 Fraunces,Georgia,serif; margin:0 0 4px}
 #geoPanel .g-sub{color:var(--ink-muted); font-size:12px; margin:0 0 8px}
 #geoPanel table{width:100%; border-collapse:collapse; font-size:12px}
@@ -1192,27 +1193,98 @@ function updateRetailParentUI(){
     }
     return null;
   }
+
+  // Reverse geocode (OSM Nominatim) — nombre de colonia aunque NO esté en el estudio
+  let lastPosKey = null;
+  let revCache = Object.create(null); // key -> {name, muni}
+  let revInflight = Object.create(null);
+  let revTimer = null;
+  let lastRevAt = 0;
+  function posKey(lat, lon){ return lat.toFixed(4) + ',' + lon.toFixed(4); }
+  function pickAddrName(addr){
+    if (!addr) return {name:null, muni:null};
+    const name = addr.suburb || addr.neighbourhood || addr.quarter || addr.city_district ||
+      addr.residential || addr.hamlet || addr.village || addr.town || null;
+    const muni = addr.city || addr.town || addr.municipality || addr.county || addr.state_district || null;
+    return {name: name, muni: muni};
+  }
+  function reverseColonia(lat, lon){
+    const key = posKey(lat, lon);
+    if (revCache[key]) return Promise.resolve(revCache[key]);
+    if (revInflight[key]) return revInflight[key];
+    const wait = Math.max(0, 1100 - (Date.now() - lastRevAt));
+    const job = new Promise(function(resolve){
+      setTimeout(function(){
+        lastRevAt = Date.now();
+        const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' +
+          encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) +
+          '&zoom=18&addressdetails=1';
+        fetch(url, { headers: { 'Accept-Language': 'es-MX,es;q=0.9' } })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(data){
+            const picked = pickAddrName(data && data.address);
+            if (!picked.name && data && data.name) picked.name = data.name;
+            revCache[key] = picked;
+            delete revInflight[key];
+            resolve(picked);
+          })
+          .catch(function(){
+            delete revInflight[key];
+            resolve({name:null, muni:null});
+          });
+      }, wait);
+    });
+    revInflight[key] = job;
+    return job;
+  }
+
+  function bindPanelTap(p){
+    panel.style.cursor = p ? 'pointer' : 'default';
+    panel.onclick = p ? function(ev){
+      ev.stopPropagation();
+      pickColonia(p, {fly:false});
+    } : null;
+  }
+
   function renderPanel(lat, lon, acc){
+    const key = posKey(lat, lon);
+    lastPosKey = key;
     const p = findColonia(lat, lon);
     const accTxt = (acc!=null?' · ±'+Math.round(acc)+' m':'');
-    if (!p) {
-      panel.classList.add('compact-out');
-      panel.innerHTML = '<p class="g-title">Fuera del estudio</p>'+
-        '<p class="g-sub">'+lat.toFixed(4)+', '+lon.toFixed(4)+accTxt+'</p>';
+    if (p) {
+      panel.classList.remove('compact-out');
+      panel.innerHTML = '<p class="g-title">'+(p.colonia||'Colonia')+'</p>'+
+        '<p class="g-sub">'+(p.municipio||'')+' · <b>#'+(p.rank!=null?p.rank:'—')+'</b>'+
+        ' · score <b>'+(p.score_100!=null?Number(p.score_100).toFixed(1):'—')+'</b>'+accTxt+'</p>'+
+        '<p class="g-sub">D '+star(p.demanda_star)+' · C '+star(p.comp_star)+
+        ' · A '+star(p.anclas_star)+' · K '+star(p.canibal_star)+'</p>'+
+        '<p class="g-sub">Toca para ver el detalle del estudio</p>';
       panel.classList.add('show');
+      bindPanelTap(p);
       return;
     }
-    panel.classList.remove('compact-out');
-    panel.innerHTML = '<p class="g-title">'+(p.colonia||'Colonia')+'</p>'+
-      '<p class="g-sub">'+(p.municipio||'')+' · <b>#'+(p.rank!=null?p.rank:'—')+'</b>'+
-      ' · score <b>'+(p.score_100!=null?Number(p.score_100).toFixed(1):'—')+'</b>'+accTxt+'</p>'+
-      '<p class="g-sub">D '+star(p.demanda_star)+' · C '+star(p.comp_star)+
-      ' · A '+star(p.anclas_star)+' · K '+star(p.canibal_star)+'</p>';
+    // Fuera del estudio: siempre nombre de colonia (reverse), sin inventar score
+    panel.classList.add('compact-out');
+    const cached = revCache[key];
+    if (cached && cached.name) {
+      panel.innerHTML = '<p class="g-title">'+cached.name+'</p>'+
+        '<p class="g-sub">'+(cached.muni||'')+(cached.muni?' · ':'')+'fuera del estudio'+accTxt+'</p>'+
+        '<p class="g-sub">Sin datos del estudio. Si quieres sumarla, dímelo.</p>';
+    } else {
+      panel.innerHTML = '<p class="g-title">Buscando colonia…</p>'+
+        '<p class="g-sub">'+lat.toFixed(4)+', '+lon.toFixed(4)+accTxt+'</p>'+
+        '<p class="g-sub">Fuera del estudio (sin score aún)</p>';
+    }
     panel.classList.add('show');
-    try {
-      const live = document.getElementById('live');
-      /* geoPanel lleva la ficha en vivo; lista/detalle van por el menú Colonias */
-    } catch (e) {}
+    bindPanelTap(null);
+    reverseColonia(lat, lon).then(function(info){
+      if (lastPosKey !== key) return; // se movió
+      const title = info.name || 'Colonia sin nombre OSM';
+      panel.innerHTML = '<p class="g-title">'+title+'</p>'+
+        '<p class="g-sub">'+(info.muni||'')+(info.muni?' · ':'')+'fuera del estudio'+accTxt+'</p>'+
+        '<p class="g-sub">Sin datos del estudio. Si quieres sumarla, dímelo.</p>';
+      panel.classList.add('show');
+    });
   }
   function onPos(pos){
     const lat = pos.coords.latitude, lon = pos.coords.longitude;

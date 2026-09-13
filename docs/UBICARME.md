@@ -42,3 +42,8 @@ Si no sale el aviso de ubicación:
 3. En esa lista, **Safari Websites** (o Safari) → **Preguntar** o **Mientras se use la app**.
 4. Vuelve a https://casca-code.github.io/mapa-purificadoras/ → **Ubicarme** → **Permitir**.
 5. Si antes tocaste No permitir: Ajustes → Safari → Avanzado → Datos de sitios web → borra `github.io`, o en Localización → Safari cambia a Preguntar.
+
+
+## Nombre fuera del estudio
+
+Reverse Nominatim para nombre; score solo en estudio.

@@ -1,5 +1,12 @@
 # Bitácora Purificadoras
 
+## 2026-09-12 (Ubicarme nombre siempre)
+
+- Ubicarme muestra **siempre** el nombre de la colonia (en estudio = polígono; fuera = reverse Nominatim).
+- Rank/score/detalle del estudio **solo** si está en las 167; fuera: nombre + “sin datos”, sin inventar score.
+- Tocar el panel geo abre ficha solo si hay datos de estudio.
+
+
 ## 2026-09-12 (sheet Colonias)
 
 - Swipe para cerrar solo en la **rayita**/handle de arriba; scrollear la lista ya no cierra el sheet.
