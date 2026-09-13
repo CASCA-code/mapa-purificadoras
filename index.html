@@ -474,7 +474,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </style>
 </head>
 <body>
-<!-- field-add-v4 -->
+<!-- field-add-v5-fix -->
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet-heat.js"></script>
 
@@ -492,7 +492,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <h2 id="fieldAddTitle">Añadir aquí</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v4 · solo pin · no GitHub</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v5 · solo pin · no GitHub</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -1901,7 +1901,7 @@ if (window.ResizeObserver){
 /* ---------- FIELD ADD: GPS pin local + silent sync (no GitHub UI) ---------- */
 (function(){
   const LS_KEY = 'purificadoras_field_adds_v1';
-  const NTFY_TOPIC =  + NTFY + r;
+  const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
   const btn = document.getElementById('btnAddHere');
   const sheet = document.getElementById('fieldAddSheet');
   if (!btn || !sheet || typeof map === 'undefined') return;
@@ -1930,28 +1930,28 @@ if (window.ResizeObserver){
     catch (e) { return []; }
   }
   function saveLocal(arr){ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
-  function geoFresh(){
+  function geoOk(){
     const g = window.__purifGeo;
-    if (!g || g.lat == null) return null;
-    if (Date.now() - (g.ts || 0) > 60000) return null;
+    if (!g || g.lat == null || g.lon == null) return null;
     return g;
   }
   function syncBtn(){
-    const g = geoFresh();
-    btn.disabled = !g;
+    // nunca dejar el botón muerto: si no hay GPS, el click pide ubicación
+    btn.disabled = false;
+    const g = geoOk();
     if (g && coordsEl && sheet.classList.contains('show')) {
+      const age = Math.round((Date.now() - (g.ts || Date.now())) / 1000);
       coordsEl.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5) +
-        (g.accuracy != null ? (' · ±' + Math.round(g.accuracy) + ' m') : '');
+        (g.accuracy != null ? (' · ±' + Math.round(g.accuracy) + ' m') : '') +
+        (age > 120 ? (' · hace ' + age + 's') : '');
     }
   }
   function silentSync(payload){
-    // Bajo la mesa: no abre pestañas. Fallar en silencio si no hay red.
     const body = JSON.stringify(payload);
     const url = 'https://ntfy.sh/' + NTFY_TOPIC;
     try {
       if (navigator.sendBeacon) {
-        const blob = new Blob([body], { type: 'application/json' });
-        navigator.sendBeacon(url, blob);
+        navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
       }
     } catch (e) {}
     try {
@@ -1984,7 +1984,7 @@ if (window.ResizeObserver){
     const p = f.properties || {};
     const c = f.geometry && f.geometry.coordinates;
     if (!c) return;
-    const id = p.id || (c[1] + ',' + c[0]);
+    const id = p.id || (String(c[1]) + ',' + String(c[0]));
     if (markersById[id]) {
       layer.removeLayer(markersById[id]);
       delete markersById[id];
@@ -1996,14 +1996,26 @@ if (window.ResizeObserver){
     if (p.precio_medio_garrafon_mxn != null) prices.push('medio $' + p.precio_medio_garrafon_mxn);
     if (p.precio_galon_mxn != null) prices.push('galón $' + p.precio_galon_mxn);
     if (!prices.length && p.precio_recarga_mxn != null) prices.push('recarga $' + p.precio_recarga_mxn);
+
     const pop = document.createElement('div');
-    pop.innerHTML = '<b></b>' +
-      (prices.length ? ('<div style="margin:4px 0;font-size:12px"></div>') : '') +
-      '<div style="margin:6px 0 0;font-size:11px;opacity:.7">campo</div>' +
-      '<button type="button" style="margin-top:8px;width:100%;padding:8px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font:700 13px system-ui;cursor:pointer">Quitar</button>';
-    pop.querySelector('b').textContent = title;
-    if (prices.length) pop.querySelector('div').textContent = prices.join(' · ');
-    pop.querySelector('button').addEventListener('click', function(ev){
+    const b = document.createElement('b');
+    b.textContent = title;
+    pop.appendChild(b);
+    if (prices.length) {
+      const d = document.createElement('div');
+      d.style.cssText = 'margin:4px 0;font-size:12px';
+      d.textContent = prices.join(' · ');
+      pop.appendChild(d);
+    }
+    const meta = document.createElement('div');
+    meta.style.cssText = 'margin:6px 0 0;font-size:11px;opacity:.7';
+    meta.textContent = 'campo';
+    pop.appendChild(meta);
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.textContent = 'Quitar';
+    rm.style.cssText = 'margin-top:8px;width:100%;padding:8px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font:700 13px system-ui;cursor:pointer';
+    rm.addEventListener('click', function(ev){
       ev.preventDefault();
       ev.stopPropagation();
       if (confirm('¿Quitar este punto del mapa?')) {
@@ -2011,6 +2023,7 @@ if (window.ResizeObserver){
         try { map.closePopup(); } catch (e) {}
       }
     });
+    pop.appendChild(rm);
     m.bindPopup(pop);
     m.addTo(layer);
     markersById[id] = m;
@@ -2023,27 +2036,45 @@ if (window.ResizeObserver){
   function setKind(k){
     kind = k;
     opts.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-kind') === k); });
-    otraWrap.style.display = k === 'otra' ? 'block' : 'none';
-    puriWrap.style.display = k === 'purificadora' ? 'block' : 'none';
+    if (otraWrap) otraWrap.style.display = k === 'otra' ? 'block' : 'none';
+    if (puriWrap) puriWrap.style.display = k === 'purificadora' ? 'block' : 'none';
     validate();
   }
   function validate(){
-    const g = geoFresh();
+    const g = geoOk();
     let ok = !!g && !!kind;
-    if (kind === 'otra') ok = ok && !!(otraIn.value || '').trim();
-    btnSave.disabled = !ok;
+    if (kind === 'otra') ok = ok && !!(otraIn && (otraIn.value || '').trim());
+    if (btnSave) btnSave.disabled = !ok;
   }
-  function openSheet(){
-    const g = geoFresh();
-    if (!g) {
-      alert('Activa Ubicarme primero y espera un GPS fresco.');
+  function ensureGeo(cb){
+    const g = geoOk();
+    if (g) { cb(g); return; }
+    if (!navigator.geolocation) {
+      alert('Activa Ubicarme / GPS primero.');
       return;
     }
-    sheet.hidden = false;
-    sheet.classList.add('show');
-    coordsEl.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5) +
-      (g.accuracy != null ? (' · ±' + Math.round(g.accuracy) + ' m') : '');
-    validate();
+    navigator.geolocation.getCurrentPosition(function(pos){
+      window.__purifGeo = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        ts: Date.now()
+      };
+      cb(window.__purifGeo);
+    }, function(){
+      alert('No hay GPS. Toca Ubicarme, acepta ubicación, y reintenta ＋ Añadir.');
+    }, { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 });
+  }
+  function openSheet(){
+    ensureGeo(function(g){
+      sheet.hidden = false;
+      sheet.classList.add('show');
+      if (coordsEl) {
+        coordsEl.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5) +
+          (g.accuracy != null ? (' · ±' + Math.round(g.accuracy) + ' m') : '');
+      }
+      validate();
+    });
   }
   function closeSheet(){
     sheet.classList.remove('show');
@@ -2058,8 +2089,8 @@ if (window.ResizeObserver){
     return isFinite(n) ? n : null;
   }
   function buildFeature(g){
-    const raw = (otraIn.value || '').trim();
-    const name = kind === 'otra' ? raw : (nameIn.value || '').trim();
+    const raw = (otraIn && otraIn.value || '').trim();
+    const name = kind === 'otra' ? raw : ((nameIn && nameIn.value) || '').trim();
     const pg = kind === 'purificadora' ? numOrNull(priceGarrafon) : null;
     const pm = kind === 'purificadora' ? numOrNull(priceMedio) : null;
     const pgal = kind === 'purificadora' ? numOrNull(priceGalon) : null;
@@ -2083,47 +2114,60 @@ if (window.ResizeObserver){
     };
   }
   function onSave(){
-    const g = geoFresh();
+    const g = geoOk();
     if (!g || !kind) return;
-    if (kind === 'otra' && !(otraIn.value || '').trim()) return;
+    if (kind === 'otra' && !(otraIn && (otraIn.value || '').trim())) return;
     const feat = buildFeature(g);
     const arr = loadLocal();
     arr.push(feat);
     saveLocal(arr);
     featureToMarker(feat);
     silentSync({ action: 'upsert', feature: feat });
-    otraIn.value = '';
-    nameIn.value = '';
-    priceGarrafon.value = '';
-    priceMedio.value = '';
-    priceGalon.value = '';
+    if (otraIn) otraIn.value = '';
+    if (nameIn) nameIn.value = '';
+    if (priceGarrafon) priceGarrafon.value = '';
+    if (priceMedio) priceMedio.value = '';
+    if (priceGalon) priceGalon.value = '';
     kind = null;
     opts.forEach(function(b){ b.classList.remove('on'); });
-    otraWrap.style.display = 'none';
-    puriWrap.style.display = 'none';
+    if (otraWrap) otraWrap.style.display = 'none';
+    if (puriWrap) puriWrap.style.display = 'none';
     closeSheet();
   }
 
   opts.forEach(function(b){
-    b.addEventListener('click', function(){ setKind(b.getAttribute('data-kind')); });
+    b.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      setKind(b.getAttribute('data-kind'));
+    });
   });
   [otraIn, nameIn, priceGarrafon, priceMedio, priceGalon].forEach(function(el){
     if (el) el.addEventListener('input', validate);
   });
-  btn.addEventListener('click', function(e){ e.stopPropagation(); openSheet(); });
-  btnSave.addEventListener('click', function(e){ e.stopPropagation(); onSave(); });
+  btn.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    openSheet();
+  });
+  if (btnSave) btnSave.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    onSave();
+  });
   sheet.addEventListener('click', function(e){ e.stopPropagation(); });
-  document.addEventListener('click', function(e){
-    if (!sheet.classList.contains('show')) return;
-    if (sheet.contains(e.target) || btn.contains(e.target)) return;
-    closeSheet();
-  }, true);
+  // cerrar solo con click en el mapa (no document capture — rompía el sheet)
+  if (map && map.on) {
+    map.on('click', function(){
+      if (sheet.classList.contains('show')) closeSheet();
+    });
+  }
   window.addEventListener('purif-geo', syncBtn);
-  setInterval(syncBtn, 2000);
+  setInterval(syncBtn, 3000);
   syncBtn();
 
   refreshMarkers(loadLocal());
-  fetch('data/field_adds.geojson?v=2', { cache: 'no-store' })
+  fetch('data/field_adds.geojson?v=5', { cache: 'no-store' })
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(fc){
       if (!fc || !fc.features) return;
@@ -2138,6 +2182,7 @@ if (window.ResizeObserver){
     })
     .catch(function(){});
 })();
+
 
 
 
