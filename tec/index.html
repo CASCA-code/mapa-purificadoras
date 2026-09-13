@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Mapa Tec · deptos + agua</title>
+<title>Mapa Tec + Centro · deptos + agua</title>
 <link rel="stylesheet" href="vendor/leaflet.css"/>
 <style>
 :root{
@@ -51,8 +51,8 @@ h1{font:700 18px/1.25 Georgia,serif;margin:0 0 6px}
 <div id="app">
   <div id="map"></div>
   <aside id="side">
-    <h1>Mapa Tec · estudiantes</h1>
-    <p class="sub">Deptos OSM + competencia de agua alrededor del <b>Campus Monterrey</b> (y Tec Milenio Las Torres). Misma lógica visual del mapa ZMM, foco distinto.</p>
+    <h1>Mapa Tec + Centro</h1>
+    <p class="sub">Foco de campo: <b>Distrito Tec</b> + <b>Centro</b> (Independencia fuera de este mapa). Prioridad: <b>departamentos</b>, sobre todo vivienda estudiantil / foráneos. Centro = demográfica con más ingreso (otro juego que D+/D del estudio ZMM). Capas: deptos, Oxxo, 7-Eleven/Super7, purificadoras.</p>
     <button type="button" class="tbtn on" data-l="deptos"><span class="dot" style="background:var(--depto)"></span> Departamentos / apartments <span id="n-deptos"></span></button>
     <button type="button" class="tbtn on" data-l="oxxo"><span class="dot" style="background:var(--oxxo)"></span> Oxxo <span id="n-oxxo"></span></button>
     <button type="button" class="tbtn on" data-l="super7"><span class="dot" style="background:var(--s7)"></span> Super 7 / 7-Eleven <span id="n-super7"></span></button>
@@ -60,7 +60,7 @@ h1{font:700 18px/1.25 Georgia,serif;margin:0 0 6px}
     <button type="button" class="tbtn on" data-l="campuses"><span class="dot" style="background:var(--tec)"></span> Campus Tec / Milenio</button>
     <div id="card" class="card"></div>
     <p class="legend" id="aviso"></p>
-    <p class="legend">Población en deptos: <b>desconocida</b> en fuente abierta. Purificadoras de barrio casi no aparecen en OSM; hay que sumarlas en campo o con DENUE completo.</p>
+    <p class="legend">Población en deptos: <b>desconocida</b> en OSM. En Tec prioriza foráneos/estudiantes; en Centro prioriza torres/deptos (poder adquisitivo más alto → mix recarga + posible delivery/filtros). Independencia no está en este mapa. Puris: Google Maps + OSM + DENUE.</p>
   </aside>
 </div>
 <script src="vendor/leaflet.js"></script>
@@ -125,7 +125,7 @@ fetch('layers.json').then(r=>r.json()).then(DATA => {
   const camp = L.layerGroup();
   (DATA.campuses.features||[]).forEach(f => {
     const p=f.properties||{}; const [lon,lat]=f.geometry.coordinates;
-    const short = (p.name||'').includes('Milenio') ? 'Tec Milenio' : 'Tec Campus';
+    const short = (p.name||'').includes('Milenio') ? 'Tec Milenio' : ((p.name||'').includes('Centro')||(p.kind==='centro') ? 'Centro' : 'Tec Campus');
     L.marker([lat,lon], {icon: campusIcon(short)}).bindPopup('<b>'+p.name+'</b>').addTo(camp);
     L.circle([lat,lon], {radius: short==='Tec Campus'?2000:1200, color:'#0033a0', weight:1, fillOpacity:0.04, interactive:false}).addTo(camp);
   });

@@ -1,5 +1,11 @@
 # Bitácora Purificadoras
 
+## 2026-09-13 (mapa Tec + Centro)
+
+- Expandido `/tec/` a Tec + Centro (Independencia excluida). ~90 deptos, Oxxo/7-Eleven, puris GMaps.
+- Demográfica distinta a ZMM D+/D: estudiantes (Tec) vs mayor ingreso (Centro).
+
+
 ## 2026-09-13 (basemap Tec sin API)
 
 - `/tec/`: quitamos CartoCDN; tiles **OpenStreetMap** sin API key.
