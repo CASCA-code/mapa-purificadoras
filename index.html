@@ -197,6 +197,20 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
   border:1px solid var(--hair)!important;border-right:none;border-bottom:none;border-radius:7px 0 0 0;
   padding:2px 8px!important;font-size:10px!important;}
 .leaflet-control-attribution a{color:var(--ink-muted)!important}
+
+#btnColoniasFab{
+  display:none; position:absolute; z-index:1260;
+  left:50%; transform:translateX(-50%); bottom:14px;
+  padding:12px 22px; border-radius:999px; border:1px solid var(--hair);
+  background:var(--accent); color:#fff; font:700 14px/1 IBM Plex Sans,system-ui,sans-serif;
+  box-shadow:var(--shadow); cursor:pointer;
+}
+@media (max-width:760px){
+  #btnColoniasFab{ display:block }
+  #btnColoniasFab.sheet-open-hide{ opacity:0; pointer-events:none }
+  #btnUbicarme{ bottom:70px }
+}
+
 #btnUbicarme{
   position:absolute; z-index:1200; left:12px; bottom:18px;
   display:flex; align-items:center; gap:8px;
@@ -242,15 +256,16 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
   #app{flex-direction:column; height:100dvh}
   #stage{flex:1 1 auto; min-height:0; height:100%}
   #sidebar{
-    position:fixed; left:0; right:0; bottom:0; z-index:1300;
+    position:fixed; left:0; right:0; bottom:0; z-index:1400;
     flex:none; max-width:none; width:100%;
     height:auto; max-height:72dvh;
     border-left:none; border-top:1px solid var(--hair);
     border-radius:16px 16px 0 0;
     box-shadow:0 -8px 28px rgba(0,0,0,.18);
-    transform:translateY(calc(100% - 52px));
+    transform:translateY(100%);
     transition:transform .25s ease;
     overflow:hidden;
+    background:var(--surface);
   }
   #sidebar.sheet-open{
     transform:translateY(0);
@@ -284,7 +299,21 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
   #geoPanel.compact-out{ padding:6px 10px }
   #geoPanel.compact-out .g-title{ font-size:12px; font-weight:600; font-family:IBM Plex Sans,system-ui,sans-serif }
 }
-#sheetHandle{ display:none }
+@media (min-width:761px){
+  #sheetHandle{ display:none !important }
+}
+@media (max-width:760px){
+  #sheetHandle{ display:flex !important }
+  /* geo panel: no tapar rail (izq) ni Ubicarme */
+  #geoPanel{
+    left:56px; right:10px; top:10px; bottom:auto;
+    max-width:min(320px, calc(100vw - 66px));
+    z-index:1100;
+  }
+  #rail{ z-index:1250 }
+  #btnUbicarme{ z-index:1250 }
+  #sidebar{ z-index:1400 }
+}
 
 #live[hidden], #detailTitle[hidden]{ display:none !important }
 #live{ border-top:1px solid var(--hair); margin-top:8px; padding-top:10px }
@@ -317,6 +346,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="app">
  <div id="stage">
   <div id="map"></div>
+<button type="button" id="btnColoniasFab" aria-controls="sidebar" title="Ver lista de colonias">Colonias</button>
 <button type="button" id="btnUbicarme" aria-pressed="false" title="Seguir mi ubicación (GPS del teléfono)">
   <span class="dot" aria-hidden="true"></span><span id="btnUbicarmeLabel">Ubicarme</span>
 </button>
@@ -730,13 +760,14 @@ function hideDetail(){
   hideDetail();
 }
 function openColoniasSheet(){
-  const side = document.getElementById('sidebar');
-  const handle = document.getElementById('sheetHandle');
-  const sh = document.getElementById('sheetHint');
-  if (!side) return;
-  side.classList.add('sheet-open');
-  if (handle) handle.setAttribute('aria-expanded','true');
-  if (sh) sh.textContent = 'toca para cerrar';
+  const side = document.getElementById("sidebar");
+  const fab = document.getElementById("btnColoniasFab");
+  if (side) side.classList.add("sheet-open");
+  if (fab) fab.classList.add("sheet-open-hide");
+  const handle = document.getElementById("sheetHandle");
+  const hint = document.getElementById("sheetHint");
+  if (handle) handle.setAttribute("aria-expanded","true");
+  if (hint) hint.textContent = "toca para cerrar";
   setTimeout(function(){ try { map.invalidateSize(false); } catch(e){} }, 280);
 }
 
@@ -1216,22 +1247,30 @@ function updateRetailParentUI(){
 })();
 
 
-/* ---------- mobile sheet: collapse sidebar so map is large ---------- */
+/* mobile sheet handled by btnColoniasFab iife */
+
+
+
 (function(){
+  const fab = document.getElementById('btnColoniasFab');
   const side = document.getElementById('sidebar');
   const handle = document.getElementById('sheetHandle');
   const hint = document.getElementById('sheetHint');
-  if (!side || !handle) return;
+  if (!fab || !side) return;
+  function isOpen(){ return side.classList.contains('sheet-open'); }
   function setOpen(open){
-    side.classList.toggle('sheet-open', open);
-    handle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    side.classList.toggle('sheet-open', !!open);
+    fab.classList.toggle('sheet-open-hide', !!open);
+    fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (handle) handle.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (hint) hint.textContent = open ? 'toca para cerrar' : 'toca para ver la lista';
     setTimeout(function(){ try { map.invalidateSize(false); } catch(e){} }, 280);
   }
-  handle.addEventListener('click', function(){
-    setOpen(!side.classList.contains('sheet-open'));
-  });
-  if (window.matchMedia && window.matchMedia('(max-width:760px)').matches) setOpen(false);
+  fab.addEventListener('click', function(){ setOpen(!isOpen()); });
+  if (handle) handle.addEventListener('click', function(){ setOpen(!isOpen()); });
+  // expose for pickColonia
+  window.openColoniasSheet = function(){ setOpen(true); };
+  setOpen(false);
 })();
 
 /* ---------- keep Leaflet sized; fit once the container has real pixels ---------- */
