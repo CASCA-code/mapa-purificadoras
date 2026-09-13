@@ -27,3 +27,7 @@ El agente Purificador actualiza MD + HTML y hace push tras cada avance de conver
 
 ## Ruta de campo
 Panel **ruta** en el rail: arma un circuito desde casa (Violeta 116, Los Colorines, San Pedro) por colonias del ranking y abre Google Maps. Ver `docs/RUTA_CAMPO.md`.
+
+
+## Mapa Tec (estudiantes)
+https://casca-code.github.io/mapa-purificadoras/tec/ — deptos + Oxxo/Super7 + purificadoras cerca del Campus Monterrey. Ver `docs/MAPA_TEC_ESTUDIANTES.md`.

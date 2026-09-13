@@ -1,5 +1,11 @@
 # Bitácora Purificadoras
 
+## 2026-09-13 (mapa Tec estudiantes)
+
+- Nuevo mapa aparte en `/tec/`: deptos OSM + Oxxo/7-Eleven + puris (pocas) alrededor Campus Monterrey.
+- Población de edificios: desconocida. Purificadoras OSM incompletas — falta campo/DENUE.
+
+
 ## 2026-09-12 (ruta de campo · capa B)
 
 - Panel **ruta** en el mapa: top N / picks → TSP cerrado casa→paradas→casa → polilínea + Abrir en Google Maps.
