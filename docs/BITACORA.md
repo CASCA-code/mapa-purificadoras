@@ -1,5 +1,10 @@
 # Bitácora Purificadoras
 
+## 2026-09-13 (basemap Tec sin API)
+
+- `/tec/`: quitamos CartoCDN; tiles **OpenStreetMap** sin API key.
+
+
 ## 2026-09-13 (fórmula documentada)
 
 - `docs/FORMULA_SCORE.md`: historia v1→v2, pesos, anclas, link https://casca-code.github.io/mapa-purificadoras/
