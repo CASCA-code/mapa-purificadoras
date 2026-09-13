@@ -472,6 +472,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </style>
 </head>
 <body>
+<!-- field-add-v3 -->
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet-heat.js"></script>
 
@@ -1894,10 +1895,10 @@ if (window.ResizeObserver){
 </script>
 <script>
 
-/* ---------- FIELD ADD: GPS pin → localStorage + GitHub issue inbox ---------- */
+/* ---------- FIELD ADD: GPS pin local + silent sync (no GitHub UI) ---------- */
 (function(){
   const LS_KEY = 'purificadoras_field_adds_v1';
-  const ISSUE_REPO = 'CASCA-code/mapa-purificadoras';
+  const NTFY_TOPIC =  + NTFY + r;
   const btn = document.getElementById('btnAddHere');
   const sheet = document.getElementById('fieldAddSheet');
   if (!btn || !sheet || typeof map === 'undefined') return;
@@ -1915,6 +1916,7 @@ if (window.ResizeObserver){
 
   let kind = null;
   const layer = L.layerGroup().addTo(map);
+  const markersById = Object.create(null);
   const pinIcon = L.divIcon({
     className: '', iconSize: [14, 14], iconAnchor: [7, 7],
     html: '<div class="field-add-pin"></div>'
@@ -1939,10 +1941,51 @@ if (window.ResizeObserver){
         (g.accuracy != null ? (' · ±' + Math.round(g.accuracy) + ' m') : '');
     }
   }
+  function silentSync(payload){
+    // Bajo la mesa: no abre pestañas. Fallar en silencio si no hay red.
+    const body = JSON.stringify(payload);
+    const url = 'https://ntfy.sh/' + NTFY_TOPIC;
+    try {
+      if (navigator.sendBeacon) {
+        const blob = new Blob([body], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+      }
+    } catch (e) {}
+    try {
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Title': payload.action === 'delete' ? 'field-del' : 'field-add',
+          'Tags': 'round_pushpin'
+        },
+        body: body,
+        mode: 'cors',
+        keepalive: true
+      }).catch(function(){});
+    } catch (e) {}
+  }
+  function removeById(id){
+    if (!id) return;
+    const arr = loadLocal().filter(function(f){
+      return !(f.properties && f.properties.id === id);
+    });
+    saveLocal(arr);
+    if (markersById[id]) {
+      layer.removeLayer(markersById[id]);
+      delete markersById[id];
+    }
+    silentSync({ action: 'delete', id: id, ts: new Date().toISOString() });
+  }
   function featureToMarker(f){
     const p = f.properties || {};
     const c = f.geometry && f.geometry.coordinates;
     if (!c) return;
+    const id = p.id || (c[1] + ',' + c[0]);
+    if (markersById[id]) {
+      layer.removeLayer(markersById[id]);
+      delete markersById[id];
+    }
     const m = L.marker([c[1], c[0]], { icon: pinIcon, zIndexOffset: 1500 });
     const title = p.name || p.nota_raw || 'Hallazgo';
     const prices = [];
@@ -1950,13 +1993,28 @@ if (window.ResizeObserver){
     if (p.precio_medio_garrafon_mxn != null) prices.push('medio $' + p.precio_medio_garrafon_mxn);
     if (p.precio_galon_mxn != null) prices.push('galón $' + p.precio_galon_mxn);
     if (!prices.length && p.precio_recarga_mxn != null) prices.push('recarga $' + p.precio_recarga_mxn);
-    m.bindPopup('<b>' + title + '</b>' +
-      (prices.length ? ('<br>' + prices.join(' · ')) : '') +
-      '<br><small>campo · ' + (p.kind || 'inbox') + '</small>');
+    const pop = document.createElement('div');
+    pop.innerHTML = '<b></b>' +
+      (prices.length ? ('<div style="margin:4px 0;font-size:12px"></div>') : '') +
+      '<div style="margin:6px 0 0;font-size:11px;opacity:.7">campo</div>' +
+      '<button type="button" style="margin-top:8px;width:100%;padding:8px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font:700 13px system-ui;cursor:pointer">Quitar</button>';
+    pop.querySelector('b').textContent = title;
+    if (prices.length) pop.querySelector('div').textContent = prices.join(' · ');
+    pop.querySelector('button').addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (confirm('¿Quitar este punto del mapa?')) {
+        removeById(id);
+        try { map.closePopup(); } catch (e) {}
+      }
+    });
+    m.bindPopup(pop);
     m.addTo(layer);
+    markersById[id] = m;
   }
   function refreshMarkers(list){
     layer.clearLayers();
+    Object.keys(markersById).forEach(function(k){ delete markersById[k]; });
     (list || []).forEach(featureToMarker);
   }
   function setKind(k){
@@ -2021,23 +2079,6 @@ if (window.ResizeObserver){
       }
     };
   }
-  function openGitHubIssue(feat){
-    const p = feat.properties;
-    const title = 'field-add: ' + (p.kind || 'inbox') + ' ' + (p.name || 'sin-nombre') + ' @ ' +
-      feat.geometry.coordinates[1].toFixed(5) + ',' + feat.geometry.coordinates[0].toFixed(5);
-    const body = [
-      '<!-- field-add inbox: do not edit the JSON fence -->',
-      '```json',
-      JSON.stringify(feat, null, 2),
-      '```',
-      '',
-      'Enviado desde el mapa (Ubicarme + Añadir).'
-    ].join('\\n');
-    const url = 'https://github.com/' + ISSUE_REPO + '/issues/new?title=' +
-      encodeURIComponent(title) + '&body=' + encodeURIComponent(body) + '&labels=' +
-      encodeURIComponent('field-add');
-    window.open(url, '_blank', 'noopener');
-  }
   function onSave(){
     const g = geoFresh();
     if (!g || !kind) return;
@@ -2046,8 +2087,8 @@ if (window.ResizeObserver){
     const arr = loadLocal();
     arr.push(feat);
     saveLocal(arr);
-    refreshMarkers(arr);
-    try { openGitHubIssue(feat); } catch (e) {}
+    featureToMarker(feat);
+    silentSync({ action: 'upsert', feature: feat });
     otraIn.value = '';
     nameIn.value = '';
     priceGarrafon.value = '';
@@ -2058,7 +2099,6 @@ if (window.ResizeObserver){
     otraWrap.style.display = 'none';
     puriWrap.style.display = 'none';
     closeSheet();
-    alert('Guardado en el mapa (este teléfono). Confirma el issue de GitHub si pide login.');
   }
 
   opts.forEach(function(b){
@@ -2070,7 +2110,6 @@ if (window.ResizeObserver){
   btn.addEventListener('click', function(e){ e.stopPropagation(); openSheet(); });
   btnSave.addEventListener('click', function(e){ e.stopPropagation(); onSave(); });
   sheet.addEventListener('click', function(e){ e.stopPropagation(); });
-  // cerrar tocando fuera (mapa / fondo)
   document.addEventListener('click', function(e){
     if (!sheet.classList.contains('show')) return;
     if (sheet.contains(e.target) || btn.contains(e.target)) return;
@@ -2081,7 +2120,7 @@ if (window.ResizeObserver){
   syncBtn();
 
   refreshMarkers(loadLocal());
-  fetch('data/field_adds.geojson', { cache: 'no-store' })
+  fetch('data/field_adds.geojson?v=2', { cache: 'no-store' })
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(fc){
       if (!fc || !fc.features) return;
@@ -2096,6 +2135,7 @@ if (window.ResizeObserver){
     })
     .catch(function(){});
 })();
+
 
 
 </script>

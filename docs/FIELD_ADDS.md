@@ -1,9 +1,7 @@
-# Field adds (Ubicarme → ＋ Añadir)
+# Field adds
 
-1. **Ubicarme**
-2. **＋ Añadir**
-3. **Nombre** (opcional): escribe qué es (`Oxxo`, `El Punto`, etc.) — Purificador interpreta el tipo.
-4. Precios opcionales: **garrafón**, **medio garrafón**, **galón**.
-5. Guardar → pin local + issue GitHub `field-add` → merge a `data/field_adds.geojson`.
-
-No inventar scores. `kind` sale `inbox` hasta reclasificar.
+1. Ubicarme → **＋ Añadir**
+2. **Purificadora** (precios) u **Otra** (texto)
+3. Guardar → pin en el mapa (sin abrir GitHub)
+4. En el pin: **Quitar**
+5. Sync silencioso → bandeja; Purificador mergea a `data/field_adds.geojson`
