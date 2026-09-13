@@ -3,6 +3,8 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" data-field-add-cache="v4"/>
+<meta http-equiv="Pragma" content="no-cache"/>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mapa Version 2 — purificadoras ZMM</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -472,7 +474,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </style>
 </head>
 <body>
-<!-- field-add-v3 -->
+<!-- field-add-v4 -->
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet-heat.js"></script>
 
@@ -484,12 +486,13 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <button type="button" id="btnUbicarme" aria-pressed="false" title="Seguir mi ubicación (GPS del teléfono)">
   <span class="dot" aria-hidden="true"></span><span id="btnUbicarmeLabel">Ubicarme</span>
 </button>
-<button type="button" id="btnAddHere" disabled title="Añadir lo que ves en tu GPS">＋ Añadir</button>
+<button type="button" id="btnAddHere" disabled title="Añadir pin aquí (v4, sin GitHub)">＋ Añadir</button>
 </div>
 <div id="geoPanel" role="status" aria-live="polite"></div>
 
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <h2 id="fieldAddTitle">Añadir aquí</h2>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v4 · solo pin · no GitHub</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
