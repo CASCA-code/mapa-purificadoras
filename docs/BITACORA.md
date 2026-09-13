@@ -1,5 +1,10 @@
 # Bitácora Purificadoras
 
+## 2026-09-13 (fórmula documentada)
+
+- `docs/FORMULA_SCORE.md`: historia v1→v2, pesos, anclas, link https://casca-code.github.io/mapa-purificadoras/
+
+
 ## 2026-09-13 (mapa Tec estudiantes)
 
 - Nuevo mapa aparte en `/tec/`: deptos OSM + Oxxo/7-Eleven + puris (pocas) alrededor Campus Monterrey.

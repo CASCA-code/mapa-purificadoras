@@ -31,3 +31,7 @@ Panel **ruta** en el rail: arma un circuito desde casa (Violeta 116, Los Colorin
 
 ## Mapa Tec (estudiantes)
 https://casca-code.github.io/mapa-purificadoras/tec/ — deptos + Oxxo/Super7 + purificadoras cerca del Campus Monterrey. Ver `docs/MAPA_TEC_ESTUDIANTES.md`.
+
+
+## Fórmula del score
+Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
