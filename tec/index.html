@@ -3,33 +3,21 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Mapa Tec + Centro · deptos + agua</title>
+<title>Mapa Tec + Centro · campo</title>
 <link rel="stylesheet" href="vendor/leaflet.css"/>
 <style>
-:root{
-  --bg:#f4efe6; --surface:#fffcf7; --ink:#1c1916; --muted:#6b635a; --hair:#e4d9c8;
-  --accent:#c45c26; --tec:#0033a0; --oxxo:#d32f2f; --s7:#ff6600; --puri:#0d9488; --depto:#7c3aed;
-}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;font:14px/1.4 "IBM Plex Sans",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
-#app{display:flex;height:100%;height:100dvh}
-#map{flex:1;min-width:0}
-#side{
-  width:min(360px,92vw); background:var(--surface); border-left:1px solid var(--hair);
-  overflow:auto; padding:14px 14px 24px; z-index:500;
-}
+:root{--bg:#f4efe6;--surface:#fffcf7;--ink:#1c1916;--muted:#6b635a;--hair:#e4d9c8;--accent:#c45c26;--tec:#0033a0;--oxxo:#d32f2f;--s7:#ff6600;--puri:#0d9488;--depto:#7c3aed;--student:#db2777;--heb:#ee3124;--uni:#1d4ed8;--gym:#ea580c;--health:#0891b2;--hotel:#a21caf;--office:#57534e}
+*{box-sizing:border-box} html,body{margin:0;height:100%;font:14px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+#app{display:flex;height:100%;height:100dvh} #map{flex:1;min-width:0}
+#side{width:min(380px,94vw);background:var(--surface);border-left:1px solid var(--hair);overflow:auto;padding:14px 14px 28px;z-index:500}
 h1{font:700 18px/1.25 Georgia,serif;margin:0 0 6px}
-.sub{color:var(--muted);font-size:12px;margin:0 0 12px}
-.tbtn{
-  display:flex;align-items:center;gap:8px;width:100%;text-align:left;
-  border:1px solid var(--hair);background:#fff;border-radius:10px;padding:8px 10px;margin:0 0 6px;
-  cursor:pointer;font:600 12.5px/1.2 system-ui,sans-serif;color:var(--ink)
-}
-.tbtn.on{outline:2px solid var(--accent); background:#fff8f1}
+.sub{color:var(--muted);font-size:12px;margin:0 0 10px;line-height:1.45}
+.h{font:700 10px/1 ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+.tbtn{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid var(--hair);background:#fff;border-radius:10px;padding:8px 10px;margin:0 0 6px;cursor:pointer;font:600 12.5px/1.2 system-ui;color:var(--ink)}
+.tbtn.on{outline:2px solid var(--accent);background:#fff8f1}
 .tbtn .dot{width:12px;height:12px;border-radius:50%;flex:none}
-.card{
-  display:none; margin-top:12px; padding:12px; border:1px solid var(--hair); border-radius:12px; background:#fff;
-}
+.tbtn .n{margin-left:auto;color:var(--muted);font:600 11px ui-monospace,monospace}
+.card{display:none;margin-top:12px;padding:12px;border:1px solid var(--hair);border-radius:12px;background:#fff}
 .card.show{display:block}
 .card h2{margin:0 0 4px;font:700 15px/1.25 Georgia,serif}
 .card .meta{color:var(--muted);font-size:12px;margin:0 0 8px}
@@ -37,12 +25,8 @@ h1{font:700 18px/1.25 Georgia,serif;margin:0 0 6px}
 .card td{padding:4px 0;border-bottom:1px solid var(--hair);vertical-align:top}
 .card td:last-child{text-align:right;font-family:ui-monospace,monospace}
 .warn{color:#b45309;font-weight:600;font-size:12px}
-.legend{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.45}
-@media(max-width:760px){
-  #app{flex-direction:column}
-  #side{width:100%; max-height:42dvh; border-left:none; border-top:1px solid var(--hair); order:2}
-  #map{order:1; min-height:58dvh}
-}
+.legend{font-size:11px;color:var(--muted);margin-top:12px;line-height:1.45}
+@media(max-width:760px){#app{flex-direction:column}#side{width:100%;max-height:46dvh;border-left:none;border-top:1px solid var(--hair);order:2}#map{order:1;min-height:54dvh}}
 .campus-pin{background:var(--tec);color:#fff;border:2px solid #fff;border-radius:8px;padding:2px 6px;font:700 10px/1.2 system-ui;box-shadow:0 1px 6px rgba(0,0,0,.35);white-space:nowrap}
 .pt{width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35)}
 </style>
@@ -52,101 +36,111 @@ h1{font:700 18px/1.25 Georgia,serif;margin:0 0 6px}
   <div id="map"></div>
   <aside id="side">
     <h1>Mapa Tec + Centro</h1>
-    <p class="sub">Foco de campo: <b>Distrito Tec</b> + <b>Centro</b> (Independencia fuera de este mapa). Prioridad: <b>departamentos</b>, sobre todo vivienda estudiantil / foráneos. Centro = demográfica con más ingreso (otro juego que D+/D del estudio ZMM). Capas: deptos, Oxxo, 7-Eleven/Super7, purificadoras.</p>
-    <button type="button" class="tbtn on" data-l="deptos"><span class="dot" style="background:var(--depto)"></span> Departamentos / apartments <span id="n-deptos"></span></button>
-    <button type="button" class="tbtn on" data-l="oxxo"><span class="dot" style="background:var(--oxxo)"></span> Oxxo <span id="n-oxxo"></span></button>
-    <button type="button" class="tbtn on" data-l="super7"><span class="dot" style="background:var(--s7)"></span> Super 7 / 7-Eleven <span id="n-super7"></span></button>
-    <button type="button" class="tbtn on" data-l="purificadoras"><span class="dot" style="background:var(--puri)"></span> Purificadoras <span id="n-purificadoras"></span></button>
-    <button type="button" class="tbtn on" data-l="campuses"><span class="dot" style="background:var(--tec)"></span> Campus Tec / Milenio</button>
+    <p class="sub">Tablero de campo (sin score ZMM D+/D). Prioridad: <b>deptos</b> y <b>student housing</b>. Tec = foráneos; Centro = más ingreso. Independencia no está aquí.</p>
+
+    <div class="h">Demanda / vivienda</div>
+    <button type="button" class="tbtn on" data-l="student"><span class="dot" style="background:var(--student)"></span> Student / residencias<span class="n" id="n-student"></span></button>
+    <button type="button" class="tbtn on" data-l="depto"><span class="dot" style="background:var(--depto)"></span> Departamentos OSM<span class="n" id="n-depto"></span></button>
+
+    <div class="h">Competencia agua</div>
+    <button type="button" class="tbtn on" data-l="purificadora"><span class="dot" style="background:var(--puri)"></span> Purificadoras / llenado<span class="n" id="n-purificadora"></span></button>
+    <button type="button" class="tbtn on" data-l="oxxo"><span class="dot" style="background:var(--oxxo)"></span> Oxxo<span class="n" id="n-oxxo"></span></button>
+    <button type="button" class="tbtn on" data-l="super7"><span class="dot" style="background:var(--s7)"></span> Super7 / 7-Eleven<span class="n" id="n-super7"></span></button>
+    <button type="button" class="tbtn on" data-l="heb"><span class="dot" style="background:var(--heb)"></span> H-E-B<span class="n" id="n-heb"></span></button>
+
+    <div class="h">Flujo / demográfica Centro</div>
+    <button type="button" class="tbtn on" data-l="uni_cowork"><span class="dot" style="background:var(--uni)"></span> Uni / college / Tec<span class="n" id="n-uni_cowork"></span></button>
+    <button type="button" class="tbtn on" data-l="gym"><span class="dot" style="background:var(--gym)"></span> Gimnasios<span class="n" id="n-gym"></span></button>
+    <button type="button" class="tbtn on" data-l="health"><span class="dot" style="background:var(--health)"></span> Hospital / clínica<span class="n" id="n-health"></span></button>
+    <button type="button" class="tbtn" data-l="hotel"><span class="dot" style="background:var(--hotel)"></span> Hoteles<span class="n" id="n-hotel"></span></button>
+    <button type="button" class="tbtn" data-l="office"><span class="dot" style="background:var(--office)"></span> Oficinas<span class="n" id="n-office"></span></button>
+    <button type="button" class="tbtn on" data-l="campuses"><span class="dot" style="background:var(--tec)"></span> Marcos Tec / Centro</button>
+
     <div id="card" class="card"></div>
     <p class="legend" id="aviso"></p>
-    <p class="legend">Población en deptos: <b>desconocida</b> en OSM. En Tec prioriza foráneos/estudiantes; en Centro prioriza torres/deptos (poder adquisitivo más alto → mix recarga + posible delivery/filtros). Independencia no está en este mapa. Puris: Google Maps + OSM + DENUE.</p>
+    <p class="legend">En campo anota <b>precio recarga $</b> en fachada (el popup tiene el campo vacío a propósito). Hoteles/oficinas OSM van flojos en esta zona — se refuerzan con tu lista.</p>
   </aside>
 </div>
 <script src="vendor/leaflet.js"></script>
 <script>
-const COLORS = {deptos:'#7c3aed', oxxo:'#d32f2f', super7:'#ff6600', purificadoras:'#0d9488'};
-const map = L.map('map', {center:[25.65073,-100.28932], zoom:14});
+const COLORS = {
+  depto:'#7c3aed', student:'#db2777', oxxo:'#d32f2f', super7:'#ff6600', heb:'#ee3124',
+  purificadora:'#0d9488', uni_cowork:'#1d4ed8', gym:'#ea580c', health:'#0891b2', hotel:'#a21caf', office:'#57534e'
+};
+const map = L.map('map', {center:[25.660,-100.300], zoom:13});
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution:'© OpenStreetMap · capas OSM/DENUE', maxZoom:19
+  attribution:'© OpenStreetMap', maxZoom:19
 }).addTo(map);
-
 const card = document.getElementById('card');
 function showCard(html){ card.innerHTML = html; card.classList.add('show'); }
 function pinIcon(color){
-  return L.divIcon({className:'', iconSize:[14,14], iconAnchor:[7,7],
-    html:`<div class="pt" style="background:${color}"></div>`});
+  return L.divIcon({className:'', iconSize:[14,14], iconAnchor:[7,7], html:`<div class="pt" style="background:${color}"></div>`});
 }
 function campusIcon(label){
-  return L.divIcon({className:'', iconSize:[80,18], iconAnchor:[40,9],
-    html:`<div class="campus-pin">${label}</div>`});
+  return L.divIcon({className:'', iconSize:[90,18], iconAnchor:[45,9], html:`<div class="campus-pin">${label}</div>`});
 }
 function rows(obj){
-  return Object.entries(obj).map(([k,v])=>`<tr><td>${k}</td><td>${v??'—'}</td></tr>`).join('');
+  return Object.entries(obj).filter(([,v])=>v!=null && v!=='').map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
 }
 
 fetch('layers.json').then(r=>r.json()).then(DATA => {
   document.getElementById('aviso').textContent = DATA.meta.aviso || '';
   const groups = {};
-  function addPoints(key, fc, color, title){
+  function addPoints(key, fc, color){
     const g = L.layerGroup();
-    (fc.features||[]).forEach(f => {
+    (fc && fc.features || []).forEach(f => {
       const p = f.properties || {};
       const [lon,lat] = f.geometry.coordinates;
       const m = L.marker([lat,lon], {icon: pinIcon(color)});
       m.on('click', () => {
-        if (key === 'deptos') {
-          showCard(`<h2>${p.name||'Departamento'}</h2>
-            <p class="meta">${p.addr||''}</p>
-            <p class="warn">${p.poblacion||'Población desconocida'}</p>
-            <table>${rows({
-              'Niveles': p.levels, 'Deptos (OSM)': p.flats, 'Fuente': p.fuente, 'Nota': p.nota, 'OSM': p.osm
-            })}</table>`);
-        } else {
-          showCard(`<h2>${p.name||title}</h2>
-            <p class="meta">${p.competencia||''}</p>
-            <table>${rows({
-              'Tipo': key, 'Dirección': p.addr, 'Canal': p.canal, 'Fuente': p.fuente, 'OSM': p.osm
-            })}</table>`);
-        }
+        const precio = p.precio_recarga_mxn!=null ? ('$'+p.precio_recarga_mxn) : '— (anotar en campo)';
+        showCard(`<h2>${p.name||key}</h2>
+          <p class="meta">${p.nota||p.competencia||p.notes||''}</p>
+          ${p.poblacion?`<p class="warn">${p.poblacion}</p>`:''}
+          <table>${rows({
+            'Capa': key,
+            'Dirección': p.addr,
+            'Precio recarga': precio,
+            'Fuente': p.fuente,
+            'OSM/id': p.osm,
+            'Subtipo': p.subtipo
+          })}</table>`);
       });
       m.addTo(g);
     });
-    g.addTo(map);
+    const nEl = document.getElementById('n-'+key);
+    if (nEl) nEl.textContent = String((fc && fc.features || []).length);
+    // default: hotel/office off
+    if (key==='hotel' || key==='office') { /* not added until toggle */ }
+    else g.addTo(map);
     groups[key] = g;
-    const n = document.getElementById('n-'+key);
-    if (n) n.textContent = '('+((fc.features||[]).length)+')';
   }
-  addPoints('deptos', DATA.deptos, COLORS.deptos, 'Depto');
-  addPoints('oxxo', DATA.oxxo, COLORS.oxxo, 'Oxxo');
-  addPoints('super7', DATA.super7, COLORS.super7, 'Super7');
-  addPoints('purificadoras', DATA.purificadoras, COLORS.purificadoras, 'Purificadora');
+
+  ['student','depto','purificadora','oxxo','super7','heb','uni_cowork','gym','health','hotel','office'].forEach(k=>{
+    addPoints(k, DATA[k], COLORS[k]||'#666');
+  });
 
   const camp = L.layerGroup();
-  (DATA.campuses.features||[]).forEach(f => {
+  (DATA.campuses.features||[]).forEach(f=>{
     const p=f.properties||{}; const [lon,lat]=f.geometry.coordinates;
-    const short = (p.name||'').includes('Milenio') ? 'Tec Milenio' : ((p.name||'').includes('Centro')||(p.kind==='centro') ? 'Centro' : 'Tec Campus');
-    L.marker([lat,lon], {icon: campusIcon(short)}).bindPopup('<b>'+p.name+'</b>').addTo(camp);
-    L.circle([lat,lon], {radius: short==='Tec Campus'?2000:1200, color:'#0033a0', weight:1, fillOpacity:0.04, interactive:false}).addTo(camp);
+    const short = p.kind==='centro'?'Centro': ( (p.name||'').includes('Milenio')?'Milenio':'Tec');
+    L.marker([lat,lon],{icon:campusIcon(short)}).bindPopup('<b>'+(p.name||'')+'</b>').addTo(camp);
   });
-  camp.addTo(map);
-  groups.campuses = camp;
+  camp.addTo(map); groups.campuses = camp;
 
-  document.querySelectorAll('.tbtn[data-l]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const k = btn.dataset.l;
+  document.querySelectorAll('.tbtn[data-l]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const k=btn.dataset.l; if(!groups[k]) return;
       const on = !map.hasLayer(groups[k]);
-      if (on) map.addLayer(groups[k]); else map.removeLayer(groups[k]);
+      if(on) map.addLayer(groups[k]); else map.removeLayer(groups[k]);
       btn.classList.toggle('on', on);
     });
   });
 
-  const all = [...(DATA.deptos.features||[]), ...(DATA.oxxo.features||[]), ...(DATA.super7.features||[]), ...(DATA.purificadoras.features||[])]
-    .map(f => L.latLng(f.geometry.coordinates[1], f.geometry.coordinates[0]));
-  if (all.length) map.fitBounds(L.latLngBounds(all).pad(0.12));
-}).catch(err => {
-  showCard('<h2>No cargó layers.json</h2><p class="warn">'+err+'</p>');
-});
+  const pts=[];
+  ['student','depto','purificadora'].forEach(k=> (DATA[k]?.features||[]).forEach(f=>pts.push(L.latLng(f.geometry.coordinates[1], f.geometry.coordinates[0]))));
+  if(pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.1));
+}).catch(e=> showCard('<h2>Error layers.json</h2><p class="warn">'+e+'</p>'));
 </script>
 </body>
 </html>
