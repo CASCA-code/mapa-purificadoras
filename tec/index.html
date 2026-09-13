@@ -17,6 +17,7 @@ h1{font:700 18px/1.25 Georgia,serif;margin:0 0 6px}
 .tbtn.on{outline:2px solid var(--accent);background:#fff8f1}
 .tbtn .dot{width:12px;height:12px;border-radius:50%;flex:none}
 .tbtn .n{margin-left:auto;color:var(--muted);font:600 11px ui-monospace,monospace}
+.dot.heat{background:linear-gradient(90deg,#22d3ee,#a855f7,#ef4444);border-radius:3px}
 .card{display:none;margin-top:12px;padding:12px;border:1px solid var(--hair);border-radius:12px;background:#fff}
 .card.show{display:block}
 .card h2{margin:0 0 4px;font:700 15px/1.25 Georgia,serif}
@@ -36,11 +37,12 @@ h1{font:700 18px/1.25 Georgia,serif;margin:0 0 6px}
   <div id="map"></div>
   <aside id="side">
     <h1>Mapa Tec + Centro</h1>
-    <p class="sub">Tablero de campo (sin score ZMM D+/D). Prioridad: <b>deptos</b> y <b>student housing</b>. Tec = foráneos; Centro = más ingreso. Independencia no está aquí.</p>
+    <p class="sub">Tablero de campo (sin score ZMM D+/D). Prioridad: <b>deptos</b> (heat) y student housing. Tec = foráneos; Centro = más ingreso. Independencia no está aquí.</p>
 
     <div class="h">Demanda / vivienda</div>
+    <button type="button" class="tbtn on" data-l="heat_depto"><span class="dot heat"></span> Heat deptos + student<span class="n" id="n-heat_depto"></span></button>
+    <button type="button" class="tbtn" data-l="depto"><span class="dot" style="background:var(--depto)"></span> Pins departamentos<span class="n" id="n-depto"></span></button>
     <button type="button" class="tbtn on" data-l="student"><span class="dot" style="background:var(--student)"></span> Student / residencias<span class="n" id="n-student"></span></button>
-    <button type="button" class="tbtn on" data-l="depto"><span class="dot" style="background:var(--depto)"></span> Departamentos OSM<span class="n" id="n-depto"></span></button>
 
     <div class="h">Competencia agua</div>
     <button type="button" class="tbtn on" data-l="purificadora"><span class="dot" style="background:var(--puri)"></span> Purificadoras / llenado<span class="n" id="n-purificadora"></span></button>
@@ -58,16 +60,17 @@ h1{font:700 18px/1.25 Georgia,serif;margin:0 0 6px}
 
     <div id="card" class="card"></div>
     <p class="legend" id="aviso"></p>
-    <p class="legend">En campo anota <b>precio recarga $</b> en fachada (el popup tiene el campo vacío a propósito). Hoteles/oficinas OSM van flojos en esta zona — se refuerzan con tu lista.</p>
+    <p class="legend">Heat = densidad de deptos OSM/Photon (aún incompleto vs calle). Pins aparte si quieres el listado. Anota <b>precio recarga $</b> en fachada.</p>
   </aside>
 </div>
 <script src="vendor/leaflet.js"></script>
+<script src="vendor/leaflet-heat.js"></script>
 <script>
 const COLORS = {
   depto:'#7c3aed', student:'#db2777', oxxo:'#d32f2f', super7:'#ff6600', heb:'#ee3124',
   purificadora:'#0d9488', uni_cowork:'#1d4ed8', gym:'#ea580c', health:'#0891b2', hotel:'#a21caf', office:'#57534e'
 };
-const map = L.map('map', {center:[25.660,-100.300], zoom:13});
+const map = L.map('map', {center:[25.6507,-100.2893], zoom:15});
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:'© OpenStreetMap', maxZoom:19
 }).addTo(map);
@@ -86,7 +89,7 @@ function rows(obj){
 fetch('layers.json').then(r=>r.json()).then(DATA => {
   document.getElementById('aviso').textContent = DATA.meta.aviso || '';
   const groups = {};
-  function addPoints(key, fc, color){
+  function addPoints(key, fc, color, addByDefault){
     const g = L.layerGroup();
     (fc && fc.features || []).forEach(f => {
       const p = f.properties || {};
@@ -110,15 +113,35 @@ fetch('layers.json').then(r=>r.json()).then(DATA => {
     });
     const nEl = document.getElementById('n-'+key);
     if (nEl) nEl.textContent = String((fc && fc.features || []).length);
-    // default: hotel/office off
-    if (key==='hotel' || key==='office') { /* not added until toggle */ }
-    else g.addTo(map);
+    if (addByDefault) g.addTo(map);
     groups[key] = g;
   }
 
-  ['student','depto','purificadora','oxxo','super7','heb','uni_cowork','gym','health','hotel','office'].forEach(k=>{
-    addPoints(k, DATA[k], COLORS[k]||'#666');
+  // Heat: depto intensity 0.6 + student 1.0
+  const heatPts = [];
+  (DATA.depto && DATA.depto.features || []).forEach(f => {
+    const [lon,lat] = f.geometry.coordinates;
+    heatPts.push([lat, lon, 0.55]);
   });
+  (DATA.student && DATA.student.features || []).forEach(f => {
+    const [lon,lat] = f.geometry.coordinates;
+    heatPts.push([lat, lon, 1.0]);
+  });
+  const heat = L.heatLayer(heatPts, {
+    radius: 28, blur: 22, maxZoom: 18, minOpacity: 0.35,
+    gradient: {0.2:'#67e8f9', 0.45:'#a78bfa', 0.7:'#e879f9', 0.9:'#f97316', 1:'#ef4444'}
+  }).addTo(map);
+  groups.heat_depto = heat;
+  const nh = document.getElementById('n-heat_depto');
+  if (nh) nh.textContent = String(heatPts.length);
+
+  addPoints('student', DATA.student, COLORS.student, true);
+  addPoints('depto', DATA.depto, COLORS.depto, false); // pins off by default; heat on
+  ['purificadora','oxxo','super7','heb','uni_cowork','gym','health'].forEach(k=>{
+    addPoints(k, DATA[k], COLORS[k]||'#666', true);
+  });
+  addPoints('hotel', DATA.hotel, COLORS.hotel, false);
+  addPoints('office', DATA.office, COLORS.office, false);
 
   const camp = L.layerGroup();
   (DATA.campuses.features||[]).forEach(f=>{
@@ -137,9 +160,8 @@ fetch('layers.json').then(r=>r.json()).then(DATA => {
     });
   });
 
-  const pts=[];
-  ['student','depto','purificadora'].forEach(k=> (DATA[k]?.features||[]).forEach(f=>pts.push(L.latLng(f.geometry.coordinates[1], f.geometry.coordinates[0]))));
-  if(pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.1));
+  // start zoomed on Tec / Garza Sada
+  map.setView([25.6485, -100.2905], 15);
 }).catch(e=> showCard('<h2>Error layers.json</h2><p class="warn">'+e+'</p>'));
 </script>
 </body>
