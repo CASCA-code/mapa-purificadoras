@@ -23,3 +23,10 @@ Todo es **client-side** (no se sube el GPS a un servidor).
 
 - No manda la ubicación en vivo al chat de Grok Bot / Purificador.
 - No guarda notas de campo automáticamente (siguiente iteración si Nicolás lo pide).
+
+## Fix 2026-09-12
+
+- Al tocar **Ubicarme** se llama `getCurrentPosition` (dispara el diálogo Allow) y luego `watchPosition`.
+- Si falla por timeout, reintenta sin alta precisión.
+- Capas de contexto/competencia arrancan **apagadas**; no bloquean el GPS.
+- Si dijiste Deny antes: en Chrome Android → candado de la URL → Permisos → Ubicación → Permitir.

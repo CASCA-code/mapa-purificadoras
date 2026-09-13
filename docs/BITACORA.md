@@ -1,6 +1,14 @@
 # Bitácora Purificadoras
 
+## 2026-09-12 (tarde)
+
+- Default del mapa: **solo colonias score ON**; competencia, anclas (OSM + retail/bancos), etiquetas **OFF** (el usuario prende lo que quiere ver).
+- Ubicarme: `getCurrentPosition` al tocar (dispara Allow) + `watchPosition`; reintento sin high-accuracy; mensajes de error por código; meta Permissions-Policy.
+
 ## 2026-09-12
+
+- Default del mapa: **solo colonias score ON**; competencia, anclas (OSM + retail/bancos), etiquetas **OFF** (el usuario prende lo que quiere ver).
+- Ubicarme: `getCurrentPosition` al tocar (dispara Allow) + `watchPosition`; reintento sin high-accuracy; mensajes de error por código; meta Permissions-Policy.
 
 - Publicado mapa v2 en GitHub Pages: https://casca-code.github.io/mapa-purificadoras/
 - Anclas retail/bancos (118 pts) + pesos en Anclas\*; capas A/S/C/B/Z.

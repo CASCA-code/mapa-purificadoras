@@ -3,6 +3,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Permissions-Policy" content="geolocation=(self)">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mapa Version 2 — purificadoras ZMM</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -281,8 +282,8 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
    <div class="mpanel" id="p-puntuan" data-for="puntuan">
     <p class="eyebrow">Capas que puntúan</p>
     <button class="tbtn on" data-l="colonias" aria-pressed="true"><i aria-hidden="true">▢</i><span>Colonias objetivo (score)</span></button>
-    <button class="tbtn on" data-l="comp_rec" aria-pressed="true"><i aria-hidden="true">●</i><span>Competidor: recarga de barrio</span></button>
-    <button class="tbtn on" data-l="comp_ind" aria-pressed="true"><i aria-hidden="true">▲</i><span>Competidor: planta / embotellador</span></button>
+    <button class="tbtn " data-l="comp_rec" aria-pressed="false"><i aria-hidden="true">●</i><span>Competidor: recarga de barrio</span></button>
+    <button class="tbtn " data-l="comp_ind" aria-pressed="false"><i aria-hidden="true">▲</i><span>Competidor: planta / embotellador</span></button>
     <button class="tbtn on" data-l="estaciones" aria-pressed="true" id="btnEstaciones" style="display:none"><i aria-hidden="true" style="background:#10b981;border-color:#065f46"></i><span>Estaciones propias</span></button>
     <p class="gap">Comp* = formal DENUE + informal (1.0/1,000 viv.). Recarga pesa ×1; planta / embotellador ×0.15. Anclas* / Canibal* también puntúan (ver Acerca).</p>
    </div>
@@ -291,45 +292,45 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
     <p class="eyebrow ctx">Contexto — no puntúa</p>
     <button class="tbtn ctx" data-l="calor" aria-pressed="false"><i aria-hidden="true">▨</i><span>Concentración de demanda</span></button>
     <button class="tbtn ctx" data-l="anillos" aria-pressed="false"><i aria-hidden="true">◎</i><span>Anillos al primer cuadro</span></button>
-    <button class="tbtn ctx on" data-l="etiquetas" aria-pressed="true"><i aria-hidden="true">A</i><span>Etiquetas de municipio</span></button>
-    <button class="tbtn ctx on" data-l="anclas_iglesia" aria-pressed="true"><i aria-hidden="true" style="background:#2b6cb0;border-color:#2b6cb0;color:#fff;font-size:11px">†</i><span>Iglesias</span></button>
-    <button class="tbtn ctx on" data-l="anclas_hospital" aria-pressed="true"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:10px;font-weight:700">H</i><span>Hospitales</span></button>
+    <button class="tbtn ctx " data-l="etiquetas" aria-pressed="false"><i aria-hidden="true">A</i><span>Etiquetas de municipio</span></button>
+    <button class="tbtn ctx " data-l="anclas_iglesia" aria-pressed="false"><i aria-hidden="true" style="background:#2b6cb0;border-color:#2b6cb0;color:#fff;font-size:11px">†</i><span>Iglesias</span></button>
+    <button class="tbtn ctx " data-l="anclas_hospital" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:10px;font-weight:700">H</i><span>Hospitales</span></button>
     <div class="esc-wrap">
-     <button type="button" class="tbtn ctx on esc-parent" id="escuelasParent" aria-expanded="true" aria-controls="escuelasSub" aria-pressed="true" title="Clic en el ícono: mostrar/ocultar todas · clic en la fila: abrir subtipos">
+     <button type="button" class="tbtn ctx esc-parent" id="escuelasParent" aria-expanded="false" aria-controls="escuelasSub" aria-pressed="false" title="Clic en el ícono: mostrar/ocultar todas · clic en la fila: abrir subtipos">
       <i aria-hidden="true" id="escuelasParentIcon" style="background:#4299e1;border-color:#2b6cb0;color:#fff;font-size:10px">A</i>
       <span>Escuelas</span>
       <span class="chev" aria-hidden="true">▾</span>
      </button>
-     <div class="esc-sub open" id="escuelasSub" role="group" aria-label="Subtipos de escuela">
+     <div class="esc-sub open" id="escuelasSub" style="display:none" role="group" aria-label="Subtipos de escuela">
       <div class="esc-master"><span id="escuelasSummary">todas activas</span>
         <button type="button" id="escuelasAllOn" title="Activar todos los subtipos">Todas</button>
         <button type="button" id="escuelasAllOff" title="Desactivar todos los subtipos">Ninguna</button>
       </div>
-      <button class="tbtn ctx on" data-l="anclas_escuela_jardin" aria-pressed="true"><i aria-hidden="true" style="background:#90cdf4;border-color:#2b6cb0;color:#1a365d;font-size:9px;font-weight:700">J</i><span>Jardines de niños</span></button>
-      <button class="tbtn ctx on" data-l="anclas_escuela_primaria" aria-pressed="true"><i aria-hidden="true" style="background:#63b3ed;border-color:#2b6cb0;color:#fff;font-size:9px;font-weight:700">P</i><span>Primarias</span></button>
-      <button class="tbtn ctx on" data-l="anclas_escuela_secundaria" aria-pressed="true"><i aria-hidden="true" style="background:#4299e1;border-color:#2b6cb0;color:#fff;font-size:9px;font-weight:700">S</i><span>Secundarias</span></button>
-      <button class="tbtn ctx on" data-l="anclas_escuela_preparatoria" aria-pressed="true"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:9px;font-weight:700">B</i><span>Preparatorias / técnicas</span></button>
-      <button class="tbtn ctx on" data-l="anclas_escuela_universidad" aria-pressed="true"><i aria-hidden="true" style="background:#2b6cb0;border-color:#1a4f8a;color:#fff;font-size:9px;font-weight:700">U</i><span>Universidades</span></button>
-      <button class="tbtn ctx on" data-l="anclas_escuela_college" aria-pressed="true"><i aria-hidden="true" style="background:#2c5282;border-color:#1a365d;color:#fff;font-size:9px;font-weight:700">C</i><span>Colleges / superior</span></button>
-      <button class="tbtn ctx on" data-l="anclas_escuela_otra" aria-pressed="true"><i aria-hidden="true" style="background:#a0aec0;border-color:#4a5568;color:#fff;font-size:9px;font-weight:700">·</i><span>Otras escuelas</span></button>
+      <button class="tbtn ctx " data-l="anclas_escuela_jardin" aria-pressed="false"><i aria-hidden="true" style="background:#90cdf4;border-color:#2b6cb0;color:#1a365d;font-size:9px;font-weight:700">J</i><span>Jardines de niños</span></button>
+      <button class="tbtn ctx " data-l="anclas_escuela_primaria" aria-pressed="false"><i aria-hidden="true" style="background:#63b3ed;border-color:#2b6cb0;color:#fff;font-size:9px;font-weight:700">P</i><span>Primarias</span></button>
+      <button class="tbtn ctx " data-l="anclas_escuela_secundaria" aria-pressed="false"><i aria-hidden="true" style="background:#4299e1;border-color:#2b6cb0;color:#fff;font-size:9px;font-weight:700">S</i><span>Secundarias</span></button>
+      <button class="tbtn ctx " data-l="anclas_escuela_preparatoria" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:9px;font-weight:700">B</i><span>Preparatorias / técnicas</span></button>
+      <button class="tbtn ctx " data-l="anclas_escuela_universidad" aria-pressed="false"><i aria-hidden="true" style="background:#2b6cb0;border-color:#1a4f8a;color:#fff;font-size:9px;font-weight:700">U</i><span>Universidades</span></button>
+      <button class="tbtn ctx " data-l="anclas_escuela_college" aria-pressed="false"><i aria-hidden="true" style="background:#2c5282;border-color:#1a365d;color:#fff;font-size:9px;font-weight:700">C</i><span>Colleges / superior</span></button>
+      <button class="tbtn ctx " data-l="anclas_escuela_otra" aria-pressed="false"><i aria-hidden="true" style="background:#a0aec0;border-color:#4a5568;color:#fff;font-size:9px;font-weight:700">·</i><span>Otras escuelas</span></button>
      </div>
     </div>
     <div class="esc-wrap" id="retailWrap">
-     <button type="button" class="tbtn ctx on esc-parent" id="retailParent" aria-expanded="true" aria-controls="retailSub" aria-pressed="true" title="Retail / bancos — sí entran a Anclas*">
+     <button type="button" class="tbtn ctx esc-parent" id="retailParent" aria-expanded="false" aria-controls="retailSub" aria-pressed="false" title="Retail / bancos — sí entran a Anclas*">
       <i aria-hidden="true" id="retailParentIcon" style="background:#c05621;border-color:#9c4221;color:#fff;font-size:10px">$</i>
       <span>Retail / bancos</span>
       <span class="chev" aria-hidden="true">▾</span>
      </button>
-     <div class="esc-sub open" id="retailSub" role="group" aria-label="Anclas retail y bancos">
+     <div class="esc-sub open" id="retailSub" style="display:none" role="group" aria-label="Anclas retail y bancos">
       <div class="esc-master"><span id="retailSummary">todas activas</span>
         <button type="button" id="retailAllOn" title="Activar todas">Todas</button>
         <button type="button" id="retailAllOff" title="Desactivar todas">Ninguna</button>
       </div>
-      <button class="tbtn ctx on" data-l="anclas_aurrera_express" aria-pressed="true"><i aria-hidden="true" style="background:#dd6b20;border-color:#c05621;color:#fff;font-size:9px;font-weight:700">A</i><span>Bodega Aurrera Express (69)</span></button>
-      <button class="tbtn ctx on" data-l="anclas_soriana_express" aria-pressed="true"><i aria-hidden="true" style="background:#ed8936;border-color:#c05621;color:#fff;font-size:9px;font-weight:700">S</i><span>Soriana Express (3)</span></button>
-      <button class="tbtn ctx on" data-l="anclas_modelorama_six_cerveza" aria-pressed="true"><i aria-hidden="true" style="background:#d69e2e;border-color:#975a16;color:#fff;font-size:9px;font-weight:700">C</i><span>Modelorama / Six / cerveza (21)</span></button>
-      <button class="tbtn ctx on" data-l="anclas_banco_bienestar" aria-pressed="true"><i aria-hidden="true" style="background:#38a169;border-color:#276749;color:#fff;font-size:9px;font-weight:700">B</i><span>Banco del Bienestar (3)</span></button>
-      <button class="tbtn ctx on" data-l="anclas_banco_azteca" aria-pressed="true"><i aria-hidden="true" style="background:#2f855a;border-color:#276749;color:#fff;font-size:9px;font-weight:700">Z</i><span>Banco Azteca (22)</span></button>
+      <button class="tbtn ctx " data-l="anclas_aurrera_express" aria-pressed="false"><i aria-hidden="true" style="background:#dd6b20;border-color:#c05621;color:#fff;font-size:9px;font-weight:700">A</i><span>Bodega Aurrera Express (69)</span></button>
+      <button class="tbtn ctx " data-l="anclas_soriana_express" aria-pressed="false"><i aria-hidden="true" style="background:#ed8936;border-color:#c05621;color:#fff;font-size:9px;font-weight:700">S</i><span>Soriana Express (3)</span></button>
+      <button class="tbtn ctx " data-l="anclas_modelorama_six_cerveza" aria-pressed="false"><i aria-hidden="true" style="background:#d69e2e;border-color:#975a16;color:#fff;font-size:9px;font-weight:700">C</i><span>Modelorama / Six / cerveza (21)</span></button>
+      <button class="tbtn ctx " data-l="anclas_banco_bienestar" aria-pressed="false"><i aria-hidden="true" style="background:#38a169;border-color:#276749;color:#fff;font-size:9px;font-weight:700">B</i><span>Banco del Bienestar (3)</span></button>
+      <button class="tbtn ctx " data-l="anclas_banco_azteca" aria-pressed="false"><i aria-hidden="true" style="background:#2f855a;border-color:#276749;color:#fff;font-size:9px;font-weight:700">Z</i><span>Banco Azteca (22)</span></button>
      </div>
     </div>
     <p class="gap">Anclas azules (escuelas/iglesias/hospitales) y <b>retail/bancos</b> entran a <b>Anclas*</b> en Version 2. Retail/bancos + anclas OSM (OSM Overpass) puntúan en Anclas* (≤250 m centroide). Contexto OSM (306 iglesias · 112 hospitales · 1326 escuelas: 176 jardines · 191 primarias · 101 secundarias · 65 prepas · 71 unis · 23 colleges · 699 otras). Hospitales = amenity=hospital (OSM) o nombre de hospital/clínica-hospital real; sin consultorios ni clínicas simples. <b>Escuelas</b>: clic en la fila abre el submenú de subtipos (jardín / primaria / secundaria / prepa / uni / college / otras); el ícono A o Todas/Ninguna controla el maestro. El calor cubre solo las colonias objetivo (no es cobertura total). Los anillos (5/10/15 km desde la Macroplaza) son un proxy del traslado al empleo del primer cuadro; la ZMM es policentrica.</p>
@@ -459,7 +460,7 @@ COMPET.features.forEach(ft => {
   m.bindPopup('<b>'+c.nombre+'</b><br><span class="p-sub">'+c.canal+' · '+(c.estrato||'s/estrato')+'<br>'+(c.colonia||'')+'</span>');
   m.addTo(industrial ? compInd : compRec);
 });
-compRec.addTo(map); compInd.addTo(map);
+/* default off: competencia */
 
 /* ---------- OPTIONAL: estaciones propias (canibal) ---------- */
 const ESTACIONES = [];
@@ -501,7 +502,7 @@ const labels = L.layerGroup();
 MUNS.forEach(([name,la,lo])=> L.marker([la,lo], {interactive:false, keyboard:false,
   icon:L.divIcon({className:'mun-label', html:name, iconSize:[130,14], iconAnchor:[65,7]})}).addTo(labels));
 
-labels.addTo(map);
+/* default off: etiquetas */
 
 /* ---------- CONTEXT: anclas azules por tipo / subtipo — no puntúan ---------- */
 const TIPO_LABEL = {iglesia:'Iglesia', hospital:'Hospital', escuela:'Escuela'};
@@ -569,9 +570,7 @@ const ANCLA_GROUPS = {iglesia: anclasIglesia, hospital: anclasHospital};
   );
   m.addTo(group);
 });
-anclasIglesia.addTo(map);
-anclasHospital.addTo(map);
-ESC_SUBS.forEach(s => anclasEscuelaBySub[s].addTo(map));
+/* default off: anclas OSM */
 let escuelasMasterOn = true;
 
 /* ---------- RETAIL / BANCOS (Anclas* Version 2) ---------- */
@@ -611,7 +610,7 @@ RETAIL_SUBS.forEach(s => { anclasRetailBySub[s] = L.layerGroup(); });
     '<br>'+(p.fuente||'OSM')+(p.osm_tag?' · '+p.osm_tag:'')+(p.proxy?' · proxy '+p.proxy:'')+'</span>');
   m.addTo(anclasRetailBySub[sub]);
 });
-RETAIL_SUBS.forEach(s => anclasRetailBySub[s].addTo(map));
+/* default off: retail/bancos */
 let retailMasterOn = true;
 
 
@@ -985,26 +984,58 @@ function updateRetailParentUI(){
     if (follow) map.panTo([lat, lon], {animate:true});
     renderPanel(lat, lon, acc);
   }
+  let triedLowAccuracy = false;
+  function errText(err){
+    const c = err && err.code;
+    if (c === 1) return 'Permiso denegado. En Android: toca el candado/info de la URL → Permisos → Ubicación → Permitir, y vuelve a tocar Ubicarme (debe salir Allow).';
+    if (c === 2) return 'GPS no disponible. Activa la ubicación del teléfono y reintenta.';
+    if (c === 3) return 'Tardó mucho el GPS.';
+    return (err && err.message) ? err.message : 'Permiso denegado o GPS no disponible';
+  }
   function onErr(err){
-    panel.innerHTML = '<p class="g-title">No se pudo ubicar</p><p class="g-sub g-warn">'+(err && err.message ? err.message : 'Permiso denegado o GPS no disponible')+
-      '</p><p class="g-sub">En iPhone/Android abre el mapa por HTTPS (GitHub Pages). file:// suele bloquear geolocalización.</p>';
+    if (err && err.code === 3 && follow && !triedLowAccuracy) {
+      triedLowAccuracy = true;
+      panel.innerHTML = '<p class="g-title">Buscando…</p><p class="g-sub">Reintento sin alta precisión.</p>';
+      panel.classList.add('show');
+      if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+      watchId = navigator.geolocation.watchPosition(onPos, onErrFinal, {
+        enableHighAccuracy: false, maximumAge: 10000, timeout: 30000
+      });
+      return;
+    }
+    onErrFinal(err);
+  }
+  function onErrFinal(err){
+    panel.innerHTML = '<p class="g-title">No se pudo ubicar</p><p class="g-sub g-warn">'+errText(err)+
+      '</p><p class="g-sub">Abre <b>https://casca-code.github.io/mapa-purificadoras/</b> y toca <b>Allow / Permitir</b> cuando el teléfono lo pida.</p>';
     panel.classList.add('show');
     stopFollow(false);
   }
   function startFollow(){
+    if (!window.isSecureContext) {
+      onErrFinal({message:'Contexto inseguro. Usa el link HTTPS de GitHub Pages (no archivo local).'});
+      return;
+    }
     if (!navigator.geolocation) {
-      onErr({message:'Este navegador no soporta geolocalización'});
+      onErrFinal({message:'Este navegador no soporta geolocalización'});
       return;
     }
     follow = true;
+    triedLowAccuracy = false;
     btn.classList.add('on');
     btn.setAttribute('aria-pressed','true');
     if (label) label.textContent = 'Siguiendo…';
-    watchId = navigator.geolocation.watchPosition(onPos, onErr, {
-      enableHighAccuracy: true,
-      maximumAge: 2000,
-      timeout: 15000
-    });
+    panel.innerHTML = '<p class="g-title">Permiso de ubicación</p><p class="g-sub">Si aparece <b>Allow / Permitir</b>, acéptalo. El pin aparece al fijar GPS.</p>';
+    panel.classList.add('show');
+    // getCurrentPosition first → dispara el diálogo Allow en Android/iOS tras el tap
+    navigator.geolocation.getCurrentPosition(function(pos){
+      onPos(pos);
+      if (!follow) return;
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(onPos, onErr, {
+        enableHighAccuracy: true, maximumAge: 2000, timeout: 30000
+      });
+    }, onErr, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
   }
   function stopFollow(hidePanel){
     follow = false;
