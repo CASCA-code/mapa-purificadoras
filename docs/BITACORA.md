@@ -1,5 +1,11 @@
 # Bitácora Purificadoras
 
+## 2026-09-12 (layout móvil)
+
+- Mapa a pantalla casi completa en teléfono.
+- Sidebar “Colonia objetivo” → bottom sheet **Capas y ranking** (colapsado; tocas para abrir).
+- Ficha GPS compacta arriba (fuera del estudio = 2 líneas).
+
 ## 2026-09-12 (tarde)
 
 - Default del mapa: **solo colonias score ON**; competencia, anclas (OSM + retail/bancos), etiquetas **OFF** (el usuario prende lo que quiere ver).

@@ -227,8 +227,7 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
 }
 .retail-icon .ai svg{display:block}
 @media (max-width:720px){
-  #btnUbicarme{ left:10px; bottom:14px; padding:12px 16px; font-size:14px; }
-  #geoPanel{ bottom:70px; max-width:none; }
+  #btnUbicarme{ left:10px; padding:12px 16px; font-size:14px; }
 }
 .mun-label{background:none!important;border:none!important;
   font:600 10.5px/1 "IBM Plex Sans", system-ui, sans-serif;letter-spacing:.07em;text-transform:uppercase;
@@ -240,11 +239,53 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 @media (max-width:760px){
-  #app{flex-direction:column}
-  #stage{flex:1 1 55%}
-  #sidebar{flex:1 1 45%;max-width:none;border-left:none;border-top:1px solid var(--hair)}
-  #panelHost{width:calc(100vw - 84px)}
+  #app{flex-direction:column; height:100dvh}
+  #stage{flex:1 1 auto; min-height:0; height:100%}
+  #sidebar{
+    position:fixed; left:0; right:0; bottom:0; z-index:1300;
+    flex:none; max-width:none; width:100%;
+    height:auto; max-height:72dvh;
+    border-left:none; border-top:1px solid var(--hair);
+    border-radius:16px 16px 0 0;
+    box-shadow:0 -8px 28px rgba(0,0,0,.18);
+    transform:translateY(calc(100% - 52px));
+    transition:transform .25s ease;
+    overflow:hidden;
+  }
+  #sidebar.sheet-open{
+    transform:translateY(0);
+    overflow-y:auto;
+  }
+  #sidebar > h2{ display:none }
+  #sheetHandle{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px; padding:14px 14px 10px; min-height:52px;
+    background:var(--surface); position:sticky; top:0; z-index:5;
+    border-bottom:1px solid var(--hair); cursor:pointer;
+    font:600 13px/1.2 "IBM Plex Sans", system-ui, sans-serif;
+    width:100%; text-align:left; color:inherit; appearance:none;
+  }
+  #sheetHandle .grab{
+    width:36px; height:4px; border-radius:99px; background:var(--hair);
+    position:absolute; left:50%; top:6px; transform:translateX(-50%);
+  }
+  #sheetHandle .sheet-title{ color:var(--ink) }
+  #sheetHandle .sheet-hint{ color:var(--ink-muted); font-weight:500; font-size:11px; margin-left:auto }
+  #live, #toplistWrap{ padding-left:14px; padding-right:14px }
+  #panelHost{width:calc(100vw - 72px); bottom:60px}
+  #rail{ bottom:58px }
+  #btnUbicarme{ bottom:62px }
+  #geoPanel{
+    left:10px; right:10px; top:10px; bottom:auto; max-width:none;
+    padding:8px 10px; border-radius:12px; max-height:26dvh; overflow:auto;
+  }
+  #geoPanel .g-title{ font-size:14px; margin:0 0 2px }
+  #geoPanel .g-sub{ font-size:11px; margin:0 0 2px }
+  #geoPanel.compact-out{ padding:6px 10px }
+  #geoPanel.compact-out .g-title{ font-size:12px; font-weight:600; font-family:IBM Plex Sans,system-ui,sans-serif }
 }
+#sheetHandle{ display:none }
+
 </style>
 </head>
 <body>
@@ -943,25 +984,21 @@ function updateRetailParentUI(){
   }
   function renderPanel(lat, lon, acc){
     const p = findColonia(lat, lon);
+    const accTxt = (acc!=null?' · ±'+Math.round(acc)+' m':'');
     if (!p) {
-      panel.innerHTML = '<p class="g-title">Fuera de colonias del estudio</p>'+
-        '<p class="g-sub g-warn">Tu ubicación no cae en ninguna colonia gated del mapa Version 2.</p>'+
-        '<p class="g-sub">≈ '+lat.toFixed(5)+', '+lon.toFixed(5)+(acc!=null?' · ±'+Math.round(acc)+' m':'')+'</p>';
+      panel.classList.add('compact-out');
+      panel.innerHTML = '<p class="g-title">Fuera del estudio</p>'+
+        '<p class="g-sub">'+lat.toFixed(4)+', '+lon.toFixed(4)+accTxt+'</p>';
       panel.classList.add('show');
       return;
     }
+    panel.classList.remove('compact-out');
     panel.innerHTML = '<p class="g-title">'+(p.colonia||'Colonia')+'</p>'+
-      '<p class="g-sub">'+(p.municipio||'')+' · rank #'+(p.rank!=null?p.rank:'—')+
-      ' · score_100 <b>'+(p.score_100!=null?Number(p.score_100).toFixed(1):'—')+'</b></p>'+
-      '<table>'+
-      '<tr><td>Demanda*</td><td>'+star(p.demanda_star)+'</td></tr>'+
-      '<tr><td>Comp*</td><td>'+star(p.comp_star)+'</td></tr>'+
-      '<tr><td>Anclas*</td><td>'+star(p.anclas_star)+'</td></tr>'+
-      '<tr><td>Canibal*</td><td>'+star(p.canibal_star)+'</td></tr>'+
-      '</table>'+
-      '<p class="g-sub" style="margin-top:8px">GPS local · no se envía a ningún servidor'+(acc!=null?' · ±'+Math.round(acc)+' m':'')+'</p>';
+      '<p class="g-sub">'+(p.municipio||'')+' · <b>#'+(p.rank!=null?p.rank:'—')+'</b>'+
+      ' · score <b>'+(p.score_100!=null?Number(p.score_100).toFixed(1):'—')+'</b>'+accTxt+'</p>'+
+      '<p class="g-sub">D '+star(p.demanda_star)+' · C '+star(p.comp_star)+
+      ' · A '+star(p.anclas_star)+' · K '+star(p.canibal_star)+'</p>';
     panel.classList.add('show');
-    // also refresh sidebar hint
     try {
       const live = document.getElementById('live');
       if (live) live.innerHTML = '<p class="hint">📍 Estás en <b>'+p.colonia+'</b></p>'+tableOnly(p);
@@ -1034,7 +1071,7 @@ function updateRetailParentUI(){
     btn.classList.add('on');
     btn.setAttribute('aria-pressed','true');
     if (label) label.textContent = 'Siguiendo…';
-    panel.innerHTML = '<p class="g-title">Permiso de ubicación</p><p class="g-sub">Debería salir el aviso de Safari: <b>Permitir</b>. Si no sale: Localización del iPhone debe estar ON y Safari en “Preguntar” o “Mientras se use”.</p>';
+    panel.innerHTML = '<p class="g-title">Permiso de ubicación</p><p class="g-sub">Acepta <b>Permitir</b> en Safari si aparece.</p>';
     panel.classList.add('show');
     // Tap → getCurrentPosition (único gesto que dispara el prompt en iOS Safari)
     const optsHi = { enableHighAccuracy: true, maximumAge: 0, timeout: 45000 };
@@ -1076,6 +1113,25 @@ function updateRetailParentUI(){
     if (follow) stopFollow(true);
     else startFollow();
   });
+})();
+
+
+/* ---------- mobile sheet: collapse sidebar so map is large ---------- */
+(function(){
+  const side = document.getElementById('sidebar');
+  const handle = document.getElementById('sheetHandle');
+  const hint = document.getElementById('sheetHint');
+  if (!side || !handle) return;
+  function setOpen(open){
+    side.classList.toggle('sheet-open', open);
+    handle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (hint) hint.textContent = open ? 'toca para cerrar' : 'toca para abrir';
+    setTimeout(function(){ try { map.invalidateSize(false); } catch(e){} }, 280);
+  }
+  handle.addEventListener('click', function(){
+    setOpen(!side.classList.contains('sheet-open'));
+  });
+  if (window.matchMedia && window.matchMedia('(max-width:760px)').matches) setOpen(false);
 })();
 
 /* ---------- keep Leaflet sized; fit once the container has real pixels ---------- */
