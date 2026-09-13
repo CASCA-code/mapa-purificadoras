@@ -382,8 +382,8 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </style>
 </head>
 <body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/leaflet-heat.js"></script>
 
 <div id="app">
  <div id="stage">
@@ -543,7 +543,6 @@ const MUNI     = {"type":"FeatureCollection","features":[{"type":"Feature","prop
 const WALK     = 500;
 
 const map = L.map('map', {center:[25.74, -100.29], zoom:11, zoomControl:false});
-map.zoomControl.setPosition('topright');
 map.attributionControl.setPrefix(false);
 map.attributionControl.addAttribution('CONAPO IMC 2020 · DENUE/INEGI · Censo 2020 · anclas OSM');
 
