@@ -286,6 +286,11 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
 }
 #sheetHandle{ display:none }
 
+#live[hidden], #detailTitle[hidden]{ display:none !important }
+#live{ border-top:1px solid var(--hair); margin-top:8px; padding-top:10px }
+#live.live-empty .hint{ margin:0 }
+
+
 .list-tools{display:flex; gap:8px; align-items:center; margin:0 0 8px; flex-wrap:wrap}
 #coloniaSearch{
   flex:1 1 140px; min-width:0; padding:8px 10px; border-radius:10px;
@@ -432,19 +437,21 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
  <aside id="sidebar">
   <button type="button" id="sheetHandle" aria-expanded="false" aria-controls="sidebar">
     <span class="grab" aria-hidden="true"></span>
-    <span class="sheet-title">Capas y ranking</span>
-    <span class="sheet-hint" id="sheetHint">toca para abrir</span>
+    <span class="sheet-title">Colonias</span>
+    <span class="sheet-hint" id="sheetHint">toca para ver la lista</span>
   </button>
-  <h2>Colonia objetivo</h2>
-  <div id="live"><p class="hint">Pasa el cursor sobre un polígono para identificar la colonia — o elige una de la lista de abajo.</p></div>
   <div id="toplistWrap">
-   <p>Todas las colonias · score_100</p>
+   <p>Lista ranked · score_100</p>
    <div class="list-tools">
     <input type="search" id="coloniaSearch" placeholder="Buscar colonia o municipio…" autocomplete="off" />
     <button type="button" id="btnColorSuave" class="chip-btn" aria-pressed="false" title="Relleno de color más suave en el mapa">Color chico</button>
    </div>
    <p class="list-meta"><span id="listCount"></span></p>
    <ol id="toplist"></ol>
+  </div>
+  <h2 id="detailTitle" hidden>Detalle</h2>
+  <div id="live" class="live-empty" hidden>
+    <p class="hint">Toca una colonia de la lista para ver la descripción.</p>
   </div>
  </aside>
 </div>
@@ -706,7 +713,34 @@ const ranked = [...COLONIAS.features.map(f=>f.properties)].sort((a,b)=>(b.score_
 let selected = null;      // cve shown in the sidebar right now
 let lockedCve = null;     // set by a click: while set, hovering other colonias is ignored
 const liveEl = document.getElementById('live');
-const HINT = '<p class="hint">Pasa el cursor sobre un polígono para identificar la colonia. Haz clic para fijarla (Esc o clic de nuevo para soltar), o elige una de la lista de abajo.</p>';
+function showDetail(html){
+  if (!liveEl) return;
+  liveEl.hidden = false;
+  liveEl.classList.remove('live-empty');
+  const tit = document.getElementById('detailTitle');
+  if (tit) tit.hidden = false;
+  liveEl.innerHTML = html;
+}
+function hideDetail(){
+  if (!liveEl) return;
+  liveEl.hidden = true;
+  liveEl.classList.add('live-empty');
+  const tit = document.getElementById('detailTitle');
+  if (tit) tit.hidden = true;
+  hideDetail();
+}
+function openColoniasSheet(){
+  const side = document.getElementById('sidebar');
+  const handle = document.getElementById('sheetHandle');
+  const sh = document.getElementById('sheetHint');
+  if (!side) return;
+  side.classList.add('sheet-open');
+  if (handle) handle.setAttribute('aria-expanded','true');
+  if (sh) sh.textContent = 'toca para cerrar';
+  setTimeout(function(){ try { map.invalidateSize(false); } catch(e){} }, 280);
+}
+
+const HINT = '<p class="hint">Toca una colonia de la lista para ver la descripción.</p>';
 function verdict(sn){return sn>=.8?['Prioridad alta','v-hi']:sn>=.55?['Candidata sólida','v-mid']:['Prioridad baja','v-lo'];}
 function describe(p){
   const be = p.bajo_break_even
@@ -726,13 +760,14 @@ function renderColonia(p){
   selected = p.cve_col;
   if (byId[selected]){ byId[selected].setStyle(hiStyle()); byId[selected].bringToFront(); }
   const v = verdict(p.score_norm);
-  liveEl.innerHTML =
-    (lockedCve === p.cve_col ? '<span class="lock-chip">📌 fijada · Esc o clic para soltar</span>' : '')+
+  showDetail(
+    (lockedCve === p.cve_col ? '<span class="lock-chip">📌 fijada · toca otra vez para soltar</span>' : '')+
     '<span class="verdict '+v[1]+'">'+v[0]+' · #'+p.rank+' de '+167+'</span>'+
     (p.bajo_break_even ? '<span class="flag-be">bajo punto de equilibrio</span>' : '')+
     '<h3>'+p.colonia+'</h3>'+
     '<p class="sub">'+p.municipio+' · marginación '+p.grado+' · CP '+p.cp+'</p>'+
-    '<p class="desc">'+describe(p)+'</p>'+ tableOnly(p);
+    '<p class="desc">'+describe(p)+'</p>'+ tableOnly(p)
+  );
   document.querySelectorAll('#toplist li').forEach(li=>li.setAttribute('aria-current', String(li.dataset.cve===selected)));
 }
 function clearColonia(){
@@ -741,12 +776,23 @@ function clearColonia(){
   liveEl.innerHTML = HINT;
   document.querySelectorAll('#toplist li').forEach(li=>li.setAttribute('aria-current', 'false'));
 }
-function hoverColonia(p){ if (lockedCve) return; renderColonia(p); }
-function pickColonia(p, opts){          // a deliberate click / list pick — locks the selection
+function hoverColonia(p){
+  if (lockedCve) return;
+  if (window.matchMedia && window.matchMedia('(max-width:760px)').matches) {
+    if (selected && selected !== p.cve_col && byId[selected]) colLayer.resetStyle(byId[selected]);
+    selected = p.cve_col;
+    if (byId[selected]){ byId[selected].setStyle(hiStyle()); byId[selected].bringToFront(); }
+    return;
+  }
+  renderColonia(p);
+}
+function pickColonia(p, opts){
   opts = opts || {};
-  if (lockedCve === p.cve_col){ clearColonia(); return; }   // click the locked one again → release
+  if (lockedCve === p.cve_col){ clearColonia(); return; }
   lockedCve = p.cve_col;
   renderColonia(p);
+  openColoniasSheet();
+  try { liveEl.scrollIntoView({behavior:'smooth', block:'nearest'}); } catch(e){}
   if (opts.fly && byId[selected]) map.flyToBounds(byId[selected].getBounds(), {maxZoom:15, duration:.6});
 }
 function releaseLock(){ if (lockedCve) clearColonia(); }
@@ -1055,7 +1101,7 @@ function updateRetailParentUI(){
     panel.classList.add('show');
     try {
       const live = document.getElementById('live');
-      if (live) live.innerHTML = '<p class="hint">📍 Estás en <b>'+p.colonia+'</b></p>'+tableOnly(p);
+      /* geoPanel lleva la ficha en vivo; lista/detalle van por el menú Colonias */
     } catch (e) {}
   }
   function onPos(pos){
@@ -1179,7 +1225,7 @@ function updateRetailParentUI(){
   function setOpen(open){
     side.classList.toggle('sheet-open', open);
     handle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (hint) hint.textContent = open ? 'toca para cerrar' : 'toca para abrir';
+    if (hint) hint.textContent = open ? 'toca para cerrar' : 'toca para ver la lista';
     setTimeout(function(){ try { map.invalidateSize(false); } catch(e){} }, 280);
   }
   handle.addEventListener('click', function(){
