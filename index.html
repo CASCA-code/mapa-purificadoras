@@ -200,7 +200,8 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
 
 #btnColoniasFab{
   display:none; position:absolute; z-index:1260;
-  left:50%; transform:translateX(-50%); bottom:14px;
+  left:50%; transform:translateX(-50%);
+  bottom:calc(28px + env(safe-area-inset-bottom, 0px));
   padding:12px 22px; border-radius:999px; border:1px solid var(--hair);
   background:var(--accent); color:#fff; font:700 14px/1 IBM Plex Sans,system-ui,sans-serif;
   box-shadow:var(--shadow); cursor:pointer;
@@ -208,7 +209,7 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
 @media (max-width:760px){
   #btnColoniasFab{ display:block }
   #btnColoniasFab.sheet-open-hide{ opacity:0; pointer-events:none }
-  #btnUbicarme{ bottom:70px }
+  #btnUbicarme{ bottom:calc(78px + env(safe-area-inset-bottom, 0px)) }
 }
 
 #btnUbicarme{
@@ -256,7 +257,7 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
   #app{flex-direction:column; height:100dvh}
   #stage{flex:1 1 auto; min-height:0; height:100%}
   #sidebar{
-    position:fixed; left:0; right:0; bottom:0; z-index:1400;
+    position:fixed; left:0; right:0; bottom:env(safe-area-inset-bottom, 0px); z-index:1400;
     flex:none; max-width:none; width:100%;
     height:auto; max-height:72dvh;
     border-left:none; border-top:1px solid var(--hair);
@@ -270,6 +271,7 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
   #sidebar.sheet-open{
     transform:translateY(0);
     overflow-y:auto;
+    padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));
   }
   #sidebar > h2{ display:none }
   #sheetHandle{
@@ -1270,6 +1272,12 @@ function updateRetailParentUI(){
   if (handle) handle.addEventListener('click', function(){ setOpen(!isOpen()); });
   // expose for pickColonia
   window.openColoniasSheet = function(){ setOpen(true); };
+  window.closeColoniasSheet = function(){ setOpen(false); };
+  // Tocar el mapa (cualquier lado) cierra el menú
+  if (typeof map !== 'undefined' && map && map.on) {
+    map.on('click', function(){ if (isOpen()) setOpen(false); });
+    map.on('dragstart', function(){ if (isOpen()) setOpen(false); });
+  }
   setOpen(false);
 })();
 
