@@ -474,7 +474,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </style>
 </head>
 <body>
-<!-- field-add-v5-fix -->
+<!-- field-add-v6-map -->
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet-heat.js"></script>
 
@@ -492,7 +492,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <h2 id="fieldAddTitle">Añadir aquí</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v5 · solo pin · no GitHub</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v6 · solo pin · no GitHub</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -692,6 +692,8 @@ const MUNI     = {"type":"FeatureCollection","features":[{"type":"Feature","prop
 const WALK     = 500;
 
 const map = L.map('map', {center:[25.74, -100.29], zoom:11, zoomControl:false});
+window.map = map;
+
 map.attributionControl.setPrefix(false);
 map.attributionControl.addAttribution('CONAPO IMC 2020 · DENUE/INEGI · Censo 2020 · anclas OSM');
 
@@ -1904,7 +1906,8 @@ if (window.ResizeObserver){
   const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
   const btn = document.getElementById('btnAddHere');
   const sheet = document.getElementById('fieldAddSheet');
-  if (!btn || !sheet || typeof map === 'undefined') return;
+  if (!btn || !sheet) return;
+  function getMap(){ return window.map || null; }
 
   const coordsEl = document.getElementById('fieldAddCoords');
   const otraWrap = document.getElementById('fieldAddOtraWrap');
@@ -1918,7 +1921,9 @@ if (window.ResizeObserver){
   const opts = Array.prototype.slice.call(sheet.querySelectorAll('.opt'));
 
   let kind = null;
-  const layer = L.layerGroup().addTo(map);
+  const layer = L.layerGroup();
+  function ensureLayer(){ const m=getMap(); if(m && !m.hasLayer(layer)) layer.addTo(m); return m; }
+  ensureLayer();
   const markersById = Object.create(null);
   const pinIcon = L.divIcon({
     className: '', iconSize: [14, 14], iconAnchor: [7, 7],
@@ -2020,12 +2025,12 @@ if (window.ResizeObserver){
       ev.stopPropagation();
       if (confirm('¿Quitar este punto del mapa?')) {
         removeById(id);
-        try { map.closePopup(); } catch (e) {}
+        try { var _m=getMap(); if(_m) _m.closePopup(); } catch (e) {}
       }
     });
     pop.appendChild(rm);
     m.bindPopup(pop);
-    m.addTo(layer);
+    ensureLayer(); m.addTo(layer);
     markersById[id] = m;
   }
   function refreshMarkers(list){
@@ -2157,11 +2162,16 @@ if (window.ResizeObserver){
   });
   sheet.addEventListener('click', function(e){ e.stopPropagation(); });
   // cerrar solo con click en el mapa (no document capture — rompía el sheet)
-  if (map && map.on) {
-    map.on('click', function(){
-      if (sheet.classList.contains('show')) closeSheet();
-    });
-  }
+  (function bindMapClose(){
+    const m = getMap();
+    if (m && m.on) {
+      m.on('click', function(){
+        if (sheet.classList.contains('show')) closeSheet();
+      });
+    } else {
+      setTimeout(bindMapClose, 200);
+    }
+  })();
   window.addEventListener('purif-geo', syncBtn);
   setInterval(syncBtn, 3000);
   syncBtn();
