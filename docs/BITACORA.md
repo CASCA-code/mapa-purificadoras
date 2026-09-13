@@ -1,5 +1,12 @@
 # Bitácora Purificadoras
 
+## 2026-09-12 (escuelas / bancos / etiquetas)
+
+- Fix: submenú Escuelas y Retail/bancos tenían `style="display:none"` que ganaba a `.open` → no se veían ni prendían.
+- Al abrir la fila (o el ícono maestro vacío) se encienden todos los subtipos y se dibujan en el mapa.
+- Etiquetas de municipio **ON** por default.
+
+
 ## 2026-09-12 (z-index menú izq)
 
 - Rail / panelHost (score, base, capas) por encima del geoPanel de Ubicarme para que no los tape.

@@ -440,7 +440,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <p class="eyebrow ctx">Contexto — no puntúa</p>
     <button class="tbtn ctx" data-l="calor" aria-pressed="false"><i aria-hidden="true">▨</i><span>Concentración de demanda</span></button>
     <button class="tbtn ctx" data-l="anillos" aria-pressed="false"><i aria-hidden="true">◎</i><span>Anillos al primer cuadro</span></button>
-    <button class="tbtn ctx " data-l="etiquetas" aria-pressed="false"><i aria-hidden="true">A</i><span>Etiquetas de municipio</span></button>
+    <button class="tbtn ctx on" data-l="etiquetas" aria-pressed="true"><i aria-hidden="true">A</i><span>Etiquetas de municipio</span></button>
     <button class="tbtn ctx " data-l="anclas_iglesia" aria-pressed="false"><i aria-hidden="true" style="background:#2b6cb0;border-color:#2b6cb0;color:#fff;font-size:11px">†</i><span>Iglesias</span></button>
     <button class="tbtn ctx " data-l="anclas_hospital" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:10px;font-weight:700">H</i><span>Hospitales</span></button>
     <div class="esc-wrap">
@@ -449,7 +449,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <span>Escuelas</span>
       <span class="chev" aria-hidden="true">▾</span>
      </button>
-     <div class="esc-sub open" id="escuelasSub" style="display:none" role="group" aria-label="Subtipos de escuela">
+     <div class="esc-sub" id="escuelasSub" role="group" aria-label="Subtipos de escuela">
       <div class="esc-master"><span id="escuelasSummary">todas activas</span>
         <button type="button" id="escuelasAllOn" title="Activar todos los subtipos">Todas</button>
         <button type="button" id="escuelasAllOff" title="Desactivar todos los subtipos">Ninguna</button>
@@ -469,7 +469,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <span>Retail / bancos</span>
       <span class="chev" aria-hidden="true">▾</span>
      </button>
-     <div class="esc-sub open" id="retailSub" style="display:none" role="group" aria-label="Anclas retail y bancos">
+     <div class="esc-sub" id="retailSub" role="group" aria-label="Anclas retail y bancos">
       <div class="esc-master"><span id="retailSummary">todas activas</span>
         <button type="button" id="retailAllOn" title="Activar todas">Todas</button>
         <button type="button" id="retailAllOff" title="Desactivar todas">Ninguna</button>
@@ -665,8 +665,7 @@ const MUNS = [['Monterrey',25.688,-100.335],['San Nicolás',25.748,-100.283],['G
 const labels = L.layerGroup();
 MUNS.forEach(([name,la,lo])=> L.marker([la,lo], {interactive:false, keyboard:false,
   icon:L.divIcon({className:'mun-label', html:name, iconSize:[130,14], iconAnchor:[65,7]})}).addTo(labels));
-
-/* default off: etiquetas */
+labels.addTo(map); /* default ON: etiquetas de municipio */
 
 /* ---------- CONTEXT: anclas azules por tipo / subtipo — no puntúan ---------- */
 const TIPO_LABEL = {iglesia:'Iglesia', hospital:'Hospital', escuela:'Escuela'};
@@ -1019,18 +1018,37 @@ document.querySelectorAll('.tbtn[data-l]').forEach(btn=>{
   const sub = document.getElementById('escuelasSub');
   const icon = document.getElementById('escuelasParentIcon');
   if (!parent || !sub) return;
+  function enableAllEscuelas(){
+    document.querySelectorAll('#escuelasSub .tbtn[data-l]').forEach(b=>{
+      b.classList.add('on'); b.setAttribute('aria-pressed','true');
+    });
+    escuelasMasterOn = true;
+    syncAllEscuelaLayers();
+    updateEscuelasParentUI();
+  }
   parent.addEventListener('click', (e)=>{
-    // click on icon → master toggle; elsewhere on row → expand/collapse
+    // icon → master on/off (si prende y no hay subtipos, enciende todos)
     if (e.target === icon || (icon && icon.contains(e.target))) {
       e.preventDefault();
-      escuelasMasterOn = !escuelasMasterOn;
-      syncAllEscuelaLayers();
-      updateEscuelasParentUI();
+      e.stopPropagation();
+      const turningOn = !escuelasMasterOn;
+      if (turningOn) {
+        const nOn = [...document.querySelectorAll('#escuelasSub .tbtn[data-l]')].filter(b=>b.classList.contains('on')).length;
+        if (nOn === 0) enableAllEscuelas();
+        else { escuelasMasterOn = true; syncAllEscuelaLayers(); updateEscuelasParentUI(); }
+      } else {
+        escuelasMasterOn = false; syncAllEscuelaLayers(); updateEscuelasParentUI();
+      }
       return;
     }
+    // fila → abrir submenú; si no hay capas, encender todas (1 toque = ver escuelas)
     const open = !sub.classList.contains('open');
     sub.classList.toggle('open', open);
     parent.setAttribute('aria-expanded', String(open));
+    if (open) {
+      const nOn = [...document.querySelectorAll('#escuelasSub .tbtn[data-l]')].filter(b=>b.classList.contains('on')).length;
+      if (nOn === 0) enableAllEscuelas();
+    }
   });
   const allOn = document.getElementById('escuelasAllOn');
   const allOff = document.getElementById('escuelasAllOff');
@@ -1113,15 +1131,33 @@ function updateRetailParentUI(){
   const sub = document.getElementById('retailSub');
   const icon = document.getElementById('retailParentIcon');
   if (!parent || !sub) return;
+  function enableAllRetail(){
+    document.querySelectorAll('#retailSub .tbtn[data-l]').forEach(b => {
+      b.classList.add('on'); b.setAttribute('aria-pressed','true');
+    });
+    retailMasterOn = true; syncAllRetailLayers(); updateRetailParentUI();
+  }
   parent.addEventListener('click', (ev) => {
-    if (ev.target === icon || (ev.target && ev.target.id === 'retailParentIcon')) {
-      retailMasterOn = !retailMasterOn;
-      syncAllRetailLayers();
-      updateRetailParentUI();
+    if (ev.target === icon || (icon && icon.contains(ev.target)) || (ev.target && ev.target.id === 'retailParentIcon')) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const turningOn = !retailMasterOn;
+      if (turningOn) {
+        const nOn = [...document.querySelectorAll('#retailSub .tbtn[data-l]')].filter(b=>b.classList.contains('on')).length;
+        if (nOn === 0) enableAllRetail();
+        else { retailMasterOn = true; syncAllRetailLayers(); updateRetailParentUI(); }
+      } else {
+        retailMasterOn = false; syncAllRetailLayers(); updateRetailParentUI();
+      }
       return;
     }
-    const open = sub.classList.toggle('open');
+    const open = !sub.classList.contains('open');
+    sub.classList.toggle('open', open);
     parent.setAttribute('aria-expanded', String(open));
+    if (open) {
+      const nOn = [...document.querySelectorAll('#retailSub .tbtn[data-l]')].filter(b=>b.classList.contains('on')).length;
+      if (nOn === 0) enableAllRetail();
+    }
   });
   const allOn = document.getElementById('retailAllOn');
   const allOff = document.getElementById('retailAllOff');
