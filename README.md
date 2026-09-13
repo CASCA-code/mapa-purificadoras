@@ -23,3 +23,7 @@ Fuente de trabajo local (PC Nicolás): `OneDrive/Desktop/purificadora/version2/`
 ## Actualización
 
 El agente Purificador actualiza MD + HTML y hace push tras cada avance de conversación (regla del 2026-09-12).
+
+
+## Ruta de campo
+Panel **ruta** en el rail: arma un circuito desde casa (Violeta 116, Los Colorines, San Pedro) por colonias del ranking y abre Google Maps. Ver `docs/RUTA_CAMPO.md`.

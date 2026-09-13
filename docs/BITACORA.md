@@ -1,5 +1,11 @@
 # Bitácora Purificadoras
 
+## 2026-09-12 (ruta de campo · capa B)
+
+- Panel **ruta** en el mapa: top N / picks → TSP cerrado casa→paradas→casa → polilínea + Abrir en Google Maps.
+- Casa fija: Violeta 116, Los Colorines, San Pedro. Docs: `docs/RUTA_CAMPO.md`.
+
+
 ## 2026-09-12 (escuelas / bancos / etiquetas)
 
 - Fix: submenú Escuelas y Retail/bancos tenían `style="display:none"` que ganaba a `.open` → no se veían ni prendían.
