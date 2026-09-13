@@ -1,5 +1,13 @@
 # Bitácora Purificadoras
 
+## 2026-09-12 (hotfix mapa caído)
+
+- Causa: `zoomControl:false` + `map.zoomControl.setPosition(...)` → TypeError y el script moría (sin capas, sin Colonias, sin Ubicarme).
+- Fix: quitar `setPosition`; Leaflet/heat desde `vendor/` (sin CDN).
+- Commit `f40afc3` en `CASCA-code/mapa-purificadoras`; Pages rebuilt.
+- Sync local: `version2/mapa_purificadoras_version2.html` + `version2/vendor/`.
+
+
 ## 2026-09-12 (lista completa)
 
 - Ranking en sidebar: **todas** las colonias (no solo top 15) + buscador.
