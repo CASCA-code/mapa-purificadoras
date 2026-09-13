@@ -852,7 +852,8 @@ function renderColonia(p){
 function clearColonia(){
   if (selected && byId[selected]) colLayer.resetStyle(byId[selected]);
   selected = null; lockedCve = null;
-  liveEl.innerHTML = HINT;
+  try { hideDetail(); } catch(e){}
+  try { hideColoniaCard(); } catch(e){}
   document.querySelectorAll('#toplist li').forEach(li=>li.setAttribute('aria-current', 'false'));
 }
 function hoverColonia(p){
