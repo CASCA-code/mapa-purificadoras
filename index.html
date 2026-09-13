@@ -241,9 +241,10 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
 #btnUbicarme.on .dot{background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.35)}
 
 #coloniaCard{
-  position:absolute; z-index:1270;
-  left:12px; right:12px; top:12px;
+  position:absolute; z-index:1500;
+  left:12px; right:12px; top:max(12px, env(safe-area-inset-top, 0px));
   max-width:340px; margin:0 auto;
+  max-height:min(48dvh, 420px); overflow-y:auto; -webkit-overflow-scrolling:touch;
   background:var(--surface); border:1px solid var(--hair); border-radius:14px;
   box-shadow:0 10px 28px rgba(43,38,32,.22); padding:12px 14px 12px 14px;
   display:none;
@@ -258,7 +259,7 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
 #coloniaCardBody .g-sub{ color:var(--ink-muted); font-size:12px; margin:0 0 6px }
 #coloniaCardBody .desc{ font-size:12.5px; line-height:1.45; margin:0 0 8px }
 @media (max-width:760px){
-  #coloniaCard{ left:10px; right:10px; top:10px; max-width:none }
+  #coloniaCard{ left:10px; right:10px; top:max(10px, env(safe-area-inset-top, 0px)); max-width:none; z-index:1500 }
   #geoPanel{ top:auto; bottom:calc(88px + env(safe-area-inset-bottom, 0px)); left:10px; right:10px; max-width:none }
 }
 
@@ -595,7 +596,11 @@ const colLayer = L.geoJSON(COLONIAS, {
     byId[f.properties.cve_col] = layer;
     // no popup on the polygon: the same detail lives in the right-hand panel
     layer.on('mouseover', () => hoverColonia(f.properties));
-    layer.on('click',     () => pickColonia(f.properties, {}));
+    layer.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      if (e.originalEvent) L.DomEvent.stop(e.originalEvent);
+      pickColonia(f.properties, {});
+    });
   }
 }).addTo(map);
 const colBounds = (()=>{ try { return colLayer.getBounds(); } catch(e){ return null; } })();
@@ -804,7 +809,6 @@ function hideDetail(){
   liveEl.classList.add('live-empty');
   const tit = document.getElementById('detailTitle');
   if (tit) tit.hidden = true;
-  hideDetail();
 }
 function openColoniasSheet(){
   const side = document.getElementById("sidebar");
@@ -915,7 +919,7 @@ function renderToplist(filter){
     li.innerHTML = '<span class="rk">'+(p.rank!=null?p.rank:'—')+'</span><span class="nm">'+p.colonia+'<em>'+p.municipio+
       (p.bajo_break_even?' · ⚠ break-even':'')+'</em></span>'+
       '<span class="sc" style="background:'+ramp(p.score_norm)+'">'+Number(p.score_100).toFixed(0)+'</span>';
-    const go = ()=>pickColonia(p, {fly:true});
+    const go = (ev)=>{ if (ev) { ev.preventDefault(); ev.stopPropagation(); } pickColonia(p, {fly:true}); };
     li.addEventListener('click', go);
     li.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); }});
     li.addEventListener('mouseenter', ()=>{ if(lockedCve || !byId[p.cve_col] || p.cve_col===selected) return; byId[p.cve_col].setStyle(hiStyle()); });
@@ -1325,7 +1329,11 @@ function updateRetailParentUI(){
   const btn = document.getElementById('coloniaCardClose');
   if (btn) btn.addEventListener('click', function(e){ e.stopPropagation(); clearColonia(); });
   if (typeof map !== 'undefined' && map && map.on) {
-    map.on('click', function(){ hideColoniaCard(); });
+    map.on('click', function(){
+      // solo vacío del mapa (el click de colonia hace stopPropagation)
+      if (lockedCve) clearColonia();
+      else hideColoniaCard();
+    });
   }
 })();
 

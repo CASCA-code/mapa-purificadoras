@@ -1,5 +1,11 @@
 # Bitácora Purificadoras
 
+## 2026-09-12 (cuadrito colonia)
+
+- Al tocar colonia el `map.click` cerraba el `#coloniaCard` en el mismo gesto.
+- Fix: `stopPropagation` en polígono; card arriba (safe-area, z-index 1500, scroll); `hideDetail` ya no se llama a sí misma.
+
+
 ## 2026-09-12 (hotfix mapa caído)
 
 - Causa: `zoomControl:false` + `map.zoomControl.setPosition(...)` → TypeError y el script moría (sin capas, sin Colonias, sin Ubicarme).
