@@ -324,9 +324,12 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
     width:100%; text-align:left; color:inherit; appearance:none;
   }
   #sheetHandle .grab{
-    width:36px; height:4px; border-radius:99px; background:var(--hair);
-    position:absolute; left:50%; top:6px; transform:translateX(-50%);
+    width:44px; height:5px; border-radius:99px; background:var(--ink-muted);
+    opacity:.55;
+    position:absolute; left:50%; top:7px; transform:translateX(-50%);
+    pointer-events:none;
   }
+  #sheetHandle{ touch-action:none; user-select:none; -webkit-user-select:none; }
   #sheetHandle .sheet-title{ color:var(--ink) }
   #sheetHandle .sheet-hint{ color:var(--ink-muted); font-weight:500; font-size:11px; margin-left:auto }
   #live, #toplistWrap{ padding-left:14px; padding-right:14px }
@@ -818,7 +821,7 @@ function openColoniasSheet(){
   const handle = document.getElementById("sheetHandle");
   const hint = document.getElementById("sheetHint");
   if (handle) handle.setAttribute("aria-expanded","true");
-  if (hint) hint.textContent = "toca para cerrar";
+  if (hint) hint.textContent = "arrastra la rayita para cerrar";
   setTimeout(function(){ try { map.invalidateSize(false); } catch(e){} }, 280);
 }
 
@@ -1355,24 +1358,24 @@ function updateRetailParentUI(){
     setTimeout(function(){ try { map.invalidateSize(false); } catch(e){} }, 280);
   }
   fab.addEventListener('click', function(e){ e.stopPropagation(); setOpen(!isOpen()); });
-  // swipe down on sheet to close
-  let startY = null;
-  function onStart(ev){
-    const y = ev.touches ? ev.touches[0].clientY : ev.clientY;
-    startY = y;
-  }
-  function onMove(ev){
-    if (startY == null || !isOpen()) return;
-    const y = ev.touches ? ev.touches[0].clientY : ev.clientY;
-    if (y - startY > 70) { setOpen(false); startY = null; }
-  }
-  function onEnd(){ startY = null; }
-  side.addEventListener('touchstart', onStart, {passive:true});
-  side.addEventListener('touchmove', onMove, {passive:true});
-  side.addEventListener('touchend', onEnd);
+  // swipe-to-close ONLY on the top handle (rayita), never while scrolling the list
   if (handle) {
-    handle.addEventListener('touchstart', onStart, {passive:true});
-    handle.addEventListener('touchmove', onMove, {passive:true});
+    let startY = null;
+    handle.addEventListener('click', function(e){
+      e.stopPropagation();
+      if (isOpen()) setOpen(false);
+    });
+    handle.addEventListener('touchstart', function(ev){
+      const y = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      startY = y;
+    }, {passive:true});
+    handle.addEventListener('touchmove', function(ev){
+      if (startY == null || !isOpen()) return;
+      const y = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      if (y - startY > 55) { setOpen(false); startY = null; }
+    }, {passive:true});
+    handle.addEventListener('touchend', function(){ startY = null; });
+    handle.addEventListener('touchcancel', function(){ startY = null; });
   }
   window.openColoniasSheet = function(){ setOpen(true); };
   window.closeColoniasSheet = function(){ setOpen(false); };

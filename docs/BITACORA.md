@@ -1,5 +1,10 @@
 # Bitácora Purificadoras
 
+## 2026-09-12 (sheet Colonias)
+
+- Swipe para cerrar solo en la **rayita**/handle de arriba; scrollear la lista ya no cierra el sheet.
+
+
 ## 2026-09-12 (cuadrito colonia)
 
 - Al tocar colonia el `map.click` cerraba el `#coloniaCard` en el mismo gesto.
