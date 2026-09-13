@@ -3,7 +3,6 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Permissions-Policy" content="geolocation=(self)">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mapa Version 2 — purificadoras ZMM</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -985,12 +984,22 @@ function updateRetailParentUI(){
     renderPanel(lat, lon, acc);
   }
   let triedLowAccuracy = false;
+  function isApple(){
+    const ua = navigator.userAgent || '';
+    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function helpGeo(){
+    if (isApple()) {
+      return 'En iPhone: 1) Abre este link en <b>Safari</b> (no dentro de WhatsApp/Instagram). 2) Ajustes → Privacidad y seguridad → Localización → <b>Safari</b> → Mientras se use / Preguntar. 3) Vuelve al mapa, toca Ubicarme y acepta el aviso. No hace falta “Trust Developer”.';
+    }
+    return 'En Android (Chrome): candado de la URL → Permisos → Ubicación → Permitir, luego Ubicarme otra vez.';
+  }
   function errText(err){
     const c = err && err.code;
-    if (c === 1) return 'Permiso denegado. En Android: toca el candado/info de la URL → Permisos → Ubicación → Permitir, y vuelve a tocar Ubicarme (debe salir Allow).';
-    if (c === 2) return 'GPS no disponible. Activa la ubicación del teléfono y reintenta.';
+    if (c === 1) return 'El teléfono bloqueó la ubicación (no salió el aviso o lo rechazaste). ' + helpGeo().replace(/<[^>]+>/g,'');
+    if (c === 2) return 'GPS no disponible. Activa Localización en el iPhone (arriba en Centro de control) y reintenta.';
     if (c === 3) return 'Tardó mucho el GPS.';
-    return (err && err.message) ? err.message : 'Permiso denegado o GPS no disponible';
+    return (err && err.message) ? err.message : 'No se pudo obtener ubicación';
   }
   function onErr(err){
     if (err && err.code === 3 && follow && !triedLowAccuracy) {
@@ -1007,7 +1016,7 @@ function updateRetailParentUI(){
   }
   function onErrFinal(err){
     panel.innerHTML = '<p class="g-title">No se pudo ubicar</p><p class="g-sub g-warn">'+errText(err)+
-      '</p><p class="g-sub">Abre <b>https://casca-code.github.io/mapa-purificadoras/</b> y toca <b>Allow / Permitir</b> cuando el teléfono lo pida.</p>';
+      '</p><p class="g-sub">'+helpGeo()+'</p>';
     panel.classList.add('show');
     stopFollow(false);
   }
@@ -1025,17 +1034,32 @@ function updateRetailParentUI(){
     btn.classList.add('on');
     btn.setAttribute('aria-pressed','true');
     if (label) label.textContent = 'Siguiendo…';
-    panel.innerHTML = '<p class="g-title">Permiso de ubicación</p><p class="g-sub">Si aparece <b>Allow / Permitir</b>, acéptalo. El pin aparece al fijar GPS.</p>';
+    panel.innerHTML = '<p class="g-title">Permiso de ubicación</p><p class="g-sub">Debería salir el aviso de Safari: <b>Permitir</b>. Si no sale: Localización del iPhone debe estar ON y Safari en “Preguntar” o “Mientras se use”.</p>';
     panel.classList.add('show');
-    // getCurrentPosition first → dispara el diálogo Allow en Android/iOS tras el tap
+    // Tap → getCurrentPosition (único gesto que dispara el prompt en iOS Safari)
+    const optsHi = { enableHighAccuracy: true, maximumAge: 0, timeout: 45000 };
+    const optsLo = { enableHighAccuracy: false, maximumAge: 0, timeout: 45000 };
     navigator.geolocation.getCurrentPosition(function(pos){
       onPos(pos);
       if (!follow) return;
       if (watchId != null) navigator.geolocation.clearWatch(watchId);
       watchId = navigator.geolocation.watchPosition(onPos, onErr, {
-        enableHighAccuracy: true, maximumAge: 2000, timeout: 30000
+        enableHighAccuracy: true, maximumAge: 2000, timeout: 45000
       });
-    }, onErr, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+    }, function(err){
+      // iOS a veces falla high accuracy sin mostrar prompt útil → un reintento inmediato low accuracy en el mismo gesto no siempre funciona;
+      // si fue timeout, reintentar low; si denied, mostrar ayuda iOS
+      if (err && err.code === 3) {
+        navigator.geolocation.getCurrentPosition(function(pos){
+          onPos(pos);
+          if (!follow) return;
+          if (watchId != null) navigator.geolocation.clearWatch(watchId);
+          watchId = navigator.geolocation.watchPosition(onPos, onErr, optsLo);
+        }, onErr, optsLo);
+        return;
+      }
+      onErr(err);
+    }, optsHi);
   }
   function stopFollow(hidePanel){
     follow = false;
