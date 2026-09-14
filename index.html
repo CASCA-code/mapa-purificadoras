@@ -437,7 +437,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 
 #fieldAddSheet{
-  display:none; position:absolute; z-index:1600;
+  display:none; position:absolute; z-index:1600; /* close-x anchor */
   left:10px; right:10px; bottom:calc(72px + env(safe-area-inset-bottom, 0px));
   max-width:420px; margin:0 auto;
   background:var(--surface); border:1px solid var(--hair); border-radius:16px;
@@ -523,8 +523,9 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="geoPanel" role="status" aria-live="polite"></div>
 
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
+  <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v11 · tap mapa cierra Comp/Nosotros</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v12 · cerrar tap fuera / X</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -550,6 +551,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <div id="oursAddSheet" role="dialog" aria-modal="true" aria-labelledby="oursAddTitle" hidden>
+  <button type="button" id="oursAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="oursAddTitle">Máquina nuestra</h2>
   <p class="hint" id="oursAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <label for="oursName">Nombre</label>
@@ -1984,49 +1986,53 @@ if (window.ResizeObserver){
 <script>
 
 
-/* ---------- Cerrar Comp/Nosotros al tocar el mapa ---------- */
+/* ---------- Cerrar Comp/Nosotros (tap fuera + X) ---------- */
 (function(){
+  function isOpen(el){
+    return !!(el && (el.classList.contains('show') || (!el.hidden && el.style.display === 'block')));
+  }
   function closeCompOurs(){
-    var comp = document.getElementById('fieldAddSheet');
-    var ours = document.getElementById('oursAddSheet');
-    [comp, ours].forEach(function(el){
+    ['fieldAddSheet','oursAddSheet'].forEach(function(id){
+      var el = document.getElementById(id);
       if (!el) return;
       el.classList.remove('show');
       el.hidden = true;
+      el.style.display = 'none';
     });
   }
-  function shouldIgnore(t){
-    if (!t || !t.closest) return false;
-    // no cerrar si el tap fue en las propias hojas o botones del dock
-    return !!(t.closest('#fieldAddSheet') || t.closest('#oursAddSheet') ||
-      t.closest('#btnAddComp') || t.closest('#btnAddOurs') ||
-      t.closest('#bottomDock') || t.closest('#rail') || t.closest('#sidebar'));
+  function openReset(el){
+    if (!el) return;
+    el.hidden = false;
+    el.style.display = 'block';
+    el.classList.add('show');
   }
-  function onMapPointer(ev){
-    if (shouldIgnore(ev.target)) return;
+  window.__purifCloseSheets = closeCompOurs;
+  window.__purifOpenSheet = openReset;
+
+  function outside(ev){
+    var comp = document.getElementById('fieldAddSheet');
+    var ours = document.getElementById('oursAddSheet');
+    if (!isOpen(comp) && !isOpen(ours)) return;
+    var t = ev.target;
+    if (!t) return;
+    if (t.closest && (t.closest('#fieldAddSheet') || t.closest('#oursAddSheet') ||
+        t.closest('#btnAddComp') || t.closest('#btnAddOurs'))) {
+      return;
+    }
     closeCompOurs();
   }
-  function bind(){
-    var mapEl = document.getElementById('map');
-    var m = window.map;
-    if (!mapEl) { setTimeout(bind, 200); return; }
-    // capture: gana aunque un polígono haga stopPropagation en bubble
-    mapEl.addEventListener('pointerdown', onMapPointer, true);
-    mapEl.addEventListener('touchstart', onMapPointer, { capture: true, passive: true });
-    if (m && m.on) {
-      m.on('click', function(){ closeCompOurs(); });
-      m.on('mousedown', function(){ closeCompOurs(); });
-    } else {
-      setTimeout(function(){
-        if (window.map && window.map.on) {
-          window.map.on('click', function(){ closeCompOurs(); });
-          window.map.on('mousedown', function(){ closeCompOurs(); });
-        }
-      }, 400);
-    }
+  // bubble + capture en document: cualquier tap fuera cierra
+  document.addEventListener('click', outside, true);
+  document.addEventListener('touchend', outside, true);
+
+  function bindX(){
+    var xc = document.getElementById('fieldAddClose');
+    var xo = document.getElementById('oursAddClose');
+    if (xc) xc.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); closeCompOurs(); });
+    if (xo) xo.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); closeCompOurs(); });
   }
-  bind();
-  window.__purifCloseSheets = closeCompOurs;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindX);
+  else bindX();
 })();
 
 /* ---------- FIELD ADD: Comp (competencia) + Nosotros (nuestras) ---------- */
@@ -2227,12 +2233,17 @@ if (window.ResizeObserver){
     if (kind === 'otra') ok = ok && !!(otraIn && (otraIn.value || '').trim());
     if (btnSaveComp) btnSaveComp.disabled = !ok;
   }
-  function closeComp(){ sheetComp.classList.remove('show'); sheetComp.hidden = true; }
+  function closeComp(){
+    sheetComp.classList.remove('show');
+    sheetComp.hidden = true;
+    sheetComp.style.display = 'none';
+  }
   function openComp(){
     const g = geoOk();
     if (!g) { alert('Primero toca Ubicarme y espera a que te localice.'); return; }
     if (sheetOurs) { sheetOurs.classList.remove('show'); sheetOurs.hidden = true; }
     sheetComp.hidden = false;
+    sheetComp.style.display = 'block';
     sheetComp.classList.add('show');
     if (coordsEl) coordsEl.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5);
     validateComp();
@@ -2304,12 +2315,18 @@ if (window.ResizeObserver){
     const ok = !!g && !!(oursName && (oursName.value || '').trim());
     if (btnSaveOurs) btnSaveOurs.disabled = !ok;
   }
-  function closeOurs(){ if (!sheetOurs) return; sheetOurs.classList.remove('show'); sheetOurs.hidden = true; }
+  function closeOurs(){
+    if (!sheetOurs) return;
+    sheetOurs.classList.remove('show');
+    sheetOurs.hidden = true;
+    sheetOurs.style.display = 'none';
+  }
   function openOurs(){
     const g = geoOk();
     if (!g) { alert('Primero toca Ubicarme y espera a que te localice.'); return; }
     closeComp();
     sheetOurs.hidden = false;
+    sheetOurs.style.display = 'block';
     sheetOurs.classList.add('show');
     if (oursCoords) oursCoords.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5);
     validateOurs();
