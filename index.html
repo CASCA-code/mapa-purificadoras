@@ -204,28 +204,39 @@ table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:va
 #bottomDock{
   display:none; position:absolute; z-index:1260;
   left:50%; transform:translateX(-50%);
-  bottom:calc(28px + env(safe-area-inset-bottom, 0px));
-  gap:8px; align-items:center;
+  bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+  flex-direction:column; gap:8px; align-items:center;
 }
+#bottomDock .dockRow{ display:flex; gap:8px; align-items:center; justify-content:center; }
+#btnAddComp, #btnAddOurs{
+  display:none; align-items:center; gap:6px;
+  padding:12px 16px; border-radius:999px; border:1px solid var(--hair);
+  font:700 14px/1 IBM Plex Sans,system-ui,sans-serif;
+  box-shadow:var(--shadow); cursor:pointer;
+}
+#btnAddComp.ready, #btnAddOurs.ready{ display:flex; }
+#btnAddComp{ background:#0f766e; color:#fff; }
+#btnAddOurs{ background:#7c3aed; color:#fff; }
+
 @media (max-width:760px){
   #bottomDock{ display:flex }
   #bottomDock.sheet-open-hide{ opacity:0; pointer-events:none }
 }
-#btnColoniasFab, #bottomDock #btnUbicarme{
+#btnColoniasRail, #bottomDock #btnUbicarme{
   position:static; left:auto; bottom:auto; transform:none;
   display:flex; align-items:center; gap:8px;
   padding:12px 18px; border-radius:999px; border:1px solid var(--hair);
   font:700 14px/1 IBM Plex Sans,system-ui,sans-serif;
   box-shadow:var(--shadow); cursor:pointer;
 }
-#btnColoniasFab{
+#btnColoniasRail{
   background:var(--accent); color:#fff;
 }
 #bottomDock #btnUbicarme{
   background:var(--surface); color:var(--ink);
 }
 #bottomDock #btnUbicarme.on{ background:#2563eb; color:#fff; border-color:#1d4ed8 }
-#btnColoniasFab.sheet-open-hide{ /* unused when dock hides */ }
+#btnColoniasRail.sheet-open-hide{ /* unused when dock hides */ }
 
 
 @media (min-width:761px){
@@ -425,20 +436,6 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 
 
-#bottomDock #btnAddHere, #btnAddHere{
-  display:flex; align-items:center; gap:6px;
-  padding:12px 16px; border-radius:999px; border:1px solid var(--hair);
-  background:#0f766e; color:#fff; font:700 14px/1 IBM Plex Sans,system-ui,sans-serif;
-  box-shadow:var(--shadow); cursor:pointer;
-}
-#bottomDock #btnAddHere{ position:static; }
-#btnAddHere:disabled{ opacity:.45; cursor:not-allowed }
-@media (min-width:761px){
-  #btnAddHere{
-    position:absolute; z-index:1200; left:132px; bottom:18px;
-    padding:10px 14px; font-size:13px;
-  }
-}
 #fieldAddSheet{
   display:none; position:absolute; z-index:1600;
   left:10px; right:10px; bottom:calc(72px + env(safe-area-inset-bottom, 0px));
@@ -466,15 +463,35 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 }
 #fieldAddSheet .btnCancel{ background:#f3eee6; color:var(--ink) }
 #fieldAddSheet .btnSave{ background:#0f766e; color:#fff; width:100% }
+#oursAddSheet{
+  display:none; position:absolute; z-index:1600;
+  left:10px; right:10px; bottom:calc(72px + env(safe-area-inset-bottom, 0px));
+  max-width:420px; margin:0 auto;
+  background:var(--surface); border:1px solid var(--hair); border-radius:16px;
+  box-shadow:0 12px 32px rgba(43,38,32,.28); padding:14px 14px 16px;
+}
+#oursAddSheet.show{ display:block }
+#oursAddSheet h2{ margin:0 0 8px; font:700 16px/1.2 Fraunces,Georgia,serif; color:#111 }
+#oursAddSheet .hint{ color:#3f3a34; font-size:12px; margin:0 0 10px }
+#oursAddSheet label{ display:block; font:600 11px/1.2 IBM Plex Sans,system-ui,sans-serif; color:#1c1916; margin:8px 0 4px }
+#oursAddSheet input, #oursAddSheet textarea{
+  width:100%; box-sizing:border-box; border:1px solid var(--hair); border-radius:10px;
+  padding:10px 12px; font:14px/1.3 IBM Plex Sans,system-ui,sans-serif; background:#fff; color:#111;
+}
+#oursAddSheet .row{ display:block; margin-top:12px }
+#oursAddSheet .btnSave{ width:100%; border:none; border-radius:12px; padding:12px; font:700 14px/1 IBM Plex Sans,system-ui,sans-serif; cursor:pointer; background:#7c3aed; color:#fff }
+#oursAddSheet .btnSave:disabled{ opacity:.45; cursor:not-allowed }
+
 #fieldAddSheet .row{ display:block }
 #fieldAddSheet .btnSave:disabled{ opacity:.45; cursor:not-allowed }
 #fieldAddOtraWrap, #fieldAddPuriWrap{ display:none }
-.field-add-pin{ width:14px; height:14px; border-radius:50%; border:2px solid #fff; background:#0f766e; box-shadow:0 1px 5px rgba(0,0,0,.35) }
+.field-add-pin{ width:18px; height:18px; border-radius:50%; border:3px solid #fff; background:#0f766e; box-shadow:0 2px 8px rgba(0,0,0,.45) }
+.field-ours-pin{ width:18px; height:18px; border-radius:50%; border:3px solid #fff; background:#7c3aed; box-shadow:0 2px 8px rgba(0,0,0,.45) }
 
 </style>
 </head>
 <body>
-<!-- field-add-v6-map -->
+<!-- field-add-v7-comp-ours -->
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet-heat.js"></script>
 
@@ -482,17 +499,21 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
  <div id="stage">
   <div id="map"></div>
 <div id="bottomDock" role="toolbar" aria-label="Acciones">
-<button type="button" id="btnColoniasFab" aria-controls="sidebar" title="Ver lista de colonias">Colonias</button>
+<div class="dockRow">
 <button type="button" id="btnUbicarme" aria-pressed="false" title="Seguir mi ubicación (GPS del teléfono)">
   <span class="dot" aria-hidden="true"></span><span id="btnUbicarmeLabel">Ubicarme</span>
 </button>
-<button type="button" id="btnAddHere" disabled title="Añadir pin aquí (v4, sin GitHub)">＋ Añadir</button>
+</div>
+<div class="dockRow">
+<button type="button" id="btnAddComp" class="ready" title="Añadir competencia en tu GPS" style="display:none">Comp</button>
+<button type="button" id="btnAddOurs" title="Añadir máquina nuestra en tu GPS" style="display:none">Nosotros</button>
+</div>
 </div>
 <div id="geoPanel" role="status" aria-live="polite"></div>
 
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
-  <h2 id="fieldAddTitle">Añadir aquí</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v6 · solo pin · no GitHub</p>
+  <h2 id="fieldAddTitle">Añadir competencia</h2>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v7 · Comp · pin en mapa</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -516,6 +537,21 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <button type="button" class="btnSave" id="fieldAddSave" disabled>Guardar</button>
   </div>
 </div>
+
+<div id="oursAddSheet" role="dialog" aria-modal="true" aria-labelledby="oursAddTitle" hidden>
+  <h2 id="oursAddTitle">Máquina nuestra</h2>
+  <p class="hint" id="oursAddCoords">Activa Ubicarme para usar tu GPS.</p>
+  <label for="oursName">Nombre</label>
+  <input id="oursName" type="text" placeholder="ej. Estación Ana" autocomplete="name"/>
+  <label for="oursPhone">Teléfono</label>
+  <input id="oursPhone" type="tel" inputmode="tel" placeholder="81…" autocomplete="tel"/>
+  <label for="oursDesc">Descripción</label>
+  <textarea id="oursDesc" rows="3" placeholder="Notas cortas: horario, anfitrión, etc."></textarea>
+  <div class="row">
+    <button type="button" class="btnSave" id="oursAddSave" disabled>Guardar</button>
+  </div>
+</div>
+
 <div id="coloniaCard" hidden>
   <button type="button" id="coloniaCardClose" aria-label="Cerrar">×</button>
   <div id="coloniaCardBody"></div>
@@ -529,6 +565,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
    <button class="railbtn" data-panel="base" title="Mapa base" aria-label="Mapa base">▦<small>base</small></button>
    <button class="railbtn" data-panel="leyenda" title="Score de sitio (leyenda)" aria-label="Score de sitio">▤<small>score</small></button>
    <button class="railbtn" data-panel="ruta" title="Armar ruta de campo" aria-label="Ruta de campo">⇢<small>ruta</small></button>
+   <button type="button" class="railbtn colonias" id="btnColoniasRail" title="Lista de colonias" aria-label="Colonias" aria-controls="sidebar">☰<small>col.</small></button>
   </div>
 
   <div id="panelHost" hidden>
@@ -961,7 +998,7 @@ function hideDetail(){
 }
 function openColoniasSheet(){
   const side = document.getElementById("sidebar");
-  const fab = document.getElementById("btnColoniasFab");
+  const fab = document.getElementById("btnColoniasRail");
   if (side) side.classList.add("sheet-open");
   if (fab) fab.classList.add("sheet-open-hide");
   const handle = document.getElementById("sheetHandle");
@@ -1819,7 +1856,7 @@ function updateRetailParentUI(){
 })();
 
 
-/* mobile sheet handled by btnColoniasFab iife */
+/* mobile sheet handled by btnColoniasRail iife */
 
 (function(){
   const btn = document.getElementById('coloniaCardClose');
@@ -1837,7 +1874,7 @@ function updateRetailParentUI(){
 
 
 (function(){
-  const fab = document.getElementById('btnColoniasFab');
+  const fab = document.getElementById('btnColoniasRail');
   const dock = document.getElementById('bottomDock');
   const side = document.getElementById('sidebar');
   const handle = document.getElementById('sheetHandle');
@@ -1900,13 +1937,17 @@ if (window.ResizeObserver){
 </script>
 <script>
 
-/* ---------- FIELD ADD: GPS pin local + silent sync (no GitHub UI) ---------- */
+/* ---------- FIELD ADD: Comp (competencia) + Nosotros (nuestras) ---------- */
 (function(){
-  const LS_KEY = 'purificadoras_field_adds_v1';
+  const LS_COMP = 'purificadoras_field_adds_v1';
+  const LS_OURS = 'purificadoras_ours_v1';
   const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
-  const btn = document.getElementById('btnAddHere');
-  const sheet = document.getElementById('fieldAddSheet');
-  if (!btn || !sheet) return;
+  const btnComp = document.getElementById('btnAddComp');
+  const btnOurs = document.getElementById('btnAddOurs');
+  const sheetComp = document.getElementById('fieldAddSheet');
+  const sheetOurs = document.getElementById('oursAddSheet');
+  if (!btnComp || !sheetComp) return;
+
   function getMap(){ return window.map || null; }
 
   const coordsEl = document.getElementById('fieldAddCoords');
@@ -1917,216 +1958,207 @@ if (window.ResizeObserver){
   const priceGarrafon = document.getElementById('fieldAddPriceGarrafon');
   const priceMedio = document.getElementById('fieldAddPriceMedio');
   const priceGalon = document.getElementById('fieldAddPriceGalon');
-  const btnSave = document.getElementById('fieldAddSave');
-  const opts = Array.prototype.slice.call(sheet.querySelectorAll('.opt'));
+  const btnSaveComp = document.getElementById('fieldAddSave');
+  const opts = Array.prototype.slice.call(sheetComp.querySelectorAll('.opt'));
+
+  const oursCoords = document.getElementById('oursAddCoords');
+  const oursName = document.getElementById('oursName');
+  const oursPhone = document.getElementById('oursPhone');
+  const oursDesc = document.getElementById('oursDesc');
+  const btnSaveOurs = document.getElementById('oursAddSave');
 
   let kind = null;
-  const layer = L.layerGroup();
-  function ensureLayer(){ const m=getMap(); if(m && !m.hasLayer(layer)) layer.addTo(m); return m; }
-  ensureLayer();
-  const markersById = Object.create(null);
-  const pinIcon = L.divIcon({
-    className: '', iconSize: [14, 14], iconAnchor: [7, 7],
-    html: '<div class="field-add-pin"></div>'
-  });
+  const layerComp = L.layerGroup();
+  const layerOurs = L.layerGroup();
+  const markersComp = Object.create(null);
+  const markersOurs = Object.create(null);
 
-  function loadLocal(){
-    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+  function ensureLayers(){
+    const m = getMap();
+    if (!m) return null;
+    if (!m.hasLayer(layerComp)) layerComp.addTo(m);
+    if (!m.hasLayer(layerOurs)) layerOurs.addTo(m);
+    return m;
+  }
+
+  function loadLS(key){
+    try { return JSON.parse(localStorage.getItem(key) || '[]'); }
     catch (e) { return []; }
   }
-  function saveLocal(arr){ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+  function saveLS(key, arr){ localStorage.setItem(key, JSON.stringify(arr)); }
+
   function geoOk(){
     const g = window.__purifGeo;
     if (!g || g.lat == null || g.lon == null) return null;
     return g;
   }
-  function syncBtn(){
-    // nunca dejar el botón muerto: si no hay GPS, el click pide ubicación
-    btn.disabled = false;
-    const g = geoOk();
-    if (g && coordsEl && sheet.classList.contains('show')) {
-      const age = Math.round((Date.now() - (g.ts || Date.now())) / 1000);
-      coordsEl.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5) +
-        (g.accuracy != null ? (' · ±' + Math.round(g.accuracy) + ' m') : '') +
-        (age > 120 ? (' · hace ' + age + 's') : '');
-    }
+
+  function setAddButtonsVisible(on){
+    [btnComp, btnOurs].forEach(function(b){
+      if (!b) return;
+      if (on) {
+        b.classList.add('ready');
+        b.style.display = 'flex';
+      } else {
+        b.classList.remove('ready');
+        b.style.display = 'none';
+      }
+    });
   }
+
+  function syncGeoUi(){
+    const g = geoOk();
+    setAddButtonsVisible(!!g);
+    if (!g) return;
+    const txt = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5) +
+      (g.accuracy != null ? (' · ±' + Math.round(g.accuracy) + ' m') : '');
+    if (coordsEl && sheetComp.classList.contains('show')) coordsEl.textContent = txt;
+    if (oursCoords && sheetOurs && sheetOurs.classList.contains('show')) oursCoords.textContent = txt;
+  }
+
   function silentSync(payload){
     const body = JSON.stringify(payload);
     const url = 'https://ntfy.sh/' + NTFY_TOPIC;
-    try {
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
-      }
-    } catch (e) {}
+    try { if (navigator.sendBeacon) navigator.sendBeacon(url, new Blob([body], { type: 'application/json' })); } catch (e) {}
     try {
       fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Title': payload.action === 'delete' ? 'field-del' : 'field-add',
-          'Tags': 'round_pushpin'
-        },
-        body: body,
-        mode: 'cors',
-        keepalive: true
+        headers: { 'Content-Type': 'application/json', 'Title': payload.action || 'field', 'Tags': 'round_pushpin' },
+        body: body, mode: 'cors', keepalive: true
       }).catch(function(){});
     } catch (e) {}
   }
-  function removeById(id){
-    if (!id) return;
-    const arr = loadLocal().filter(function(f){
-      return !(f.properties && f.properties.id === id);
-    });
-    saveLocal(arr);
-    if (markersById[id]) {
-      layer.removeLayer(markersById[id]);
-      delete markersById[id];
-    }
-    silentSync({ action: 'delete', id: id, ts: new Date().toISOString() });
-  }
-  function featureToMarker(f){
-    const p = f.properties || {};
-    const c = f.geometry && f.geometry.coordinates;
-    if (!c) return;
-    const id = p.id || (String(c[1]) + ',' + String(c[0]));
-    if (markersById[id]) {
-      layer.removeLayer(markersById[id]);
-      delete markersById[id];
-    }
-    const m = L.marker([c[1], c[0]], { icon: pinIcon, zIndexOffset: 1500 });
-    const title = p.name || p.nota_raw || 'Hallazgo';
-    const prices = [];
-    if (p.precio_garrafon_mxn != null) prices.push('garrafón $' + p.precio_garrafon_mxn);
-    if (p.precio_medio_garrafon_mxn != null) prices.push('medio $' + p.precio_medio_garrafon_mxn);
-    if (p.precio_galon_mxn != null) prices.push('galón $' + p.precio_galon_mxn);
-    if (!prices.length && p.precio_recarga_mxn != null) prices.push('recarga $' + p.precio_recarga_mxn);
 
-    const pop = document.createElement('div');
-    const b = document.createElement('b');
-    b.textContent = title;
-    pop.appendChild(b);
-    if (prices.length) {
-      const d = document.createElement('div');
-      d.style.cssText = 'margin:4px 0;font-size:12px';
-      d.textContent = prices.join(' · ');
-      pop.appendChild(d);
-    }
-    const meta = document.createElement('div');
-    meta.style.cssText = 'margin:6px 0 0;font-size:11px;opacity:.7';
-    meta.textContent = 'campo';
-    pop.appendChild(meta);
-    const rm = document.createElement('button');
-    rm.type = 'button';
-    rm.textContent = 'Quitar';
-    rm.style.cssText = 'margin-top:8px;width:100%;padding:8px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font:700 13px system-ui;cursor:pointer';
-    rm.addEventListener('click', function(ev){
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (confirm('¿Quitar este punto del mapa?')) {
-        removeById(id);
-        try { var _m=getMap(); if(_m) _m.closePopup(); } catch (e) {}
-      }
-    });
-    pop.appendChild(rm);
-    m.bindPopup(pop);
-    ensureLayer(); m.addTo(layer);
-    markersById[id] = m;
-  }
-  function refreshMarkers(list){
-    layer.clearLayers();
-    Object.keys(markersById).forEach(function(k){ delete markersById[k]; });
-    (list || []).forEach(featureToMarker);
-  }
-  function setKind(k){
-    kind = k;
-    opts.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-kind') === k); });
-    if (otraWrap) otraWrap.style.display = k === 'otra' ? 'block' : 'none';
-    if (puriWrap) puriWrap.style.display = k === 'purificadora' ? 'block' : 'none';
-    validate();
-  }
-  function validate(){
-    const g = geoOk();
-    let ok = !!g && !!kind;
-    if (kind === 'otra') ok = ok && !!(otraIn && (otraIn.value || '').trim());
-    if (btnSave) btnSave.disabled = !ok;
-  }
-  function ensureGeo(cb){
-    const g = geoOk();
-    if (g) { cb(g); return; }
-    if (!navigator.geolocation) {
-      alert('Activa Ubicarme / GPS primero.');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(function(pos){
-      window.__purifGeo = {
-        lat: pos.coords.latitude,
-        lon: pos.coords.longitude,
-        accuracy: pos.coords.accuracy,
-        ts: Date.now()
-      };
-      cb(window.__purifGeo);
-    }, function(){
-      alert('No hay GPS. Toca Ubicarme, acepta ubicación, y reintenta ＋ Añadir.');
-    }, { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 });
-  }
-  function openSheet(){
-    ensureGeo(function(g){
-      sheet.hidden = false;
-      sheet.classList.add('show');
-      if (coordsEl) {
-        coordsEl.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5) +
-          (g.accuracy != null ? (' · ±' + Math.round(g.accuracy) + ' m') : '');
-      }
-      validate();
-    });
-  }
-  function closeSheet(){
-    sheet.classList.remove('show');
-    sheet.hidden = true;
-  }
-  function uuid(){
-    return 'fa_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  function uuid(prefix){
+    return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
   }
   function numOrNull(el){
     if (!el || el.value === '') return null;
     const n = Number(el.value);
     return isFinite(n) ? n : null;
   }
-  function buildFeature(g){
+
+  function makePopup(title, lines, onRemove){
+    const pop = document.createElement('div');
+    const b = document.createElement('b');
+    b.textContent = title;
+    pop.appendChild(b);
+    (lines || []).forEach(function(t){
+      if (!t) return;
+      const d = document.createElement('div');
+      d.style.cssText = 'margin:4px 0;font-size:12px;color:#1c1916';
+      d.textContent = t;
+      pop.appendChild(d);
+    });
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.textContent = 'Quitar';
+    rm.style.cssText = 'margin-top:8px;width:100%;padding:8px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font:700 13px system-ui;cursor:pointer';
+    rm.addEventListener('click', function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      if (confirm('¿Quitar este punto del mapa?')) onRemove();
+    });
+    pop.appendChild(rm);
+    return pop;
+  }
+
+  function addVisibleMarker(latlng, color, popupEl, store, id, layer){
+    ensureLayers();
+    if (store[id]) {
+      layer.removeLayer(store[id]);
+      delete store[id];
+    }
+    const group = L.layerGroup();
+    const circle = L.circleMarker(latlng, {
+      radius: 10, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.95
+    });
+    circle.bindPopup(popupEl);
+    circle.addTo(group);
+    group.addTo(layer);
+    store[id] = group;
+    const m = getMap();
+    if (m) {
+      m.panTo(latlng, { animate: true });
+      setTimeout(function(){ try { circle.openPopup(); } catch (e) {} }, 200);
+    }
+    return circle;
+  }
+
+  // ----- Competencia -----
+  function setKind(k){
+    kind = k;
+    opts.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-kind') === k); });
+    if (otraWrap) otraWrap.style.display = k === 'otra' ? 'block' : 'none';
+    if (puriWrap) puriWrap.style.display = k === 'purificadora' ? 'block' : 'none';
+    validateComp();
+  }
+  function validateComp(){
+    const g = geoOk();
+    let ok = !!g && !!kind;
+    if (kind === 'otra') ok = ok && !!(otraIn && (otraIn.value || '').trim());
+    if (btnSaveComp) btnSaveComp.disabled = !ok;
+  }
+  function closeComp(){ sheetComp.classList.remove('show'); sheetComp.hidden = true; }
+  function openComp(){
+    const g = geoOk();
+    if (!g) { alert('Primero toca Ubicarme y espera a que te localice.'); return; }
+    if (sheetOurs) { sheetOurs.classList.remove('show'); sheetOurs.hidden = true; }
+    sheetComp.hidden = false;
+    sheetComp.classList.add('show');
+    if (coordsEl) coordsEl.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5);
+    validateComp();
+  }
+  function featureComp(g){
     const raw = (otraIn && otraIn.value || '').trim();
     const name = kind === 'otra' ? raw : ((nameIn && nameIn.value) || '').trim();
-    const pg = kind === 'purificadora' ? numOrNull(priceGarrafon) : null;
-    const pm = kind === 'purificadora' ? numOrNull(priceMedio) : null;
-    const pgal = kind === 'purificadora' ? numOrNull(priceGalon) : null;
     return {
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [g.lon, g.lat] },
       properties: {
-        id: uuid(),
+        id: uuid('fa'),
         kind: kind === 'purificadora' ? 'purificadora' : 'otra',
-        name: name,
+        name: name || (kind === 'purificadora' ? 'Purificadora' : 'Competencia'),
         nota_raw: kind === 'otra' ? raw : '',
-        precio_garrafon_mxn: pg,
-        precio_medio_garrafon_mxn: pm,
-        precio_galon_mxn: pgal,
-        precio_recarga_mxn: pg,
+        precio_garrafon_mxn: kind === 'purificadora' ? numOrNull(priceGarrafon) : null,
+        precio_medio_garrafon_mxn: kind === 'purificadora' ? numOrNull(priceMedio) : null,
+        precio_galon_mxn: kind === 'purificadora' ? numOrNull(priceGalon) : null,
+        precio_recarga_mxn: kind === 'purificadora' ? numOrNull(priceGarrafon) : null,
         accuracy_m: g.accuracy != null ? Math.round(g.accuracy) : null,
-        ts: new Date(g.ts || Date.now()).toISOString(),
+        ts: new Date().toISOString(),
         fuente: 'campo',
-        status: 'inbox'
+        status: 'inbox',
+        layer: 'competencia'
       }
     };
   }
-  function onSave(){
+  function markerFromComp(f){
+    const p = f.properties || {};
+    const c = f.geometry.coordinates;
+    const id = p.id;
+    const lines = [];
+    if (p.precio_garrafon_mxn != null) lines.push('Garrafón $' + p.precio_garrafon_mxn);
+    if (p.precio_medio_garrafon_mxn != null) lines.push('Medio $' + p.precio_medio_garrafon_mxn);
+    if (p.precio_galon_mxn != null) lines.push('Galón $' + p.precio_galon_mxn);
+    if (p.nota_raw) lines.push(p.nota_raw);
+    lines.push('Competencia');
+    const pop = makePopup(p.name || 'Competencia', lines, function(){
+      const arr = loadLS(LS_COMP).filter(function(x){ return (x.properties || {}).id !== id; });
+      saveLS(LS_COMP, arr);
+      if (markersComp[id]) { layerComp.removeLayer(markersComp[id]); delete markersComp[id]; }
+      silentSync({ action: 'delete', id: id });
+      const m = getMap(); if (m) m.closePopup();
+    });
+    addVisibleMarker([c[1], c[0]], '#0f766e', pop, markersComp, id, layerComp);
+  }
+  function saveComp(){
     const g = geoOk();
     if (!g || !kind) return;
     if (kind === 'otra' && !(otraIn && (otraIn.value || '').trim())) return;
-    const feat = buildFeature(g);
-    const arr = loadLocal();
+    const feat = featureComp(g);
+    const arr = loadLS(LS_COMP);
     arr.push(feat);
-    saveLocal(arr);
-    featureToMarker(feat);
+    saveLS(LS_COMP, arr);
+    markerFromComp(feat);
     silentSync({ action: 'upsert', feature: feat });
     if (otraIn) otraIn.value = '';
     if (nameIn) nameIn.value = '';
@@ -2137,61 +2169,114 @@ if (window.ResizeObserver){
     opts.forEach(function(b){ b.classList.remove('on'); });
     if (otraWrap) otraWrap.style.display = 'none';
     if (puriWrap) puriWrap.style.display = 'none';
-    closeSheet();
+    closeComp();
   }
 
-  opts.forEach(function(b){
-    b.addEventListener('click', function(e){
-      e.preventDefault();
-      e.stopPropagation();
-      setKind(b.getAttribute('data-kind'));
+  // ----- Nosotros -----
+  function validateOurs(){
+    const g = geoOk();
+    const ok = !!g && !!(oursName && (oursName.value || '').trim());
+    if (btnSaveOurs) btnSaveOurs.disabled = !ok;
+  }
+  function closeOurs(){ if (!sheetOurs) return; sheetOurs.classList.remove('show'); sheetOurs.hidden = true; }
+  function openOurs(){
+    const g = geoOk();
+    if (!g) { alert('Primero toca Ubicarme y espera a que te localice.'); return; }
+    closeComp();
+    sheetOurs.hidden = false;
+    sheetOurs.classList.add('show');
+    if (oursCoords) oursCoords.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5);
+    validateOurs();
+  }
+  function featureOurs(g){
+    return {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [g.lon, g.lat] },
+      properties: {
+        id: uuid('ours'),
+        kind: 'nuestra',
+        name: (oursName.value || '').trim(),
+        telefono: (oursPhone && oursPhone.value || '').trim(),
+        descripcion: (oursDesc && oursDesc.value || '').trim(),
+        accuracy_m: g.accuracy != null ? Math.round(g.accuracy) : null,
+        ts: new Date().toISOString(),
+        fuente: 'campo',
+        status: 'inbox',
+        layer: 'nosotros'
+      }
+    };
+  }
+  function markerFromOurs(f){
+    const p = f.properties || {};
+    const c = f.geometry.coordinates;
+    const id = p.id;
+    const lines = [];
+    if (p.telefono) lines.push('Tel: ' + p.telefono);
+    if (p.descripcion) lines.push(p.descripcion);
+    lines.push('Nuestra');
+    const pop = makePopup(p.name || 'Nuestra', lines, function(){
+      const arr = loadLS(LS_OURS).filter(function(x){ return (x.properties || {}).id !== id; });
+      saveLS(LS_OURS, arr);
+      if (markersOurs[id]) { layerOurs.removeLayer(markersOurs[id]); delete markersOurs[id]; }
+      silentSync({ action: 'delete', id: id, layer: 'nosotros' });
+      const m = getMap(); if (m) m.closePopup();
     });
+    addVisibleMarker([c[1], c[0]], '#7c3aed', pop, markersOurs, id, layerOurs);
+  }
+  function saveOurs(){
+    const g = geoOk();
+    if (!g || !(oursName && (oursName.value || '').trim())) return;
+    const feat = featureOurs(g);
+    const arr = loadLS(LS_OURS);
+    arr.push(feat);
+    saveLS(LS_OURS, arr);
+    markerFromOurs(feat);
+    silentSync({ action: 'upsert', feature: feat });
+    oursName.value = '';
+    if (oursPhone) oursPhone.value = '';
+    if (oursDesc) oursDesc.value = '';
+    closeOurs();
+  }
+
+  // events
+  opts.forEach(function(b){
+    b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setKind(b.getAttribute('data-kind')); });
   });
   [otraIn, nameIn, priceGarrafon, priceMedio, priceGalon].forEach(function(el){
-    if (el) el.addEventListener('input', validate);
+    if (el) el.addEventListener('input', validateComp);
   });
-  btn.addEventListener('click', function(e){
-    e.preventDefault();
-    e.stopPropagation();
-    openSheet();
+  [oursName, oursPhone, oursDesc].forEach(function(el){
+    if (el) el.addEventListener('input', validateOurs);
   });
-  if (btnSave) btnSave.addEventListener('click', function(e){
-    e.preventDefault();
-    e.stopPropagation();
-    onSave();
-  });
-  sheet.addEventListener('click', function(e){ e.stopPropagation(); });
-  // cerrar solo con click en el mapa (no document capture — rompía el sheet)
+
+  btnComp.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); openComp(); });
+  if (btnOurs) btnOurs.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); openOurs(); });
+  if (btnSaveComp) btnSaveComp.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); saveComp(); });
+  if (btnSaveOurs) btnSaveOurs.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); saveOurs(); });
+  sheetComp.addEventListener('click', function(e){ e.stopPropagation(); });
+  if (sheetOurs) sheetOurs.addEventListener('click', function(e){ e.stopPropagation(); });
+
   (function bindMapClose(){
     const m = getMap();
     if (m && m.on) {
       m.on('click', function(){
-        if (sheet.classList.contains('show')) closeSheet();
+        if (sheetComp.classList.contains('show')) closeComp();
+        if (sheetOurs && sheetOurs.classList.contains('show')) closeOurs();
       });
-    } else {
-      setTimeout(bindMapClose, 200);
-    }
+      ensureLayers();
+    } else setTimeout(bindMapClose, 200);
   })();
-  window.addEventListener('purif-geo', syncBtn);
-  setInterval(syncBtn, 3000);
-  syncBtn();
 
-  refreshMarkers(loadLocal());
-  fetch('data/field_adds.geojson?v=5', { cache: 'no-store' })
-    .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(fc){
-      if (!fc || !fc.features) return;
-      const local = loadLocal();
-      const ids = {};
-      local.forEach(function(f){ if (f.properties && f.properties.id) ids[f.properties.id] = 1; });
-      fc.features.forEach(function(f){
-        const id = f.properties && f.properties.id;
-        if (id && ids[id]) return;
-        featureToMarker(f);
-      });
-    })
-    .catch(function(){});
+  window.addEventListener('purif-geo', syncGeoUi);
+  setInterval(syncGeoUi, 2000);
+  setAddButtonsVisible(false);
+  syncGeoUi();
+
+  // restore local pins
+  loadLS(LS_COMP).forEach(function(f){ try { markerFromComp(f); } catch (e) {} });
+  loadLS(LS_OURS).forEach(function(f){ try { markerFromOurs(f); } catch (e) {} });
 })();
+
 
 
 
