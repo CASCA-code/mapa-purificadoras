@@ -90,6 +90,26 @@
         "maps": "https://maps.app.goo.gl/SNDcy22SRPfGJ1jC7?g_st=ic",
         "status": "liked"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.331291,
+          25.726089
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-14_taller_esquinita",
+        "name": "Avenida General Bernardo Reyes",
+        "colonia": "Monterrey",
+        "nota": "TALLER EN LA ESQUINITA\nTel: 81 1060 2066",
+        "telefono": "81 1060 2066",
+        "descripcion": "TALLER EN LA ESQUINITA",
+        "maps": "https://maps.google.com/?q=25.726089,-100.331291",
+        "status": "liked"
+      }
     }
   ]
 }
