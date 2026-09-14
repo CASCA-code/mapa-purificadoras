@@ -472,7 +472,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   display:none;
   position:fixed;
   inset:0;
-  z-index:1750;
+  z-index:1700;
   background:rgba(0,0,0,0.15);
   pointer-events:auto;
   -webkit-tap-highlight-color:transparent;
@@ -486,7 +486,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   background:var(--surface); border:1px solid var(--hair); border-radius:16px;
   box-shadow:0 12px 32px rgba(43,38,32,.28); padding:14px 14px 16px;
 }
-#fieldAddSheet.show{ display:block !important }
+#fieldAddSheet.show{ display:block !important; pointer-events:auto !important; z-index:1900 !important; }
 #fieldAddSheet h2{ margin:0 0 8px; font:700 16px/1.2 Fraunces,Georgia,serif; color:#111 }
 #fieldAddSheet .hint{ color:#3f3a34; font-size:12px; margin:0 0 10px }
 #fieldAddSheet .opts{ display:flex; flex-direction:column; gap:8px; margin:0 0 10px }
@@ -513,7 +513,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   background:var(--surface); border:1px solid var(--hair); border-radius:16px;
   box-shadow:0 12px 32px rgba(43,38,32,.28); padding:14px 14px 16px;
 }
-#oursAddSheet.show{ display:block !important }
+#oursAddSheet.show{ display:block !important; pointer-events:auto !important; z-index:1900 !important; }
 #oursAddSheet h2{ margin:0 0 8px; font:700 16px/1.2 Fraunces,Georgia,serif; color:#111 }
 #oursAddSheet .hint{ color:#3f3a34; font-size:12px; margin:0 0 10px }
 #oursAddSheet label{ display:block; font:600 11px/1.2 IBM Plex Sans,system-ui,sans-serif; color:#1c1916; margin:8px 0 4px }
@@ -535,7 +535,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   box-shadow:0 -12px 40px rgba(43,38,32,.35); padding:14px 14px calc(16px + env(safe-area-inset-bottom, 0px));
   overflow:auto; box-sizing:border-box;
 }
-#anchorAddSheet.show{ display:block !important }
+#anchorAddSheet.show{ display:block !important; pointer-events:auto !important; z-index:1910 !important; }
 #anchorAddSheet h2{ margin:0 0 8px; font:700 16px/1.2 Fraunces,Georgia,serif; color:#111 }
 #anchorAddSheet .hint{ color:#3f3a34; font-size:12px; margin:0 0 10px }
 #anchorAddSheet .tiles{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 12px }
@@ -580,6 +580,21 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 .leaflet-popup.field-pop .leaflet-popup-content{ margin:12px 14px; color:#fff; }
 
 
+
+#fieldAddSheet input, #fieldAddSheet textarea,
+#oursAddSheet input, #oursAddSheet textarea,
+#anchorAddSheet input, #anchorAddSheet textarea{
+  pointer-events:auto !important;
+  -webkit-user-select:text !important;
+  user-select:text !important;
+  touch-action:manipulation;
+  font-size:16px; /* evita zoom-iOS que a veces rompe el focus */
+}
+#fieldAddSheet, #oursAddSheet, #anchorAddSheet{
+  pointer-events:auto !important;
+  -webkit-overflow-scrolling:touch;
+}
+
 </style>
 </head>
 <body>
@@ -608,7 +623,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Competencia agua</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v26 · hojas no se cierran al tipear</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v27 · inputs tipeables (fix capture)</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div id="fieldAddOtraWrap" hidden>
     <label for="fieldAddOtra">¿Qué hay?</label>
@@ -2302,17 +2317,7 @@ if (window.ResizeObserver){
   }
   bind();
 
-  // Cualquier interacción dentro de las hojas alarga el guard
-  ['fieldAddSheet','oursAddSheet','anchorAddSheet'].forEach(function(id){
-    var el = document.getElementById(id);
-    if (!el) return;
-    ['pointerdown','touchstart','mousedown','click','focusin'].forEach(function(type){
-      el.addEventListener(type, function(e){
-        e.stopPropagation();
-        window.__purifSheetGuardUntil = Date.now() + 800;
-      }, true);
-    });
-  });
+
 
   var xc = document.getElementById('fieldAddClose');
   var xo = document.getElementById('oursAddClose');
@@ -2855,11 +2860,17 @@ if (window.ResizeObserver){
   if (btnSaveComp) btnSaveComp.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); saveComp(); });
   if (btnSaveOurs) btnSaveOurs.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); saveOurs(); });
   if (btnSaveAnchor) btnSaveAnchor.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); saveAnchor(); });
-  function eatSheetEvent(e){ e.stopPropagation(); window.__purifSheetGuardUntil = Date.now() + 800; }
+  // Solo bubble (sin capture) y sin touchstart: si no, iOS no enfoca el input
+  function markSheetGuard(){ window.__purifSheetGuardUntil = Date.now() + 1200; }
   [sheetComp, sheetOurs, sheetPlus].forEach(function(sh){
     if (!sh) return;
-    ['click','pointerdown','touchstart','touchend','mousedown'].forEach(function(type){
-      sh.addEventListener(type, eatSheetEvent);
+    sh.addEventListener('click', function(e){ e.stopPropagation(); markSheetGuard(); });
+    sh.addEventListener('focusin', markSheetGuard);
+    // inputs: no interferir con teclado
+    sh.querySelectorAll('input, textarea, select, button').forEach(function(ctrl){
+      ['touchstart','touchend','pointerdown','mousedown','click'].forEach(function(type){
+        ctrl.addEventListener(type, function(e){ e.stopPropagation(); markSheetGuard(); });
+      });
     });
   });
 
