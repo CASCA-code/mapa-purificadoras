@@ -570,7 +570,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v22 · ruta: modo toque + menú Tops</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v23 · rail anclas; ruta solo marca a mano</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -617,9 +617,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 
   <div id="rail" role="tablist" aria-label="Paneles del mapa">
-   <button class="railbtn" data-panel="acerca" title="Acerca de este mapa" aria-label="Acerca de este mapa">i</button>
-   <button class="railbtn" data-panel="puntuan" title="Capas que puntúan" aria-label="Capas que puntúan">◉<small>punt.</small></button>
-   <button class="railbtn" data-panel="contexto" title="Capas de contexto" aria-label="Capas de contexto">◎<small>ctx</small></button>
+   <button class="railbtn" data-panel="anclas" title="Anclas" aria-label="Anclas">◎<small>anclas</small></button>
    <button class="railbtn" data-panel="base" title="Mapa base" aria-label="Mapa base">▦<small>base</small></button>
    <button class="railbtn" data-panel="leyenda" title="Score de sitio (leyenda)" aria-label="Score de sitio">▤<small>score</small></button>
    <button class="railbtn" data-panel="ruta" title="Armar ruta de campo" aria-label="Ruta de campo">⇢<small>ruta</small></button>
@@ -629,36 +627,17 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   <div id="rutaMini" aria-live="polite">
     <p class="rm-title">Ruta ON</p>
     <p class="rm-sub" id="rutaMiniTxt">Toca el mapa</p>
-    <button type="button" class="primary" id="rutaMiniTops" title="Top 5 / 8 / 9 y lista">Tops ▸</button>
+    <button type="button" class="primary" id="rutaMiniTops" title="Marca a mano">Lista ▸</button>
     <button type="button" id="rutaMiniMaps" disabled>Google Maps</button>
     <button type="button" id="rutaMiniClear">Limpiar</button>
     <button type="button" id="rutaMiniExit">Salir ruta</button>
   </div>
 
   <div id="panelHost" hidden>
-   <div class="mpanel" id="p-acerca" data-for="acerca">
-    <p class="eyebrow">Mapa Version 2 · ranking compuesto · ZMM</p>
-    <h1>Mapa Version 2 — <em>purificadoras</em> ZMM</h1>
-    <p><b>Polígonos</b> — las 167 colonias gated (municipio ZMM8 · marginación <b>Medio</b> o <b>Alto</b> · población ≥ 1,500). Misma geometría CONAPO (IMC 2020) que el artefacto anterior; <b>cambia el ranking</b>.</p>
-    <p>Color = <b>score_100</b> (0–100). Fórmula: <code>Score = 100 * (0.40*Demanda* + 0.25*(1-Comp*) + 0.20*Anclas* + 0.15*(1-Canibal*))</code>. Términos <b>*</b> min-max sobre las mismas colonias. <b>Demanda*</b> usa pob_eff + OVHAC/OVSAE (0.85/0.15). <b>Comp*</b> = DENUE formal + informal (1.0 / 1,000 viv.). <b>Anclas*</b> = OSM ≤250 m del centroide (jardín 1.00 · iglesia 0.85 · hospital 0.70 · uni 0.55 · primaria/sec 0.40 · prepa 0.35 · college 0.30 · otra 0.20). <b>Canibal*</b> = estaciones propias (0 si el CSV está vacío).</p>
-    <p>Viabilidad (no entra al score): precio <b>$12</b> / garrafón · break-even estación <b>13000 MXN/mes</b>. Hover = identificación exacta; el panel derecho muestra Demanda* · Comp* · Anclas* · Canibal* · score_100 · rank.</p>
-    <p class="foot">Version 2 ranking — paralelo al artefacto v1 (no lo reemplaza). Datos: CONAPO IMC 2020 · DENUE/INEGI SCIAN 312112 · anclas OSM · informal proxy 1.0/1000 viv. 0 colonias sin polígono.</p>
-   </div>
-
-   <div class="mpanel" id="p-puntuan" data-for="puntuan">
-    <p class="eyebrow">Capas que puntúan</p>
-    <button class="tbtn on" data-l="colonias" aria-pressed="true"><i aria-hidden="true">▢</i><span>Colonias objetivo (score)</span></button>
-    <button class="tbtn " data-l="comp_rec" aria-pressed="false"><i aria-hidden="true">●</i><span>Competidor: recarga de barrio</span></button>
-    <button class="tbtn " data-l="comp_ind" aria-pressed="false"><i aria-hidden="true">▲</i><span>Competidor: planta / embotellador</span></button>
-    <button class="tbtn on" data-l="estaciones" aria-pressed="true" id="btnEstaciones" style="display:none"><i aria-hidden="true" style="background:#10b981;border-color:#065f46"></i><span>Estaciones propias</span></button>
-    <p class="gap">Comp* = formal DENUE + informal (1.0/1,000 viv.). Recarga pesa ×1; planta / embotellador ×0.15. Anclas* / Canibal* también puntúan (ver Acerca).</p>
-   </div>
-
-   <div class="mpanel" id="p-contexto" data-for="contexto">
-    <p class="eyebrow ctx">Contexto — no puntúa</p>
-    <button class="tbtn ctx" data-l="calor" aria-pressed="false"><i aria-hidden="true">▨</i><span>Concentración de demanda</span></button>
-    <button class="tbtn ctx" data-l="anillos" aria-pressed="false"><i aria-hidden="true">◎</i><span>Anillos al primer cuadro</span></button>
-    <button class="tbtn ctx on" data-l="etiquetas" aria-pressed="true"><i aria-hidden="true">A</i><span>Etiquetas de municipio</span></button>
+   <div class="mpanel" id="p-anclas" data-for="anclas">
+    <p class="eyebrow">Anclas</p>
+    <button class="tbtn ctx " data-l="comp_rec" aria-pressed="false"><i aria-hidden="true">●</i><span>Competencia (recarga)</span></button>
+    <button class="tbtn ctx " data-l="comp_ind" aria-pressed="false"><i aria-hidden="true">▲</i><span>Competencia (planta)</span></button>
     <button class="tbtn ctx " data-l="anclas_iglesia" aria-pressed="false"><i aria-hidden="true" style="background:#2b6cb0;border-color:#2b6cb0;color:#fff;font-size:11px">†</i><span>Iglesias</span></button>
     <button class="tbtn ctx " data-l="anclas_hospital" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:10px;font-weight:700">H</i><span>Hospitales</span></button>
     <div class="esc-wrap">
@@ -703,7 +682,6 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <i aria-hidden="true" style="background:#fbbf24;border-color:#b45309;color:#78350f;font-size:11px;font-weight:700">★</i>
       <span>★ Me gustó (volver)</span>
     </button>
-    <p class="gap">Anclas azules (escuelas/iglesias/hospitales) y <b>retail/bancos</b> entran a <b>Anclas*</b> en Version 2. Retail/bancos + anclas OSM (OSM Overpass) puntúan en Anclas* (≤250 m centroide). Contexto OSM (306 iglesias · 112 hospitales · 1326 escuelas: 176 jardines · 191 primarias · 101 secundarias · 65 prepas · 71 unis · 23 colleges · 699 otras). Hospitales = amenity=hospital (OSM) o nombre de hospital/clínica-hospital real; sin consultorios ni clínicas simples. <b>Escuelas</b>: clic en la fila abre el submenú de subtipos (jardín / primaria / secundaria / prepa / uni / college / otras); el ícono A o Todas/Ninguna controla el maestro. El calor cubre solo las colonias objetivo (no es cobertura total). Los anillos (5/10/15 km desde la Macroplaza) son un proxy del traslado al empleo del primer cuadro; la ZMM es policentrica.</p>
    </div>
 
    <div class="mpanel" id="p-base" data-for="base">
@@ -741,21 +719,12 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <p class="gap">competencia = DENUE formal (SCIAN 312112) + informal proxy 1.0/1000 viv. · POB modelada CONAPO · anclas azules = OSM deduplicado (iglesia✝ · hospital H · escuelas J/P/S/B/U/C/·); en Version 2 Anclas* sí entra al score_100 (capa visual igual) · 0 colonias sin poligono</p>
    </div>
 
-   <div class="mpanel" id="p-ruta" data-for="ruta">
-    <p class="eyebrow">Ruta de campo</p>
-    <p style="margin:0 0 8px;font-size:12.5px;line-height:1.45">Opcional: carga un <b>Top</b> o picks. Lo normal es tocar el mapa con Ruta ON (menú chico). Casa: Violeta 116, Los Colorines, SPGG.</p>
-    <label for="rutaMuni" style="font-size:11px;color:var(--ink-muted)">Municipio</label>
-    <select id="rutaMuni"><option value="">Todos (ZMM estudio)</option></select>
-    <label for="rutaN" style="font-size:11px;color:var(--ink-muted)">Paradas (máx. 9 por link de Maps)</label>
-    <div class="ruta-row" id="rutaNChips" role="group" aria-label="Número de paradas">
-      <button type="button" class="chip" data-n="5">Top 5</button>
-      <button type="button" class="chip on" data-n="8">Top 8</button>
-      <button type="button" class="chip" data-n="9">Top 9</button>
-    </div>
-    <p style="margin:0;font-size:11px;color:var(--ink-muted)">O marca a mano (top 40 del filtro):</p>
+      <div class="mpanel" id="p-ruta" data-for="ruta">
+    <p class="eyebrow">Ruta · marca a mano</p>
+    <p style="margin:0 0 8px;font-size:12.5px;line-height:1.45">Marca colonias de la lista (o toca el mapa con Ruta ON). Casa: Violeta 116, Los Colorines, SPGG.</p>
+    <p style="margin:0;font-size:11px;color:var(--ink-muted)">Marca a mano (top 40):</p>
     <ul id="rutaPickList"></ul>
     <div class="ruta-actions">
-      <button type="button" id="rutaLoadTop" class="primary">Cargar top</button>
       <button type="button" id="rutaAddPinned">+ colonia fijada</button>
       <button type="button" id="rutaClearPick">Limpiar picks</button>
     </div>
@@ -766,8 +735,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     </div>
     <p id="rutaSummary" class="gap" style="margin-top:4px"></p>
     <ol id="rutaStops"></ol>
-   </div>
-  </div>
+   </div></div>
  </div>
 
  <aside id="sidebar">
