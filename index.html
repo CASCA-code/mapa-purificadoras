@@ -538,7 +538,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v19 · ★ zonas me gustó (5)</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v20 · ruta por toques en mapa</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -702,7 +702,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
    <div class="mpanel" id="p-ruta" data-for="ruta">
     <p class="eyebrow">Ruta de campo</p>
-    <p style="margin:0 0 8px;font-size:12.5px;line-height:1.45">Sale y regresa a <b>casa</b>: Violeta 116, Los Colorines, San Pedro. Ordena colonias del ranking (centroides) y abre el circuito en Google Maps.</p>
+    <p style="margin:0 0 8px;font-size:12.5px;line-height:1.45">Sale y regresa a <b>casa</b>: Violeta 116, Los Colorines, San Pedro. Con <b>Ruta</b> abierta: <b>toca el mapa</b> (o una colonia) para ir sumando paradas — se arma sola. También puedes cargar top / picks de la lista.</p>
     <label for="rutaMuni" style="font-size:11px;color:var(--ink-muted)">Municipio</label>
     <select id="rutaMuni"><option value="">Todos (ZMM estudio)</option></select>
     <label for="rutaN" style="font-size:11px;color:var(--ink-muted)">Paradas (máx. 9 por link de Maps)</label>
@@ -1404,8 +1404,10 @@ function updateRetailParentUI(){
   const MAX_WP = 9;
   let rutaN = 8;
   const picked = new Set(); // cve_col
-  let lastOrdered = null; // [{cve, lat, lon, p}, ...]
+  const mapStops = []; // [{id, lat, lon, label, cve?, p?}] toques libres / colonia
+  let lastOrdered = null; // [{cve?, lat, lon, p?, label?}, ...]
   let lastMapsUrl = null;
+  let tapSeq = 0;
   const routeLayer = L.layerGroup().addTo(map);
   const homeIcon = L.divIcon({className:'ruta-home-pin', iconSize:[14,14], iconAnchor:[7,7], html:'<div class="core"></div>'});
 
@@ -1467,9 +1469,9 @@ function updateRetailParentUI(){
       let km=0;
       const pts=[{lat:HOME.lat,lon:HOME.lon}].concat(lastOrdered.map(s=>({lat:s.lat,lon:s.lon}))).concat([{lat:HOME.lat,lon:HOME.lon}]);
       for (let i=0;i<pts.length-1;i++) km += havKm(pts[i], pts[i+1]);
-      el.textContent = lastOrdered.length+' paradas · ~'+km.toFixed(1)+' km en línea recta (Maps usa calles). Picks: '+picked.size+'.';
+      el.textContent = lastOrdered.length+' paradas · ~'+km.toFixed(1)+' km en línea recta (Maps usa calles). Picks: '+(picked.size+mapStops.length)+'.';
     } else {
-      el.textContent = 'Picks: '+picked.size+' / '+MAX_WP+'.';
+      el.textContent = 'Paradas: '+(picked.size+mapStops.length)+' / '+MAX_WP+'. Con Ruta abierta, toca el mapa.';
     }
   }
   function loadTop(){
@@ -1528,6 +1530,14 @@ function updateRetailParentUI(){
       '&waypoints='+encodeURIComponent(wps)+
       '&travelmode=driving';
   }
+  function stopTitle(s){
+    if (s.p) return '#'+s.p.rank+' '+s.p.colonia;
+    return s.label || 'Parada';
+  }
+  function stopMeta(s){
+    if (s.p) return s.p.municipio+' · score '+Number(s.p.score_100).toFixed(1);
+    return (s.lat.toFixed(5)+', '+s.lon.toFixed(5));
+  }
   function drawRoute(ordered){
     routeLayer.clearLayers();
     L.marker([HOME.lat, HOME.lon], {icon:homeIcon, keyboard:false, title:HOME.label})
@@ -1538,12 +1548,11 @@ function updateRetailParentUI(){
       const ic = L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,11],
         html:'<div class="ruta-stop-pin">'+(i+1)+'</div>'});
       L.marker([s.lat, s.lon], {icon:ic, keyboard:false})
-        .bindPopup('<b>#'+(s.p.rank)+' '+s.p.colonia+'</b><br>'+s.p.municipio+' · score '+Number(s.p.score_100).toFixed(1))
+        .bindPopup('<b>'+stopTitle(s)+'</b><br>'+stopMeta(s))
         .addTo(routeLayer);
     });
     latlngs.push([HOME.lat, HOME.lon]);
     L.polyline(latlngs, {color:'#2563eb', weight:4, opacity:0.85, dashArray:'6 8'}).addTo(routeLayer);
-    // sin fitBounds: no zoom automático al armar ruta
   }
   function renderStops(ordered){
     const ol = document.getElementById('rutaStops');
@@ -1551,25 +1560,43 @@ function updateRetailParentUI(){
     ol.innerHTML = '<li><span class="n">⌂</span><div><b>Casa</b><div class="meta">salida</div></div></li>';
     ordered.forEach((s,i) => {
       const li=document.createElement('li');
-      li.innerHTML = '<span class="n">'+(i+1)+'</span><div><b>#'+s.p.rank+' '+s.p.colonia+'</b>'+
-        '<div class="meta">'+s.p.municipio+' · score '+Number(s.p.score_100).toFixed(1)+'</div></div>';
+      li.innerHTML = '<span class="n">'+(i+1)+'</span><div><b>'+stopTitle(s)+'</b>'+
+        '<div class="meta">'+stopMeta(s)+'</div></div>';
       ol.appendChild(li);
     });
     const end=document.createElement('li');
     end.innerHTML = '<span class="n">⌂</span><div><b>Casa</b><div class="meta">regreso</div></div>';
     ol.appendChild(end);
   }
-  function buildRoute(){
-    if (!picked.size){ alert('Carga un top o marca colonias primero.'); return; }
+  function collectStops(){
     const stops = [];
-    picked.forEach(cve => {
-      const p = ranked.find(x => x.cve_col === cve);
-      const c = centroidFor(cve);
-      if (p && c) stops.push({cve:cve, lat:c.lat, lon:c.lon, p:p});
+    const seen = {};
+    mapStops.forEach(function(s){
+      const key = s.cve || (s.lat.toFixed(5)+','+s.lon.toFixed(5));
+      if (seen[key]) return;
+      seen[key] = 1;
+      stops.push(s);
     });
-    if (!stops.length){ alert('No pude sacar centroides de esas colonias.'); return; }
+    picked.forEach(function(cve){
+      if (seen[cve]) return;
+      const p = ranked.find(function(x){ return x.cve_col === cve; });
+      const c = centroidFor(cve);
+      if (p && c) {
+        seen[cve] = 1;
+        stops.push({cve:cve, lat:c.lat, lon:c.lon, p:p, label:p.colonia});
+      }
+    });
+    return stops;
+  }
+  function buildRoute(){
+    const stops = collectStops();
+    if (!stops.length){ alert('Toca el mapa (con Ruta abierta) o marca colonias primero.'); return; }
     if (stops.length > MAX_WP){
-      stops.sort((a,b)=>(a.p.rank||999)-(b.p.rank||999));
+      stops.sort(function(a,b){
+        const ra = a.p && a.p.rank != null ? a.p.rank : 999;
+        const rb = b.p && b.p.rank != null ? b.p.rank : 999;
+        return ra - rb;
+      });
       stops.length = MAX_WP;
     }
     let ordered = nnTour(stops);
@@ -1582,10 +1609,39 @@ function updateRetailParentUI(){
     if (btn) btn.disabled = false;
     syncSummary();
   }
+  function rutaPanelOpen(){
+    const b = document.querySelector('#rail .railbtn[data-panel="ruta"]');
+    return !!(b && b.classList.contains('active'));
+  }
+  function addMapStop(lat, lon, label, cve, p){
+    if (mapStops.length + picked.size >= MAX_WP) {
+      alert('Máximo '+MAX_WP+' paradas por link de Google Maps.');
+      return false;
+    }
+    // evita duplicado muy cerca (<40 m)
+    for (var i=0;i<mapStops.length;i++){
+      if (havKm(mapStops[i], {lat:lat, lon:lon}) < 0.04) return false;
+    }
+    if (cve && mapStops.some(function(s){ return s.cve === cve; })) return false;
+    tapSeq += 1;
+    mapStops.push({
+      id: 'tap_'+tapSeq,
+      lat: lat,
+      lon: lon,
+      label: label || ('Punto '+tapSeq),
+      cve: cve || null,
+      p: p || null
+    });
+    buildRoute();
+    return true;
+  }
+  window.__purifAddRutaStop = addMapStop;
+  window.__purifRutaPanelOpen = rutaPanelOpen;
   function clearRoute(){
     routeLayer.clearLayers();
     lastOrdered = null;
     lastMapsUrl = null;
+    // mapStops se limpian solo con Limpiar picks / quitar todo
     const ol = document.getElementById('rutaStops');
     if (ol) ol.innerHTML = '';
     const btn = document.getElementById('rutaOpenMaps');
@@ -1615,7 +1671,7 @@ function updateRetailParentUI(){
     syncSummary();
   });
   const bClr = document.getElementById('rutaClearPick');
-  if (bClr) bClr.addEventListener('click', () => { picked.clear(); renderPickList(); syncSummary(); });
+  if (bClr) bClr.addEventListener('click', () => { picked.clear(); mapStops.length = 0; renderPickList(); clearRoute(); syncSummary(); });
   const bBuild = document.getElementById('rutaBuild');
   if (bBuild) bBuild.addEventListener('click', buildRoute);
   const bMaps = document.getElementById('rutaOpenMaps');
@@ -1624,8 +1680,41 @@ function updateRetailParentUI(){
     window.open(lastMapsUrl, '_blank', 'noopener');
   });
   const bClear = document.getElementById('rutaClearRoute');
-  if (bClear) bClear.addEventListener('click', clearRoute);
+  if (bClear) bClear.addEventListener('click', function(){
+    mapStops.length = 0;
+    clearRoute();
+  });
+  map.on('click', function(ev){
+    if (!rutaPanelOpen()) return;
+    if (!ev || !ev.latlng) return;
+    // si el click fue sobre UI, Leaflet no llega aquí normalmente
+    addMapStop(ev.latlng.lat, ev.latlng.lng, 'Toque mapa', null, null);
+  });
+  // colonias: al fijar con panel ruta abierto, suma a la ruta
+  var _pickColonia = window.pickColonia;
+  // pickColonia is not on window — patch via wrapper below using global function name
   syncSummary();
+})();
+
+/* Hook pickColonia → ruta tap */
+(function(){
+  if (typeof pickColonia !== 'function') return;
+  var orig = pickColonia;
+  pickColonia = function(p, opts){
+    orig(p, opts);
+    try {
+      if (window.__purifRutaPanelOpen && window.__purifRutaPanelOpen() && p && p.cve_col) {
+        var c = null;
+        try {
+          var ly = byId[p.cve_col];
+          if (ly) { var cc = ly.getBounds().getCenter(); c = {lat:cc.lat, lon:cc.lng}; }
+        } catch (e) {}
+        if (c && window.__purifAddRutaStop) {
+          window.__purifAddRutaStop(c.lat, c.lon, p.colonia || 'Colonia', p.cve_col, p);
+        }
+      }
+    } catch (e) {}
+  };
 })();
 
 
@@ -2523,6 +2612,12 @@ if (window.ResizeObserver){
       var p = f.properties || {};
       var m = L.marker([c[1], c[0]], { icon: starIcon, keyboard:false, zIndexOffset: 1500 });
       m.bindPopup(popupHtml(p), { maxWidth: 280, className: 'field-pop', autoPan: false });
+      m.on('click', function(ev){
+        if (window.__purifRutaPanelOpen && window.__purifRutaPanelOpen() && window.__purifAddRutaStop) {
+          L.DomEvent.stopPropagation(ev);
+          window.__purifAddRutaStop(c[1], c[0], '★ '+(p.name||'Me gustó'), null, null);
+        }
+      });
       m.addTo(layerLiked);
     });
   }).catch(function(){});
