@@ -524,7 +524,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v10 · ubicarme fix · cierra ventanas</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v11 · tap mapa cierra Comp/Nosotros</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -1984,33 +1984,49 @@ if (window.ResizeObserver){
 <script>
 
 
-/* ---------- Cerrar ventanillas al tocar el mapa ---------- */
+/* ---------- Cerrar Comp/Nosotros al tocar el mapa ---------- */
 (function(){
-  function closeAllSheets(){
-    var ids = ['fieldAddSheet','oursAddSheet','geoPanel','coloniaCard','panelHost'];
-    ids.forEach(function(id){
-      var el = document.getElementById(id);
+  function closeCompOurs(){
+    var comp = document.getElementById('fieldAddSheet');
+    var ours = document.getElementById('oursAddSheet');
+    [comp, ours].forEach(function(el){
       if (!el) return;
       el.classList.remove('show');
-      if (id === 'coloniaCard' || id === 'panelHost' || id === 'fieldAddSheet' || id === 'oursAddSheet') {
-        el.hidden = true;
-      }
+      el.hidden = true;
     });
-    // left rail active state
-    document.querySelectorAll('#rail .railbtn.on').forEach(function(b){ b.classList.remove('on'); });
-    // colonias sheet
-    var side = document.getElementById('sidebar');
-    var dock = document.getElementById('bottomDock');
-    if (side) side.classList.remove('sheet-open');
-    if (dock) dock.classList.remove('sheet-open-hide');
+  }
+  function shouldIgnore(t){
+    if (!t || !t.closest) return false;
+    // no cerrar si el tap fue en las propias hojas o botones del dock
+    return !!(t.closest('#fieldAddSheet') || t.closest('#oursAddSheet') ||
+      t.closest('#btnAddComp') || t.closest('#btnAddOurs') ||
+      t.closest('#bottomDock') || t.closest('#rail') || t.closest('#sidebar'));
+  }
+  function onMapPointer(ev){
+    if (shouldIgnore(ev.target)) return;
+    closeCompOurs();
   }
   function bind(){
+    var mapEl = document.getElementById('map');
     var m = window.map;
-    if (!m || !m.on) { setTimeout(bind, 200); return; }
-    m.on('click', function(){ closeAllSheets(); });
+    if (!mapEl) { setTimeout(bind, 200); return; }
+    // capture: gana aunque un polígono haga stopPropagation en bubble
+    mapEl.addEventListener('pointerdown', onMapPointer, true);
+    mapEl.addEventListener('touchstart', onMapPointer, { capture: true, passive: true });
+    if (m && m.on) {
+      m.on('click', function(){ closeCompOurs(); });
+      m.on('mousedown', function(){ closeCompOurs(); });
+    } else {
+      setTimeout(function(){
+        if (window.map && window.map.on) {
+          window.map.on('click', function(){ closeCompOurs(); });
+          window.map.on('mousedown', function(){ closeCompOurs(); });
+        }
+      }, 400);
+    }
   }
   bind();
-  window.__purifCloseSheets = closeAllSheets;
+  window.__purifCloseSheets = closeCompOurs;
 })();
 
 /* ---------- FIELD ADD: Comp (competencia) + Nosotros (nuestras) ---------- */
