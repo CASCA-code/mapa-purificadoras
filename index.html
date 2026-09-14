@@ -595,6 +595,29 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   -webkit-overflow-scrolling:touch;
 }
 
+
+/* Otros: texto izq + ✓ grande a la derecha en su cuadrito */
+#anchorAddOtroWrap .otroRow{
+  display:flex; flex-direction:row; gap:10px; align-items:stretch;
+  width:100%; box-sizing:border-box; margin-top:6px;
+}
+#anchorAddOtroWrap .otroRow input{
+  flex:1 1 auto; min-width:0; margin:0; height:56px;
+  box-sizing:border-box; font-size:16px;
+  border:1px solid var(--hair); border-radius:12px; padding:0 12px;
+  background:#fff; color:#111;
+}
+#anchorAddOtroWrap .otroRow #anchorAddConfirm{
+  flex:0 0 64px; width:64px; min-width:64px; height:56px;
+  display:flex; align-items:center; justify-content:center;
+  border:2px solid #15803d; border-radius:14px;
+  background:#22c55e; color:#fff;
+  font:800 28px/1 system-ui, sans-serif;
+  box-shadow:0 2px 8px rgba(22,163,74,.35);
+  cursor:pointer; -webkit-appearance:none; touch-action:manipulation;
+}
+#anchorAddSheet .tile{ min-height:64px; }
+
 </style>
 </head>
 <body>
@@ -623,7 +646,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Competencia agua</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v29 · plus tap-to-drop + ✓ otros</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v30 · ✓ otros grande a la derecha</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div id="fieldAddOtraWrap" hidden>
     <label for="fieldAddOtra">¿Qué hay?</label>
