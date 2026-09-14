@@ -487,6 +487,17 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 #fieldAddOtraWrap, #fieldAddPuriWrap{ display:none }
 .field-add-pin{ width:18px; height:18px; border-radius:50%; border:3px solid #fff; background:#0f766e; box-shadow:0 2px 8px rgba(0,0,0,.45) }
 .field-ours-pin{ width:18px; height:18px; border-radius:50%; border:3px solid #fff; background:#7c3aed; box-shadow:0 2px 8px rgba(0,0,0,.45) }
+.field-popup{
+  background:#111!important; color:#fff!important; margin:0; min-width:160px;
+}
+.field-popup b, .field-popup div, .field-popup *{ color:#fff!important; }
+.leaflet-popup-content-wrapper.field-pop-wrap,
+.leaflet-popup.field-pop .leaflet-popup-content-wrapper{
+  background:#111; color:#fff; border-radius:12px;
+}
+.leaflet-popup.field-pop .leaflet-popup-tip{ background:#111; }
+.leaflet-popup.field-pop .leaflet-popup-content{ margin:12px 14px; color:#fff; }
+
 
 </style>
 </head>
@@ -513,7 +524,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v8 · Quitar arreglado</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v9 · texto blanco · mapa libre</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -730,6 +741,11 @@ const WALK     = 500;
 
 const map = L.map('map', {center:[25.74, -100.29], zoom:11, zoomControl:false});
 window.map = map;
+window.map.on('dragstart', function(){
+  window.__purifUserExploring = true;
+});
+/* purif-drag-unfollow */
+
 
 map.attributionControl.setPrefix(false);
 map.attributionControl.addAttribution('CONAPO IMC 2020 · DENUE/INEGI · Censo 2020 · anclas OSM');
@@ -1757,7 +1773,17 @@ function updateRetailParentUI(){
       meAccuracy = L.circle([lat, lon], {radius: acc, color:'#2563eb', weight:1, fillColor:'#3b82f6', fillOpacity:0.12, interactive:false});
       meAccuracy.addTo(map);
     }
-    if (follow) map.panTo([lat, lon], {animate:true});
+    // Solo centrar en el PRIMER fix; luego el usuario explora libre
+    if (follow && !window.__purifDidCenter) {
+      window.__purifDidCenter = true;
+      map.setView([lat, lon], Math.max(map.getZoom(), 16), {animate:true});
+      // dejar de arrastrar el mapa en cada update GPS
+      follow = false;
+      btn.classList.remove('on');
+      btn.setAttribute('aria-pressed','false');
+      if (label) label.textContent = 'Ubicarme';
+      // mantener watch para actualizar el punto azul + Comp/Nosotros, sin pan
+    }
     renderPanel(lat, lon, acc);
   }
   let triedLowAccuracy = false;
@@ -1798,6 +1824,7 @@ function updateRetailParentUI(){
     stopFollow(false);
   }
   function startFollow(){
+    window.__purifDidCenter = false; // permitir un recenter al volver a tocar Ubicarme
     if (!window.isSecureContext) {
       onErrFinal({message:'Contexto inseguro. Usa el link HTTPS de GitHub Pages (no archivo local).'});
       return;
@@ -2062,14 +2089,16 @@ if (window.ResizeObserver){
     });
     // build with textContent via DOM for safety
     const wrap = document.createElement('div');
+    wrap.className = 'field-popup';
     wrap.style.minWidth = '160px';
     const b = document.createElement('b');
+    b.style.color = '#fff';
     b.textContent = title;
     wrap.appendChild(b);
     (lines || []).forEach(function(t){
       if (!t) return;
       const d = document.createElement('div');
-      d.style.cssText = 'margin:4px 0;font-size:12px;color:#1c1916';
+      d.style.cssText = 'margin:4px 0;font-size:12px;color:#fff';
       d.textContent = t;
       wrap.appendChild(d);
     });
@@ -2077,14 +2106,14 @@ if (window.ResizeObserver){
     rm.type = 'button';
     rm.id = btnId;
     rm.textContent = 'Quitar';
-    rm.style.cssText = 'margin-top:8px;width:100%;padding:10px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font:700 14px system-ui;cursor:pointer;-webkit-appearance:none;touch-action:manipulation';
+    rm.style.cssText = 'margin-top:8px;width:100%;padding:10px;border:none;border-radius:8px;background:#ef4444;color:#fff;font:700 14px system-ui;cursor:pointer;-webkit-appearance:none;touch-action:manipulation';
     wrap.appendChild(rm);
 
     const circle = L.circleMarker(latlng, {
       radius: 11, color: '#fff', weight: 3, fillColor: color, fillOpacity: 1,
       interactive: true
     });
-    circle.bindPopup(wrap, { closeOnClick: false, autoClose: false, maxWidth: 260 });
+    circle.bindPopup(wrap, { closeOnClick: false, autoClose: false, maxWidth: 260, className: 'field-pop' });
 
     function doRemove(ev){
       if (ev) {
@@ -2114,11 +2143,8 @@ if (window.ResizeObserver){
     group.addTo(layer);
     store[id] = { group: group, circle: circle };
 
-    const m = getMap();
-    if (m) {
-      m.panTo(latlng, { animate: true });
-      setTimeout(function(){ try { circle.openPopup(); } catch (e) {} }, 180);
-    }
+    // no panTo: el usuario sigue explorando el mapa libremente
+    setTimeout(function(){ try { circle.openPopup(); } catch (e) {} }, 120);
     return circle;
   }
 
@@ -2293,6 +2319,8 @@ if (window.ResizeObserver){
       m.on('click', function(){
         if (sheetComp.classList.contains('show')) closeComp();
         if (sheetOurs && sheetOurs.classList.contains('show')) closeOurs();
+        var gp = document.getElementById('geoPanel');
+        if (gp) gp.classList.remove('show');
       });
       ensureLayers();
     } else setTimeout(bindMapClose, 200);
