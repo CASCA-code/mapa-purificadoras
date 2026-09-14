@@ -538,7 +538,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v14 · llamar en pines nuestros</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v15 · botón Llamar visible</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -569,7 +569,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   <p class="hint" id="oursAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <label for="oursName">Nombre</label>
   <input id="oursName" type="text" placeholder="ej. Estación Ana" autocomplete="name"/>
-  <label for="oursPhone">Teléfono</label>
+  <label for="oursPhone">Teléfono (para llamar)</label>
   <input id="oursPhone" type="tel" inputmode="tel" placeholder="81…" autocomplete="tel"/>
   <label for="oursDesc">Descripción</label>
   <textarea id="oursDesc" rows="3" placeholder="Notas cortas: horario, anfitrión, etc."></textarea>
@@ -2168,14 +2168,23 @@ if (window.ResizeObserver){
     delete store[id];
   }
 
-  function dialHref(phone){
-    var dig = String(phone || '').replace(/[^\d+]/g, '');
-    if (!dig) return null;
-    // MX: si son 10 dígitos, anteponer +52
-    if (/^\d{10}$/.test(dig)) dig = '+52' + dig;
-    return 'tel:' + dig;
+    function dialHref(phone){
+    var raw = String(phone || '');
+    var dig = raw.replace(/\D/g, '');
+    if (dig.length < 8) return null;
+    // MX 10 dígitos locales
+    if (dig.length === 10) dig = '52' + dig;
+    // si ya trae 52 + 10
+    return 'tel:+' + dig;
   }
-  function addVisibleMarker(latlng, color, title, lines, store, id, layer, onRemove, phone){
+  function pickPhone(props){
+    if (!props) return '';
+    if (props.telefono) return String(props.telefono);
+    if (props.phone) return String(props.phone);
+    var blob = [props.name, props.descripcion, props.nota_raw].join(' ');
+    var m = blob.match(/(\+?\d[\d\s().-]{7,}\d)/);
+    return m ? m[1] : '';
+  }function addVisibleMarker(latlng, color, title, lines, store, id, layer, onRemove, phone){
     ensureLayers();
     removeMarker(store, layer, id);
 
@@ -2204,9 +2213,9 @@ if (window.ResizeObserver){
       const call = document.createElement('a');
       call.id = callId;
       call.href = tel;
-      call.setAttribute('aria-label', 'Llamar');
-      call.textContent = '📞';
-      call.style.cssText = 'flex:0 0 48px;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:8px;background:#22c55e;color:#fff;font-size:22px;text-decoration:none;line-height:1;-webkit-tap-highlight-color:transparent';
+      call.setAttribute('aria-label', 'Llamar ' + phone);
+      call.innerHTML = '📞 Llamar';
+      call.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:8px;background:#16a34a;color:#fff!important;font:700 14px system-ui;text-decoration:none;line-height:1.2;-webkit-tap-highlight-color:transparent';
       row.appendChild(call);
     }
 
@@ -2364,7 +2373,8 @@ if (window.ResizeObserver){
   // ----- Nosotros -----
   function validateOurs(){
     const g = geoOk();
-    const ok = !!g && !!(oursName && (oursName.value || '').trim());
+    const ok = !!g && !!(oursName && (oursName.value || '').trim()) &&
+      !!(oursPhone && String(oursPhone.value || '').replace(/\D/g,'').length >= 8);
     if (btnSaveOurs) btnSaveOurs.disabled = !ok;
   }
   function closeOurs(){
@@ -2397,7 +2407,7 @@ if (window.ResizeObserver){
         id: uuid('ours'),
         kind: 'nuestra',
         name: (oursName.value || '').trim(),
-        telefono: (oursPhone && oursPhone.value || '').trim(),
+        telefono: String((oursPhone && oursPhone.value) != null ? oursPhone.value : '').trim(),
         descripcion: (oursDesc && oursDesc.value || '').trim(),
         accuracy_m: g.accuracy != null ? Math.round(g.accuracy) : null,
         ts: new Date().toISOString(),
@@ -2415,15 +2425,21 @@ if (window.ResizeObserver){
     if (p.telefono) lines.push('Tel: ' + p.telefono);
     if (p.descripcion) lines.push(p.descripcion);
     lines.push('Nuestra');
+    var phoneVal = pickPhone(p);
+    if (phoneVal && lines.indexOf('Tel: ' + phoneVal) < 0 && !p.telefono) lines.unshift('Tel: ' + phoneVal);
     addVisibleMarker([c[1], c[0]], '#7c3aed', p.name || 'Nuestra', lines, markersOurs, id, layerOurs, function(){
       const arr = loadLS(LS_OURS).filter(function(x){ return (x.properties || {}).id !== id; });
       saveLS(LS_OURS, arr);
       silentSync({ action: 'delete', id: id, layer: 'nosotros' });
-    }, p.telefono || '');
+    }, phoneVal);
   }
   function saveOurs(){
     const g = geoOk();
     if (!g || !(oursName && (oursName.value || '').trim())) return;
+    if (!(oursPhone && String(oursPhone.value || '').replace(/\D/g,'').length >= 8)) {
+      alert('Pon un teléfono (mín. 8 dígitos) para poder llamar.');
+      return;
+    }
     const feat = featureOurs(g);
     const arr = loadLS(LS_OURS);
     arr.push(feat);
