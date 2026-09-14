@@ -538,7 +538,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v15 · botón Llamar visible</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v16 · sin zoom in (ubicarme/score)</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -1117,7 +1117,13 @@ function pickColonia(p, opts){
   document.querySelectorAll('#toplist li').forEach(li=>li.setAttribute('aria-current', String(li.dataset.cve===selected)));
   fillColoniaCard(p);
   if (typeof window.closeColoniasSheet === 'function') window.closeColoniasSheet();
-  if (opts.fly && byId[selected]) map.flyToBounds(byId[selected].getBounds(), {maxZoom:15, duration:.6});
+  // Solo pan al centro de la colonia — nunca zoom in
+  if (opts.fly && byId[selected]) {
+    try {
+      var b = byId[selected].getBounds();
+      if (b && b.isValid()) map.panTo(b.getCenter(), {animate: true});
+    } catch (e) {}
+  }
 }
 function releaseLock(){ if (lockedCve) clearColonia(); }
 
@@ -1788,14 +1794,11 @@ function updateRetailParentUI(){
       meAccuracy = L.circle([lat, lon], {radius: Math.min(acc, 60), color:'#2563eb', weight:1, fillColor:'#3b82f6', fillOpacity:0.12, interactive:false});
       meAccuracy.addTo(map);
     }
-    // Centrar UNA vez con zoom seguro (NaN zoom = mapa en blanco en iOS)
+    // Centrar UNA vez SIN cambiar zoom (el usuario no quiere zoom in)
     if (window.__purifCenterOnce) {
       window.__purifCenterOnce = false;
-      var z = map.getZoom();
-      if (!isFinite(z)) z = 15;
-      z = Math.min(18, Math.max(14, z < 12 ? 15 : z));
       try {
-        map.setView([lat, lon], z, {animate: true});
+        map.panTo([lat, lon], {animate: true});
         setTimeout(function(){ try { map.invalidateSize(false); } catch (e) {} }, 250);
       } catch (e) {}
     }
