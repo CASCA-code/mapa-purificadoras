@@ -538,7 +538,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v20 · ruta por toques en mapa</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v21 · ruta sin ficha al tocar</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -1113,16 +1113,23 @@ function hideColoniaCard(){
 }
 function pickColonia(p, opts){
   opts = opts || {};
-  if (lockedCve === p.cve_col){ clearColonia(); return; }
+  var rutaOn = window.__purifRutaPanelOpen && window.__purifRutaPanelOpen();
+  if (lockedCve === p.cve_col && !rutaOn){ clearColonia(); return; }
   lockedCve = p.cve_col;
   // resalta en mapa sin abrir el menú de lista
   if (selected && selected !== p.cve_col && byId[selected]) colLayer.resetStyle(byId[selected]);
   selected = p.cve_col;
   if (byId[selected]){ byId[selected].setStyle(hiStyle()); byId[selected].bringToFront(); }
   document.querySelectorAll('#toplist li').forEach(li=>li.setAttribute('aria-current', String(li.dataset.cve===selected)));
-  fillColoniaCard(p);
+  // Con Ruta abierta: no ficha (tapa la pantalla); solo resalta + suma parada (hook aparte)
+  if (rutaOn) {
+    hideColoniaCard();
+    if (typeof hideDetail === 'function') hideDetail();
+    try { map.closePopup(); } catch (e) {}
+  } else {
+    fillColoniaCard(p);
+  }
   if (typeof window.closeColoniasSheet === 'function') window.closeColoniasSheet();
-  // Sin fly/pan/zoom: solo resalta la colonia
   void opts;
 }
 function releaseLock(){ if (lockedCve) clearColonia(); }
@@ -1547,8 +1554,8 @@ function updateRetailParentUI(){
       latlngs.push([s.lat, s.lon]);
       const ic = L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,11],
         html:'<div class="ruta-stop-pin">'+(i+1)+'</div>'});
-      L.marker([s.lat, s.lon], {icon:ic, keyboard:false})
-        .bindPopup('<b>'+stopTitle(s)+'</b><br>'+stopMeta(s))
+      L.marker([s.lat, s.lon], {icon:ic, keyboard:false, title:stopTitle(s)})
+        .bindTooltip(String(i+1)+'. '+stopTitle(s), {direction:'top', opacity:0.9})
         .addTo(routeLayer);
     });
     latlngs.push([HOME.lat, HOME.lon]);
@@ -2615,7 +2622,9 @@ if (window.ResizeObserver){
       m.on('click', function(ev){
         if (window.__purifRutaPanelOpen && window.__purifRutaPanelOpen() && window.__purifAddRutaStop) {
           L.DomEvent.stopPropagation(ev);
+          try { m.closePopup(); map.closePopup(); } catch (e) {}
           window.__purifAddRutaStop(c[1], c[0], '★ '+(p.name||'Me gustó'), null, null);
+          setTimeout(function(){ try { m.closePopup(); map.closePopup(); } catch (e) {} }, 0);
         }
       });
       m.addTo(layerLiked);
