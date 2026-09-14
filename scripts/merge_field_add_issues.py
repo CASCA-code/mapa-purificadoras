@@ -78,6 +78,7 @@ def main():
     deleted = load_deleted()
     ids = {f.get('properties', {}).get('id') for f in fc['features'] if f.get('properties')}
     changed = False
+    changed_deleted = False
     merged = []
 
     for payload in fetch_ntfy():
@@ -87,12 +88,18 @@ def main():
         if action == 'delete':
             did = payload.get('id')
             if did:
+                is_new_tombstone = did not in deleted
+                if is_new_tombstone:
+                    changed_deleted = True
                 deleted.add(did)
                 before = len(fc['features'])
                 fc['features'] = [f for f in fc['features'] if (f.get('properties') or {}).get('id') != did]
                 if len(fc['features']) != before:
                     changed = True
                     merged.append(('delete', did, {}))
+                elif is_new_tombstone:
+                    # id not yet in geojson — persist tombstone so later upserts skip it
+                    merged.append(('delete_mark', did, {}))
                 ids.discard(did)
             continue
         feat = payload.get('feature') if action == 'upsert' else payload
@@ -151,18 +158,31 @@ def main():
 
     # apply deleted filter once more
     if deleted:
+        before = len(fc['features'])
         fc['features'] = [f for f in fc['features'] if (f.get('properties') or {}).get('id') not in deleted]
+        if len(fc['features']) != before:
+            changed = True
 
-    if not changed and not merged:
+    if not changed and not changed_deleted and not merged:
         print('NO_CHANGES')
         return 0
 
-    GEO.parent.mkdir(exist_ok=True)
-    GEO.write_text(json.dumps(fc, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    save_deleted(deleted)
-    print('MERGED', len(merged))
-    for kind, pid, props in merged:
-        print(f'{kind} id={pid} name={props.get("name")!r} raw={props.get("nota_raw")!r} type={props.get("kind")!r}')
+    # Persist tombstones even when geojson features did not change (delete-race)
+    if changed_deleted or changed or merged:
+        save_deleted(deleted)
+
+    if changed:
+        GEO.parent.mkdir(exist_ok=True)
+        GEO.write_text(json.dumps(fc, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+        print('MERGED', len(merged))
+        for kind, pid, props in merged:
+            print(f'{kind} id={pid} name={props.get("name")!r} raw={props.get("nota_raw")!r} type={props.get("kind")!r}')
+    elif changed_deleted:
+        print('DELETED_ONLY', len(merged))
+        for kind, pid, props in merged:
+            print(f'{kind} id={pid}')
+    else:
+        print('MERGED', len(merged))
     return 0
 
 if __name__ == '__main__':
