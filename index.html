@@ -608,7 +608,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Competencia agua</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v25 · dock fijo ★＋Comp</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v26 · hojas no se cierran al tipear</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div id="fieldAddOtraWrap" hidden>
     <label for="fieldAddOtra">¿Qué hay?</label>
@@ -2262,13 +2262,14 @@ if (window.ResizeObserver){
       if (!el) return;
       el.classList.remove('show');
       el.hidden = true;
-      el.style.display = 'none';
+      el.setAttribute('hidden', '');
+      el.style.setProperty('display', 'none', 'important');
     });
     var b = bd();
     if (b) {
       b.classList.remove('show');
       b.hidden = true;
-      b.style.display = 'none';
+      b.style.setProperty('display', 'none', 'important');
       b.setAttribute('aria-hidden','true');
     }
   }
@@ -2276,14 +2277,20 @@ if (window.ResizeObserver){
     var b = bd();
     if (!b) return;
     b.hidden = false;
-    b.style.display = 'block';
+    b.removeAttribute('hidden');
+    b.style.setProperty('display', 'block', 'important');
     b.classList.add('show');
     b.setAttribute('aria-hidden','false');
   }
   window.__purifCloseSheets = closeCompOurs;
   window.__purifShowSheetBackdrop = showBackdrop;
+  window.__purifSheetGuardUntil = 0;
 
+  // Solo click DIRECTO en el backdrop (no touchend/pointerdown: en iOS
+  // al enfocar un input el touchend cae fuera y cerraba la hoja).
   function onBackdrop(ev){
+    if (ev.target !== bd()) return;
+    if (Date.now() < (window.__purifSheetGuardUntil || 0)) return;
     ev.preventDefault();
     ev.stopPropagation();
     closeCompOurs();
@@ -2292,10 +2299,20 @@ if (window.ResizeObserver){
     var b = bd();
     if (!b) { setTimeout(bind, 100); return; }
     b.addEventListener('click', onBackdrop);
-    b.addEventListener('touchend', onBackdrop, {passive:false});
-    b.addEventListener('pointerdown', onBackdrop);
   }
   bind();
+
+  // Cualquier interacción dentro de las hojas alarga el guard
+  ['fieldAddSheet','oursAddSheet','anchorAddSheet'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    ['pointerdown','touchstart','mousedown','click','focusin'].forEach(function(type){
+      el.addEventListener(type, function(e){
+        e.stopPropagation();
+        window.__purifSheetGuardUntil = Date.now() + 800;
+      }, true);
+    });
+  });
 
   var xc = document.getElementById('fieldAddClose');
   var xo = document.getElementById('oursAddClose');
@@ -2416,6 +2433,7 @@ if (window.ResizeObserver){
     el.removeAttribute('hidden');
     el.classList.add('show');
     el.style.setProperty('display', 'block', 'important');
+    window.__purifSheetGuardUntil = Date.now() + 600;
   }
   function anySheetOpen(){
     return (sheetComp && sheetComp.classList.contains('show')) ||
@@ -2837,20 +2855,21 @@ if (window.ResizeObserver){
   if (btnSaveComp) btnSaveComp.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); saveComp(); });
   if (btnSaveOurs) btnSaveOurs.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); saveOurs(); });
   if (btnSaveAnchor) btnSaveAnchor.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); saveAnchor(); });
-  sheetComp.addEventListener('click', function(e){ e.stopPropagation(); });
-  if (sheetOurs) sheetOurs.addEventListener('click', function(e){ e.stopPropagation(); });
-  if (sheetPlus) sheetPlus.addEventListener('click', function(e){ e.stopPropagation(); });
+  function eatSheetEvent(e){ e.stopPropagation(); window.__purifSheetGuardUntil = Date.now() + 800; }
+  [sheetComp, sheetOurs, sheetPlus].forEach(function(sh){
+    if (!sh) return;
+    ['click','pointerdown','touchstart','touchend','mousedown'].forEach(function(type){
+      sh.addEventListener(type, eatSheetEvent);
+    });
+  });
 
   (function bindMapClose(){
     const m = getMap();
     if (m && m.on) {
       m.on('click', function(){
-        if (window.__purifCloseSheets) window.__purifCloseSheets();
-        else {
-          if (sheetComp.classList.contains('show')) closeComp();
-          if (sheetOurs && sheetOurs.classList.contains('show')) closeOurs();
-          hideSheet(sheetPlus);
-        }
+        if (Date.now() < (window.__purifSheetGuardUntil || 0)) return;
+        if (!anySheetOpen()) return;
+        // con hoja abierta, el mapa NO cierra: solo el backdrop / X
       });
       ensureLayers();
     } else setTimeout(bindMapClose, 200);
