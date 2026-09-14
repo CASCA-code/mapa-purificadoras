@@ -524,7 +524,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v9 · texto blanco · mapa libre</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v10 · ubicarme fix · cierra ventanas</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -1770,19 +1770,19 @@ function updateRetailParentUI(){
     }
     if (meAccuracy) map.removeLayer(meAccuracy);
     if (acc && isFinite(acc)) {
-      meAccuracy = L.circle([lat, lon], {radius: acc, color:'#2563eb', weight:1, fillColor:'#3b82f6', fillOpacity:0.12, interactive:false});
+      meAccuracy = L.circle([lat, lon], {radius: Math.min(acc, 60), color:'#2563eb', weight:1, fillColor:'#3b82f6', fillOpacity:0.12, interactive:false});
       meAccuracy.addTo(map);
     }
-    // Solo centrar en el PRIMER fix; luego el usuario explora libre
-    if (follow && !window.__purifDidCenter) {
-      window.__purifDidCenter = true;
-      map.setView([lat, lon], Math.max(map.getZoom(), 16), {animate:true});
-      // dejar de arrastrar el mapa en cada update GPS
-      follow = false;
-      btn.classList.remove('on');
-      btn.setAttribute('aria-pressed','false');
-      if (label) label.textContent = 'Ubicarme';
-      // mantener watch para actualizar el punto azul + Comp/Nosotros, sin pan
+    // Centrar UNA vez con zoom seguro (NaN zoom = mapa en blanco en iOS)
+    if (window.__purifCenterOnce) {
+      window.__purifCenterOnce = false;
+      var z = map.getZoom();
+      if (!isFinite(z)) z = 15;
+      z = Math.min(18, Math.max(14, z < 12 ? 15 : z));
+      try {
+        map.setView([lat, lon], z, {animate: true});
+        setTimeout(function(){ try { map.invalidateSize(false); } catch (e) {} }, 250);
+      } catch (e) {}
     }
     renderPanel(lat, lon, acc);
   }
@@ -1824,7 +1824,7 @@ function updateRetailParentUI(){
     stopFollow(false);
   }
   function startFollow(){
-    window.__purifDidCenter = false; // permitir un recenter al volver a tocar Ubicarme
+    window.__purifCenterOnce = true; // un solo recenter; luego exploras libre
     if (!window.isSecureContext) {
       onErrFinal({message:'Contexto inseguro. Usa el link HTTPS de GitHub Pages (no archivo local).'});
       return;
@@ -1837,28 +1837,36 @@ function updateRetailParentUI(){
     triedLowAccuracy = false;
     btn.classList.add('on');
     btn.setAttribute('aria-pressed','true');
-    if (label) label.textContent = 'Siguiendo…';
+    if (label) label.textContent = 'Ubicado';
     panel.innerHTML = '<p class="g-title">Permiso de ubicación</p><p class="g-sub">Acepta <b>Permitir</b> en Safari si aparece.</p>';
     panel.classList.add('show');
-    // Tap → getCurrentPosition (único gesto que dispara el prompt en iOS Safari)
     const optsHi = { enableHighAccuracy: true, maximumAge: 0, timeout: 45000 };
     const optsLo = { enableHighAccuracy: false, maximumAge: 0, timeout: 45000 };
-    navigator.geolocation.getCurrentPosition(function(pos){
-      onPos(pos);
-      if (!follow) return;
+    function startWatch(opts){
       if (watchId != null) navigator.geolocation.clearWatch(watchId);
-      watchId = navigator.geolocation.watchPosition(onPos, onErr, {
+      watchId = navigator.geolocation.watchPosition(onPos, onErr, opts || {
         enableHighAccuracy: true, maximumAge: 2000, timeout: 45000
       });
+    }
+    navigator.geolocation.getCurrentPosition(function(pos){
+      onPos(pos);
+      // Siempre mantener watch (GPS para Comp/Nosotros) aunque ya no recentremos
+      if (!follow && watchId == null) { /* stopped by user */ return; }
+      startWatch();
+      // botón: ya no “seguir” arrastrando el mapa
+      if (label) label.textContent = 'Ubicarme';
+      btn.classList.remove('on');
+      btn.setAttribute('aria-pressed','false');
+      follow = false; // próximo tap vuelve a centrar una vez
     }, function(err){
-      // iOS a veces falla high accuracy sin mostrar prompt útil → un reintento inmediato low accuracy en el mismo gesto no siempre funciona;
-      // si fue timeout, reintentar low; si denied, mostrar ayuda iOS
       if (err && err.code === 3) {
         navigator.geolocation.getCurrentPosition(function(pos){
           onPos(pos);
-          if (!follow) return;
-          if (watchId != null) navigator.geolocation.clearWatch(watchId);
-          watchId = navigator.geolocation.watchPosition(onPos, onErr, optsLo);
+          startWatch(optsLo);
+          if (label) label.textContent = 'Ubicarme';
+          btn.classList.remove('on');
+          btn.setAttribute('aria-pressed','false');
+          follow = false;
         }, onErr, optsLo);
         return;
       }
@@ -1876,9 +1884,20 @@ function updateRetailParentUI(){
     }
     if (hidePanel) panel.classList.remove('show');
   }
-  btn.addEventListener('click', () => {
-    if (follow) stopFollow(true);
-    else startFollow();
+  btn.addEventListener('click', function(e){
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    if (follow) { stopFollow(true); return; }
+    // Si ya hay watch, solo pedir un recenter + refresh; no destruir el mapa
+    if (watchId != null && window.__purifGeo) {
+      window.__purifCenterOnce = true;
+      onPos({ coords: {
+        latitude: window.__purifGeo.lat,
+        longitude: window.__purifGeo.lon,
+        accuracy: window.__purifGeo.accuracy
+      }});
+      return;
+    }
+    startFollow();
   });
 })();
 
@@ -1963,6 +1982,36 @@ if (window.ResizeObserver){
 }
 </script>
 <script>
+
+
+/* ---------- Cerrar ventanillas al tocar el mapa ---------- */
+(function(){
+  function closeAllSheets(){
+    var ids = ['fieldAddSheet','oursAddSheet','geoPanel','coloniaCard','panelHost'];
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('show');
+      if (id === 'coloniaCard' || id === 'panelHost' || id === 'fieldAddSheet' || id === 'oursAddSheet') {
+        el.hidden = true;
+      }
+    });
+    // left rail active state
+    document.querySelectorAll('#rail .railbtn.on').forEach(function(b){ b.classList.remove('on'); });
+    // colonias sheet
+    var side = document.getElementById('sidebar');
+    var dock = document.getElementById('bottomDock');
+    if (side) side.classList.remove('sheet-open');
+    if (dock) dock.classList.remove('sheet-open-hide');
+  }
+  function bind(){
+    var m = window.map;
+    if (!m || !m.on) { setTimeout(bind, 200); return; }
+    m.on('click', function(){ closeAllSheets(); });
+  }
+  bind();
+  window.__purifCloseSheets = closeAllSheets;
+})();
 
 /* ---------- FIELD ADD: Comp (competencia) + Nosotros (nuestras) ---------- */
 (function(){
@@ -2317,10 +2366,11 @@ if (window.ResizeObserver){
     const m = getMap();
     if (m && m.on) {
       m.on('click', function(){
-        if (sheetComp.classList.contains('show')) closeComp();
-        if (sheetOurs && sheetOurs.classList.contains('show')) closeOurs();
-        var gp = document.getElementById('geoPanel');
-        if (gp) gp.classList.remove('show');
+        if (window.__purifCloseSheets) window.__purifCloseSheets();
+        else {
+          if (sheetComp.classList.contains('show')) closeComp();
+          if (sheetOurs && sheetOurs.classList.contains('show')) closeOurs();
+        }
       });
       ensureLayers();
     } else setTimeout(bindMapClose, 200);
