@@ -472,7 +472,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   display:none;
   position:fixed;
   inset:0;
-  z-index:1700;
+  z-index:1500;
   background:rgba(0,0,0,0.15);
   pointer-events:auto;
   -webkit-tap-highlight-color:transparent;
@@ -480,7 +480,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 #sheetBackdrop.show{ display:block; }
 
 #fieldAddSheet{
-  display:none; position:fixed; z-index:1600; /* close-x anchor */
+  display:none; position:fixed; z-index:1900; /* above backdrop */
   left:10px; right:10px; bottom:calc(72px + env(safe-area-inset-bottom, 0px));
   max-width:420px; margin:0 auto;
   background:var(--surface); border:1px solid var(--hair); border-radius:16px;
@@ -507,7 +507,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 #fieldAddSheet .btnCancel{ background:#f3eee6; color:var(--ink) }
 #fieldAddSheet .btnSave{ background:#0f766e; color:#fff; width:100% }
 #oursAddSheet{
-  display:none; position:fixed; z-index:1600;
+  display:none; position:fixed; z-index:1900;
   left:10px; right:10px; bottom:calc(72px + env(safe-area-inset-bottom, 0px));
   max-width:420px; margin:0 auto;
   background:var(--surface); border:1px solid var(--hair); border-radius:16px;
@@ -526,7 +526,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 #oursAddSheet .btnSave:disabled{ opacity:.45; cursor:not-allowed }
 
 #anchorAddSheet{
-  display:none; position:fixed; z-index:1610;
+  display:none; position:fixed; z-index:1910;
   left:0; right:0; bottom:0;
   width:100%; max-width:none; margin:0;
   height:62dvh; max-height:70dvh; min-height:55dvh;
@@ -623,7 +623,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Competencia agua</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v27 · inputs tipeables (fix capture)</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v28 · hojas arriba del backdrop</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div id="fieldAddOtraWrap" hidden>
     <label for="fieldAddOtra">¿Qué hay?</label>
@@ -2438,7 +2438,16 @@ if (window.ResizeObserver){
     el.removeAttribute('hidden');
     el.classList.add('show');
     el.style.setProperty('display', 'block', 'important');
+    el.style.setProperty('z-index', el.id === 'anchorAddSheet' ? '1910' : '1900', 'important');
+    el.style.setProperty('pointer-events', 'auto', 'important');
     window.__purifSheetGuardUntil = Date.now() + 600;
+    // Focus primer input usable
+    setTimeout(function(){
+      try {
+        var inp = el.querySelector('input:not([type="hidden"]), textarea');
+        if (inp) inp.focus();
+      } catch (e) {}
+    }, 50);
   }
   function anySheetOpen(){
     return (sheetComp && sheetComp.classList.contains('show')) ||
