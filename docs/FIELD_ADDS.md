@@ -8,6 +8,7 @@
 ## Qué hace Purificador / routine / GitHub Actions
 - Poll ntfy → `python3 scripts/merge_field_add_issues.py` → escribe `data/field_adds.geojson` + `data/field_adds_deleted.json` → commit+push Pages.
 - Cadencia: Actions en schedule (~cada 2 h), `workflow_dispatch` y `repository_dispatch` (`merge-field-adds`). Si no hay cambios, silencio (`NO_CHANGES`).
+- Plantilla del workflow: `docs/merge-field-adds.workflow.yml` → copiar a `.github/workflows/merge-field-adds.yml` (hace falta token con scope `workflow`; el OAuth de Agents no lo tiene).
 - Deletes: si el `id` aún no está en el geojson, igual se persiste en `field_adds_deleted.json` (tombstone) para no re-mergear luego.
 
 ## ntfy topic (seguridad)
