@@ -646,7 +646,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Competencia agua</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v30 · ✓ otros grande a la derecha</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v31 · sync compartido auto</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div id="fieldAddOtraWrap" hidden>
     <label for="fieldAddOtra">¿Qué hay?</label>
@@ -2955,9 +2955,42 @@ if (window.ResizeObserver){
   setAddButtonsVisible(false);
   syncGeoUi();
 
-  loadLS(LS_COMP).forEach(function(f){ try { markerFromComp(f); } catch (e) {} });
-  loadLS(LS_OURS).forEach(function(f){ try { markerFromOurs(f); } catch (e) {} });
-  loadLS(LS_ANCLAS).forEach(function(f){ try { markerFromAnchor(f); } catch (e) {} });
+  const seenIds = Object.create(null);
+  function markSeen(f){
+    const id = (f && f.properties && f.properties.id) || null;
+    if (id) seenIds[id] = 1;
+  }
+  loadLS(LS_COMP).forEach(function(f){ try { markerFromComp(f); markSeen(f); } catch (e) {} });
+  loadLS(LS_OURS).forEach(function(f){ try { markerFromOurs(f); markSeen(f); } catch (e) {} });
+  loadLS(LS_ANCLAS).forEach(function(f){ try { markerFromAnchor(f); markSeen(f); } catch (e) {} });
+
+  // Capa compartida (todos los celulares → ntfy → merge → este geojson)
+  function renderSharedFeature(f){
+    if (!f || !f.geometry) return;
+    const p = f.properties || {};
+    const id = p.id;
+    if (id && seenIds[id]) return;
+    const layer = p.layer || '';
+    try {
+      if (layer === 'competencia' || p.kind === 'purificadora') markerFromComp(f);
+      else if (layer === 'nosotros' || layer === 'favoritos' || p.kind === 'nuestra') markerFromOurs(f);
+      else if (layer === 'ancla_campo' || ANCHOR_LABELS[p.kind]) markerFromAnchor(f);
+      else if (p.kind === 'otra') markerFromComp(f);
+      else markerFromAnchor(f);
+      markSeen(f);
+    } catch (e) {}
+  }
+  function loadSharedFieldAdds(){
+    fetch('data/field_adds.geojson?v=' + Date.now(), { cache: 'no-store' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(fc){
+        if (!fc || !fc.features) return;
+        fc.features.forEach(renderSharedFeature);
+      })
+      .catch(function(){});
+  }
+  loadSharedFieldAdds();
+  window.__purifReloadShared = loadSharedFieldAdds;
 })();
 
 

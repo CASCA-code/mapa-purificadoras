@@ -39,7 +39,7 @@ def save_deleted(s):
     DELETED.write_text(json.dumps(sorted(s), indent=2) + '\n', encoding='utf-8')
 
 def fetch_ntfy():
-    url = f'https://ntfy.sh/{NTFY_TOPIC}/json?poll=1&since=2d'
+    url = f'https://ntfy.sh/{NTFY_TOPIC}/json?poll=1&since=all'
     req = urllib.request.Request(url, headers={'User-Agent': 'PurificadorMap/1.0'})
     try:
         with urllib.request.urlopen(req, timeout=25) as r:
@@ -102,6 +102,11 @@ def main():
             if pid and pid in deleted:
                 continue
             if pid and pid in ids:
+                # replace existing
+                fc['features'] = [f for f in fc['features'] if (f.get('properties') or {}).get('id') != pid]
+                fc['features'].append(feat)
+                changed = True
+                merged.append(('update', pid, props))
                 continue
             fc['features'].append(feat)
             if pid:
