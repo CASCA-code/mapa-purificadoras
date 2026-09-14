@@ -538,7 +538,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v13 · tap mapa (backdrop) cierra</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v14 · llamar en pines nuestros</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -2168,18 +2168,22 @@ if (window.ResizeObserver){
     delete store[id];
   }
 
-  function addVisibleMarker(latlng, color, title, lines, store, id, layer, onRemove){
+  function dialHref(phone){
+    var dig = String(phone || '').replace(/[^\d+]/g, '');
+    if (!dig) return null;
+    // MX: si son 10 dígitos, anteponer +52
+    if (/^\d{10}$/.test(dig)) dig = '+52' + dig;
+    return 'tel:' + dig;
+  }
+  function addVisibleMarker(latlng, color, title, lines, store, id, layer, onRemove, phone){
     ensureLayers();
     removeMarker(store, layer, id);
 
     const btnId = 'rm_' + id.replace(/[^a-zA-Z0-9_]/g, '_');
-    const linesHtml = (lines || []).filter(Boolean).map(function(t){
-      return '<div style="margin:4px 0;font-size:12px;color:#1c1916"></div>';
-    });
-    // build with textContent via DOM for safety
+    const callId = 'call_' + id.replace(/[^a-zA-Z0-9_]/g, '_');
     const wrap = document.createElement('div');
     wrap.className = 'field-popup';
-    wrap.style.minWidth = '160px';
+    wrap.style.minWidth = '180px';
     const b = document.createElement('b');
     b.style.color = '#fff';
     b.textContent = title;
@@ -2191,18 +2195,34 @@ if (window.ResizeObserver){
       d.textContent = t;
       wrap.appendChild(d);
     });
+
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-top:8px;display:flex;gap:8px;align-items:stretch';
+
+    const tel = dialHref(phone);
+    if (tel) {
+      const call = document.createElement('a');
+      call.id = callId;
+      call.href = tel;
+      call.setAttribute('aria-label', 'Llamar');
+      call.textContent = '📞';
+      call.style.cssText = 'flex:0 0 48px;display:flex;align-items:center;justify-content:center;padding:10px;border-radius:8px;background:#22c55e;color:#fff;font-size:22px;text-decoration:none;line-height:1;-webkit-tap-highlight-color:transparent';
+      row.appendChild(call);
+    }
+
     const rm = document.createElement('button');
     rm.type = 'button';
     rm.id = btnId;
     rm.textContent = 'Quitar';
-    rm.style.cssText = 'margin-top:8px;width:100%;padding:10px;border:none;border-radius:8px;background:#ef4444;color:#fff;font:700 14px system-ui;cursor:pointer;-webkit-appearance:none;touch-action:manipulation';
-    wrap.appendChild(rm);
+    rm.style.cssText = 'flex:1;padding:10px;border:none;border-radius:8px;background:#ef4444;color:#fff;font:700 14px system-ui;cursor:pointer;-webkit-appearance:none;touch-action:manipulation';
+    row.appendChild(rm);
+    wrap.appendChild(row);
 
     const circle = L.circleMarker(latlng, {
       radius: 11, color: '#fff', weight: 3, fillColor: color, fillOpacity: 1,
       interactive: true
     });
-    circle.bindPopup(wrap, { closeOnClick: false, autoClose: false, maxWidth: 260, className: 'field-pop' });
+    circle.bindPopup(wrap, { closeOnClick: false, autoClose: false, maxWidth: 280, className: 'field-pop' });
 
     function doRemove(ev){
       if (ev) {
@@ -2219,13 +2239,19 @@ if (window.ResizeObserver){
 
     circle.on('popupopen', function(){
       const btn = document.getElementById(btnId) || wrap.querySelector('button');
-      if (!btn || btn.getAttribute('data-bound') === '1') return;
-      btn.setAttribute('data-bound', '1');
-      L.DomEvent.disableClickPropagation(btn);
-      L.DomEvent.disableScrollPropagation(btn);
-      // click + touchend for iOS Safari
-      L.DomEvent.on(btn, 'click', doRemove);
-      L.DomEvent.on(btn, 'touchend', doRemove);
+      if (btn && btn.getAttribute('data-bound') !== '1') {
+        btn.setAttribute('data-bound', '1');
+        L.DomEvent.disableClickPropagation(btn);
+        L.DomEvent.disableScrollPropagation(btn);
+        L.DomEvent.on(btn, 'click', doRemove);
+        L.DomEvent.on(btn, 'touchend', doRemove);
+      }
+      const callBtn = document.getElementById(callId);
+      if (callBtn && callBtn.getAttribute('data-bound') !== '1') {
+        callBtn.setAttribute('data-bound', '1');
+        L.DomEvent.disableClickPropagation(callBtn);
+        L.DomEvent.disableScrollPropagation(callBtn);
+      }
     });
 
     const group = L.layerGroup([circle]);
@@ -2393,7 +2419,7 @@ if (window.ResizeObserver){
       const arr = loadLS(LS_OURS).filter(function(x){ return (x.properties || {}).id !== id; });
       saveLS(LS_OURS, arr);
       silentSync({ action: 'delete', id: id, layer: 'nosotros' });
-    });
+    }, p.telefono || '');
   }
   function saveOurs(){
     const g = geoOk();
