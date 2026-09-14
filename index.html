@@ -513,7 +513,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v7 · Comp · pin en mapa</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v8 · Quitar arreglado</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -2038,48 +2038,86 @@ if (window.ResizeObserver){
     return isFinite(n) ? n : null;
   }
 
-  function makePopup(title, lines, onRemove){
-    const pop = document.createElement('div');
+  function removeMarker(store, layer, id){
+    const entry = store[id];
+    if (!entry) return;
+    try {
+      if (entry.group) layer.removeLayer(entry.group);
+      else layer.removeLayer(entry);
+    } catch (e) {}
+    try {
+      const m = getMap();
+      if (m && entry.circle && m.hasLayer(entry.circle)) m.removeLayer(entry.circle);
+    } catch (e) {}
+    delete store[id];
+  }
+
+  function addVisibleMarker(latlng, color, title, lines, store, id, layer, onRemove){
+    ensureLayers();
+    removeMarker(store, layer, id);
+
+    const btnId = 'rm_' + id.replace(/[^a-zA-Z0-9_]/g, '_');
+    const linesHtml = (lines || []).filter(Boolean).map(function(t){
+      return '<div style="margin:4px 0;font-size:12px;color:#1c1916"></div>';
+    });
+    // build with textContent via DOM for safety
+    const wrap = document.createElement('div');
+    wrap.style.minWidth = '160px';
     const b = document.createElement('b');
     b.textContent = title;
-    pop.appendChild(b);
+    wrap.appendChild(b);
     (lines || []).forEach(function(t){
       if (!t) return;
       const d = document.createElement('div');
       d.style.cssText = 'margin:4px 0;font-size:12px;color:#1c1916';
       d.textContent = t;
-      pop.appendChild(d);
+      wrap.appendChild(d);
     });
     const rm = document.createElement('button');
     rm.type = 'button';
+    rm.id = btnId;
     rm.textContent = 'Quitar';
-    rm.style.cssText = 'margin-top:8px;width:100%;padding:8px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font:700 13px system-ui;cursor:pointer';
-    rm.addEventListener('click', function(ev){
-      ev.preventDefault(); ev.stopPropagation();
-      if (confirm('¿Quitar este punto del mapa?')) onRemove();
-    });
-    pop.appendChild(rm);
-    return pop;
-  }
+    rm.style.cssText = 'margin-top:8px;width:100%;padding:10px;border:none;border-radius:8px;background:#b91c1c;color:#fff;font:700 14px system-ui;cursor:pointer;-webkit-appearance:none;touch-action:manipulation';
+    wrap.appendChild(rm);
 
-  function addVisibleMarker(latlng, color, popupEl, store, id, layer){
-    ensureLayers();
-    if (store[id]) {
-      layer.removeLayer(store[id]);
-      delete store[id];
-    }
-    const group = L.layerGroup();
     const circle = L.circleMarker(latlng, {
-      radius: 10, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.95
+      radius: 11, color: '#fff', weight: 3, fillColor: color, fillOpacity: 1,
+      interactive: true
     });
-    circle.bindPopup(popupEl);
-    circle.addTo(group);
+    circle.bindPopup(wrap, { closeOnClick: false, autoClose: false, maxWidth: 260 });
+
+    function doRemove(ev){
+      if (ev) {
+        L.DomEvent.stop(ev);
+        L.DomEvent.preventDefault(ev);
+      }
+      onRemove();
+      removeMarker(store, layer, id);
+      const m = getMap();
+      if (m) {
+        try { m.closePopup(); } catch (e) {}
+      }
+    }
+
+    circle.on('popupopen', function(){
+      const btn = document.getElementById(btnId) || wrap.querySelector('button');
+      if (!btn || btn.getAttribute('data-bound') === '1') return;
+      btn.setAttribute('data-bound', '1');
+      L.DomEvent.disableClickPropagation(btn);
+      L.DomEvent.disableScrollPropagation(btn);
+      // click + touchend for iOS Safari
+      L.DomEvent.on(btn, 'click', doRemove);
+      L.DomEvent.on(btn, 'touchend', doRemove);
+    });
+
+    const group = L.layerGroup([circle]);
     group.addTo(layer);
-    store[id] = group;
+    store[id] = { group: group, circle: circle };
+
     const m = getMap();
     if (m) {
       m.panTo(latlng, { animate: true });
-      setTimeout(function(){ try { circle.openPopup(); } catch (e) {} }, 200);
+      setTimeout(function(){ try { circle.openPopup(); } catch (e) {} }, 180);
     }
     return circle;
   }
@@ -2141,14 +2179,11 @@ if (window.ResizeObserver){
     if (p.precio_galon_mxn != null) lines.push('Galón $' + p.precio_galon_mxn);
     if (p.nota_raw) lines.push(p.nota_raw);
     lines.push('Competencia');
-    const pop = makePopup(p.name || 'Competencia', lines, function(){
+    addVisibleMarker([c[1], c[0]], '#0f766e', p.name || 'Competencia', lines, markersComp, id, layerComp, function(){
       const arr = loadLS(LS_COMP).filter(function(x){ return (x.properties || {}).id !== id; });
       saveLS(LS_COMP, arr);
-      if (markersComp[id]) { layerComp.removeLayer(markersComp[id]); delete markersComp[id]; }
       silentSync({ action: 'delete', id: id });
-      const m = getMap(); if (m) m.closePopup();
     });
-    addVisibleMarker([c[1], c[0]], '#0f766e', pop, markersComp, id, layerComp);
   }
   function saveComp(){
     const g = geoOk();
@@ -2214,14 +2249,11 @@ if (window.ResizeObserver){
     if (p.telefono) lines.push('Tel: ' + p.telefono);
     if (p.descripcion) lines.push(p.descripcion);
     lines.push('Nuestra');
-    const pop = makePopup(p.name || 'Nuestra', lines, function(){
+    addVisibleMarker([c[1], c[0]], '#7c3aed', p.name || 'Nuestra', lines, markersOurs, id, layerOurs, function(){
       const arr = loadLS(LS_OURS).filter(function(x){ return (x.properties || {}).id !== id; });
       saveLS(LS_OURS, arr);
-      if (markersOurs[id]) { layerOurs.removeLayer(markersOurs[id]); delete markersOurs[id]; }
       silentSync({ action: 'delete', id: id, layer: 'nosotros' });
-      const m = getMap(); if (m) m.closePopup();
     });
-    addVisibleMarker([c[1], c[0]], '#7c3aed', pop, markersOurs, id, layerOurs);
   }
   function saveOurs(){
     const g = geoOk();
@@ -2238,7 +2270,6 @@ if (window.ResizeObserver){
     closeOurs();
   }
 
-  // events
   opts.forEach(function(b){
     b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setKind(b.getAttribute('data-kind')); });
   });
@@ -2272,10 +2303,10 @@ if (window.ResizeObserver){
   setAddButtonsVisible(false);
   syncGeoUi();
 
-  // restore local pins
   loadLS(LS_COMP).forEach(function(f){ try { markerFromComp(f); } catch (e) {} });
   loadLS(LS_OURS).forEach(function(f){ try { markerFromOurs(f); } catch (e) {} });
 })();
+
 
 
 
