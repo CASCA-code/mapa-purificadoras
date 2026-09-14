@@ -97,6 +97,38 @@ table.pp td:last-child{text-align:right;font-family:"IBM Plex Mono", ui-monospac
   font-variant-numeric:tabular-nums;white-space:nowrap;}
 table.pp tr.tot td{border-top:1.5px solid var(--accent);padding-top:5px;color:var(--ink);font-weight:600;}
 
+
+#rutaMini{
+  position:absolute; z-index:1360; top:12px; left:56px;
+  display:none; flex-direction:column; gap:5px;
+  width:118px; max-width:calc(100vw - 70px);
+  background:var(--surface); border:1px solid var(--hair); border-radius:13px;
+  box-shadow:var(--shadow); padding:8px;
+}
+#rutaMini.show{ display:flex }
+#rutaMini .rm-title{
+  font:700 11px/1.2 IBM Plex Sans,system-ui,sans-serif; color:var(--ink); margin:0 0 2px;
+}
+#rutaMini .rm-sub{
+  font:500 10px/1.3 IBM Plex Sans,system-ui,sans-serif; color:var(--ink-muted); margin:0 0 4px;
+}
+#rutaMini button{
+  width:100%; padding:8px 8px; border-radius:9px; border:1px solid var(--hair);
+  background:var(--surface-2); color:var(--ink); font:700 11px/1.1 IBM Plex Sans,system-ui,sans-serif;
+  cursor:pointer; -webkit-appearance:none;
+}
+#rutaMini button.primary{ background:#2563eb; color:#fff; border-color:#1d4ed8 }
+#rutaMini button:disabled{ opacity:.4 }
+body.ruta-mode #rail .railbtn[data-panel="ruta"]{ background:#2563eb; color:#fff }
+@media (max-width:760px){
+  #rutaMini{ left:54px; top:auto; bottom:calc(58px + env(safe-area-inset-bottom, 0px)); width:130px }
+  #panelHost.ruta-advanced{
+    width:min(320px, calc(100vw - 72px));
+    max-height:58dvh;
+    bottom:auto; top:12px;
+  }
+}
+
 /* ---------- icon rail + accordion panel ---------- */
 #rail{position:absolute;z-index:1350;top:12px;left:12px;
   display:flex;flex-direction:column;gap:4px;
@@ -538,7 +570,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v21 · ruta sin ficha al tocar</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v22 · ruta: modo toque + menú Tops</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -592,6 +624,15 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
    <button class="railbtn" data-panel="leyenda" title="Score de sitio (leyenda)" aria-label="Score de sitio">▤<small>score</small></button>
    <button class="railbtn" data-panel="ruta" title="Armar ruta de campo" aria-label="Ruta de campo">⇢<small>ruta</small></button>
    <button type="button" class="railbtn colonias" id="btnColoniasRail" title="Lista de colonias" aria-label="Colonias" aria-controls="sidebar">☰<small>col.</small></button>
+  </div>
+
+  <div id="rutaMini" aria-live="polite">
+    <p class="rm-title">Ruta ON</p>
+    <p class="rm-sub" id="rutaMiniTxt">Toca el mapa</p>
+    <button type="button" class="primary" id="rutaMiniTops" title="Top 5 / 8 / 9 y lista">Tops ▸</button>
+    <button type="button" id="rutaMiniMaps" disabled>Google Maps</button>
+    <button type="button" id="rutaMiniClear">Limpiar</button>
+    <button type="button" id="rutaMiniExit">Salir ruta</button>
   </div>
 
   <div id="panelHost" hidden>
@@ -702,7 +743,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
    <div class="mpanel" id="p-ruta" data-for="ruta">
     <p class="eyebrow">Ruta de campo</p>
-    <p style="margin:0 0 8px;font-size:12.5px;line-height:1.45">Sale y regresa a <b>casa</b>: Violeta 116, Los Colorines, San Pedro. Con <b>Ruta</b> abierta: <b>toca el mapa</b> (o una colonia) para ir sumando paradas — se arma sola. También puedes cargar top / picks de la lista.</p>
+    <p style="margin:0 0 8px;font-size:12.5px;line-height:1.45">Opcional: carga un <b>Top</b> o picks. Lo normal es tocar el mapa con Ruta ON (menú chico). Casa: Violeta 116, Los Colorines, SPGG.</p>
     <label for="rutaMuni" style="font-size:11px;color:var(--ink-muted)">Municipio</label>
     <select id="rutaMuni"><option value="">Todos (ZMM estudio)</option></select>
     <label for="rutaN" style="font-size:11px;color:var(--ink-muted)">Paradas (máx. 9 por link de Maps)</label>
@@ -1298,16 +1339,82 @@ document.querySelectorAll('.tbtn[data-l]').forEach(btn=>{
 const rail = document.getElementById('rail');
 const host = document.getElementById('panelHost');
 let openName = null;
+let rutaMode = false;
+function syncRutaMini(){
+  const mini = document.getElementById('rutaMini');
+  if (!mini) return;
+  mini.classList.toggle('show', !!rutaMode);
+  document.body.classList.toggle('ruta-mode', !!rutaMode);
+  const rb = document.querySelector('#rail .railbtn[data-panel="ruta"]');
+  if (rb) {
+    rb.classList.toggle('active', !!rutaMode || openName === 'ruta');
+    rb.setAttribute('aria-pressed', String(!!rutaMode));
+  }
+}
+function setRutaMode(on){
+  rutaMode = !!on;
+  syncRutaMini();
+  if (!rutaMode) {
+    // cierra ficha avanzada de ruta si estaba abierta
+    if (openName === 'ruta') {
+      openName = null;
+      host.hidden = true;
+      host.classList.remove('ruta-advanced');
+      host.querySelectorAll('.mpanel').forEach(p => p.classList.remove('show'));
+      rail.querySelectorAll('.railbtn').forEach(b => {
+        if (b.dataset.panel !== 'ruta') {
+          b.classList.remove('active');
+          b.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+  }
+  window.__purifRutaMode = rutaMode;
+}
 function openPanel(name){
+  if (name === 'ruta') {
+    // ficha grande (tops) — no es el default del modo ruta
+    const opening = openName !== 'ruta';
+    openName = opening ? 'ruta' : null;
+    host.hidden = !openName;
+    host.classList.toggle('ruta-advanced', !!openName);
+    host.querySelectorAll('.mpanel').forEach(p => p.classList.toggle('show', p.dataset.for === openName));
+    rail.querySelectorAll('.railbtn').forEach(b => {
+      if (b.dataset.panel === 'ruta') return; // active lo maneja syncRutaMini
+      const a = b.dataset.panel === openName;
+      b.classList.toggle('active', a); b.setAttribute('aria-expanded', String(a));
+    });
+    if (opening) setRutaMode(true);
+    else syncRutaMini();
+    return;
+  }
   openName = (openName === name) ? null : name;
   host.hidden = !openName;
+  host.classList.remove('ruta-advanced');
   host.querySelectorAll('.mpanel').forEach(p => p.classList.toggle('show', p.dataset.for === openName));
   rail.querySelectorAll('.railbtn').forEach(b => {
+    if (b.dataset.panel === 'ruta') return;
     const a = b.dataset.panel === openName;
     b.classList.toggle('active', a); b.setAttribute('aria-expanded', String(a));
   });
+  syncRutaMini();
 }
-rail.querySelectorAll('.railbtn').forEach(b => b.addEventListener('click', ()=>openPanel(b.dataset.panel)));
+rail.querySelectorAll('.railbtn').forEach(b => b.addEventListener('click', function(){
+  const panel = b.getAttribute('data-panel');
+  if (panel === 'ruta') {
+    // Default: modo tocar mapa (menú chico), SIN ficha grande
+    if (rutaMode) {
+      if (openName === 'ruta') openPanel('ruta'); // cierra tops si estaban
+      setRutaMode(false);
+    } else {
+      setRutaMode(true);
+    }
+    return;
+  }
+  openPanel(panel);
+}));
+window.__purifRutaMode = false;
+window.setRutaMode = setRutaMode;
 document.addEventListener('keydown', e=>{
   if (e.key !== 'Escape') return;
   if (lockedCve) { releaseLock(); return; }   // Esc first releases a fixed colonia…
@@ -1617,8 +1724,7 @@ function updateRetailParentUI(){
     syncSummary();
   }
   function rutaPanelOpen(){
-    const b = document.querySelector('#rail .railbtn[data-panel="ruta"]');
-    return !!(b && b.classList.contains('active'));
+    return !!window.__purifRutaMode;
   }
   function addMapStop(lat, lon, label, cve, p){
     if (mapStops.length + picked.size >= MAX_WP) {
@@ -1691,10 +1797,36 @@ function updateRetailParentUI(){
     mapStops.length = 0;
     clearRoute();
   });
+  function refreshMini(){
+    const t = document.getElementById('rutaMiniTxt');
+    const n = mapStops.length + picked.size;
+    if (t) t.textContent = n ? (n+' parada'+(n===1?'':'s')+' · toca más') : 'Toca el mapa';
+    const bm = document.getElementById('rutaMiniMaps');
+    if (bm) bm.disabled = !lastMapsUrl;
+  }
+  const _syncSummary = syncSummary;
+  syncSummary = function(){ _syncSummary(); refreshMini(); };
+  const bMiniTops = document.getElementById('rutaMiniTops');
+  if (bMiniTops) bMiniTops.addEventListener('click', function(e){
+    e.preventDefault(); e.stopPropagation();
+    if (typeof openPanel === 'function') openPanel('ruta');
+  });
+  const bMiniMaps = document.getElementById('rutaMiniMaps');
+  if (bMiniMaps) bMiniMaps.addEventListener('click', function(){
+    if (!lastMapsUrl) return;
+    window.open(lastMapsUrl, '_blank', 'noopener');
+  });
+  const bMiniClear = document.getElementById('rutaMiniClear');
+  if (bMiniClear) bMiniClear.addEventListener('click', function(){
+    picked.clear(); mapStops.length = 0; renderPickList(); clearRoute(); syncSummary();
+  });
+  const bMiniExit = document.getElementById('rutaMiniExit');
+  if (bMiniExit) bMiniExit.addEventListener('click', function(){
+    if (typeof setRutaMode === 'function') setRutaMode(false);
+  });
   map.on('click', function(ev){
     if (!rutaPanelOpen()) return;
     if (!ev || !ev.latlng) return;
-    // si el click fue sobre UI, Leaflet no llega aquí normalmente
     addMapStop(ev.latlng.lat, ev.latlng.lng, 'Toque mapa', null, null);
   });
   // colonias: al fijar con panel ruta abierto, suma a la ruta
