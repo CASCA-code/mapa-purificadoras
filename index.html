@@ -436,6 +436,18 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 
 
+
+#sheetBackdrop{
+  display:none;
+  position:absolute;
+  inset:0;
+  z-index:1550;
+  background:rgba(0,0,0,0.15);
+  pointer-events:auto;
+  -webkit-tap-highlight-color:transparent;
+}
+#sheetBackdrop.show{ display:block; }
+
 #fieldAddSheet{
   display:none; position:absolute; z-index:1600; /* close-x anchor */
   left:10px; right:10px; bottom:calc(72px + env(safe-area-inset-bottom, 0px));
@@ -522,10 +534,11 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 <div id="geoPanel" role="status" aria-live="polite"></div>
 
+<div id="sheetBackdrop" hidden aria-hidden="true"></div>
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v12 · cerrar tap fuera / X</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v13 · tap mapa (backdrop) cierra</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -1986,10 +1999,12 @@ if (window.ResizeObserver){
 <script>
 
 
-/* ---------- Cerrar Comp/Nosotros (tap fuera + X) ---------- */
+/* ---------- Comp/Nosotros: backdrop cierra al tocar mapa ---------- */
 (function(){
-  function isOpen(el){
-    return !!(el && (el.classList.contains('show') || (!el.hidden && el.style.display === 'block')));
+  var backdrop = null;
+  function bd(){
+    if (!backdrop) backdrop = document.getElementById('sheetBackdrop');
+    return backdrop;
   }
   function closeCompOurs(){
     ['fieldAddSheet','oursAddSheet'].forEach(function(id){
@@ -1999,40 +2014,43 @@ if (window.ResizeObserver){
       el.hidden = true;
       el.style.display = 'none';
     });
+    var b = bd();
+    if (b) {
+      b.classList.remove('show');
+      b.hidden = true;
+      b.style.display = 'none';
+      b.setAttribute('aria-hidden','true');
+    }
   }
-  function openReset(el){
-    if (!el) return;
-    el.hidden = false;
-    el.style.display = 'block';
-    el.classList.add('show');
+  function showBackdrop(){
+    var b = bd();
+    if (!b) return;
+    b.hidden = false;
+    b.style.display = 'block';
+    b.classList.add('show');
+    b.setAttribute('aria-hidden','false');
   }
   window.__purifCloseSheets = closeCompOurs;
-  window.__purifOpenSheet = openReset;
+  window.__purifShowSheetBackdrop = showBackdrop;
 
-  function outside(ev){
-    var comp = document.getElementById('fieldAddSheet');
-    var ours = document.getElementById('oursAddSheet');
-    if (!isOpen(comp) && !isOpen(ours)) return;
-    var t = ev.target;
-    if (!t) return;
-    if (t.closest && (t.closest('#fieldAddSheet') || t.closest('#oursAddSheet') ||
-        t.closest('#btnAddComp') || t.closest('#btnAddOurs'))) {
-      return;
-    }
+  function onBackdrop(ev){
+    ev.preventDefault();
+    ev.stopPropagation();
     closeCompOurs();
   }
-  // bubble + capture en document: cualquier tap fuera cierra
-  document.addEventListener('click', outside, true);
-  document.addEventListener('touchend', outside, true);
-
-  function bindX(){
-    var xc = document.getElementById('fieldAddClose');
-    var xo = document.getElementById('oursAddClose');
-    if (xc) xc.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); closeCompOurs(); });
-    if (xo) xo.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); closeCompOurs(); });
+  function bind(){
+    var b = bd();
+    if (!b) { setTimeout(bind, 100); return; }
+    b.addEventListener('click', onBackdrop);
+    b.addEventListener('touchend', onBackdrop, {passive:false});
+    b.addEventListener('pointerdown', onBackdrop);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindX);
-  else bindX();
+  bind();
+
+  var xc = document.getElementById('fieldAddClose');
+  var xo = document.getElementById('oursAddClose');
+  if (xc) xc.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); closeCompOurs(); });
+  if (xo) xo.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); closeCompOurs(); });
 })();
 
 /* ---------- FIELD ADD: Comp (competencia) + Nosotros (nuestras) ---------- */
@@ -2237,14 +2255,22 @@ if (window.ResizeObserver){
     sheetComp.classList.remove('show');
     sheetComp.hidden = true;
     sheetComp.style.display = 'none';
+    if (!sheetOurs || !sheetOurs.classList.contains('show')) {
+      if (window.__purifCloseSheets) window.__purifCloseSheets();
+    }
   }
   function openComp(){
     const g = geoOk();
     if (!g) { alert('Primero toca Ubicarme y espera a que te localice.'); return; }
-    if (sheetOurs) { sheetOurs.classList.remove('show'); sheetOurs.hidden = true; }
+    if (sheetOurs) {
+      sheetOurs.classList.remove('show');
+      sheetOurs.hidden = true;
+      sheetOurs.style.display = 'none';
+    }
     sheetComp.hidden = false;
     sheetComp.style.display = 'block';
     sheetComp.classList.add('show');
+    if (window.__purifShowSheetBackdrop) window.__purifShowSheetBackdrop();
     if (coordsEl) coordsEl.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5);
     validateComp();
   }
@@ -2320,6 +2346,11 @@ if (window.ResizeObserver){
     sheetOurs.classList.remove('show');
     sheetOurs.hidden = true;
     sheetOurs.style.display = 'none';
+    // si Comp no está abierta, quita backdrop
+    if (!sheetComp.classList.contains('show') && window.__purifCloseSheets) {
+      var b = document.getElementById('sheetBackdrop');
+      if (b) { b.classList.remove('show'); b.hidden = true; b.style.display = 'none'; }
+    }
   }
   function openOurs(){
     const g = geoOk();
@@ -2328,6 +2359,7 @@ if (window.ResizeObserver){
     sheetOurs.hidden = false;
     sheetOurs.style.display = 'block';
     sheetOurs.classList.add('show');
+    if (window.__purifShowSheetBackdrop) window.__purifShowSheetBackdrop();
     if (oursCoords) oursCoords.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5);
     validateOurs();
   }
