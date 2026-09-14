@@ -538,7 +538,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Añadir competencia</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v17 · cero zoom/pan auto (comp incluido)</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v18 · ★ zonas me gustó (4)</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div class="opts" role="radiogroup" aria-label="Tipo">
     <button type="button" class="opt" data-kind="purificadora">Purificadora de agua</button>
@@ -658,6 +658,10 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <button class="tbtn ctx " data-l="anclas_banco_azteca" aria-pressed="false"><i aria-hidden="true" style="background:#2f855a;border-color:#276749;color:#fff;font-size:9px;font-weight:700">Z</i><span>Banco Azteca (22)</span></button>
      </div>
     </div>
+    <button type="button" class="tbtn ctx on" id="likedZonesToggle" aria-pressed="true" title="Zonas que a Nicolás le gustaron para volver">
+      <i aria-hidden="true" style="background:#fbbf24;border-color:#b45309;color:#78350f;font-size:11px;font-weight:700">★</i>
+      <span>★ Me gustó (volver)</span>
+    </button>
     <p class="gap">Anclas azules (escuelas/iglesias/hospitales) y <b>retail/bancos</b> entran a <b>Anclas*</b> en Version 2. Retail/bancos + anclas OSM (OSM Overpass) puntúan en Anclas* (≤250 m centroide). Contexto OSM (306 iglesias · 112 hospitales · 1326 escuelas: 176 jardines · 191 primarias · 101 secundarias · 65 prepas · 71 unis · 23 colleges · 699 otras). Hospitales = amenity=hospital (OSM) o nombre de hospital/clínica-hospital real; sin consultorios ni clínicas simples. <b>Escuelas</b>: clic en la fila abre el submenú de subtipos (jardín / primaria / secundaria / prepa / uni / college / otras); el ícono A o Todas/Ninguna controla el maestro. El calor cubre solo las colonias objetivo (no es cobertura total). Los anillos (5/10/15 km desde la Macroplaza) son un proxy del traslado al empleo del primer cuadro; la ZMM es policentrica.</p>
    </div>
 
@@ -690,6 +694,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <div class="row"><span class="sw ico" title="Cerveza" style="background:#d69e2e;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">C</span> Modelorama / Six / cerveza</div>
     <div class="row"><span class="sw ico" title="Bienestar" style="background:#38a169;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">B</span> Banco del Bienestar</div>
     <div class="row"><span class="sw ico" title="Azteca" style="background:#2f855a;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">Z</span> Banco Azteca</div>
+    <div class="row"><span class="sw ico" title="Me gustó" style="background:#fbbf24;border-radius:50%;color:#78350f;font:700 11px/16px sans-serif;text-align:center">★</span> zona me gustó (volver)</div>
     <div class="row"><span class="sw ring"></span> contexto: anillos 5/10/15 km</div>
     <div class="row"><span class="sw line"></span> límite de municipio · <span style="opacity:.6">— — San Pedro (excluido)</span></div>
     <p class="gap">competencia = DENUE formal (SCIAN 312112) + informal proxy 1.0/1000 viv. · POB modelada CONAPO · anclas azules = OSM deduplicado (iglesia✝ · hospital H · escuelas J/P/S/B/U/C/·); en Version 2 Anclas* sí entra al score_100 (capa visual igual) · 0 colonias sin poligono</p>
@@ -2491,5 +2496,48 @@ if (window.ResizeObserver){
 
 
 </script>
+
+<script>
+/* ★ Zonas me gustó — published from Purificador / Campo */
+(function(){
+  var layerLiked = L.layerGroup().addTo(map);
+  var starIcon = L.divIcon({
+    className: '',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    html: '<div style="width:28px;height:28px;border-radius:50%;background:#fbbf24;border:2px solid #78350f;display:flex;align-items:center;justify-content:center;font:700 16px/1 system-ui;color:#78350f;box-shadow:0 2px 6px rgba(0,0,0,.35)">★</div>'
+  });
+  function popupHtml(p){
+    var note = (p.nota || '').replace(/</g,'&lt;');
+    var name = (p.name || 'Zona ★').replace(/</g,'&lt;');
+    var col = (p.colonia || '').replace(/</g,'&lt;');
+    var st = p.status === 'liked_rejected' ? '<div style="margin-top:6px;color:#fecaca;font-weight:700">Rechazo en campo</div>' : '';
+    var maps = p.maps ? '<div style="margin-top:8px"><a href="'+String(p.maps).replace(/"/g,'')+'" target="_blank" rel="noopener" style="color:#93c5fd">Abrir en Maps</a></div>' : '';
+    return '<div class="field-popup" style="min-width:180px;color:#fff"><b style="color:#fde68a">★ '+name+'</b>'+
+      (col?'<div style="margin:4px 0;font-size:12px;opacity:.9">'+col+'</div>':'')+
+      '<div style="margin:6px 0;font-size:12px;line-height:1.35;white-space:pre-wrap">'+note+'</div>'+st+maps+'</div>';
+  }
+  fetch('data/liked_zones.geojson?v=1').then(function(r){ return r.json(); }).then(function(fc){
+    (fc.features||[]).forEach(function(f){
+      var c = f.geometry && f.geometry.coordinates; if (!c) return;
+      var p = f.properties || {};
+      var m = L.marker([c[1], c[0]], { icon: starIcon, keyboard:false, zIndexOffset: 1500 });
+      m.bindPopup(popupHtml(p), { maxWidth: 280, className: 'field-pop', autoPan: false });
+      m.addTo(layerLiked);
+    });
+  }).catch(function(){});
+  var btn = document.getElementById('likedZonesToggle');
+  if (btn) {
+    btn.addEventListener('click', function(){
+      var on = btn.getAttribute('aria-pressed') !== 'true';
+      btn.setAttribute('aria-pressed', String(on));
+      btn.classList.toggle('on', on);
+      if (on) { if (!map.hasLayer(layerLiked)) layerLiked.addTo(map); }
+      else { if (map.hasLayer(layerLiked)) map.removeLayer(layerLiked); }
+    });
+  }
+})();
+</script>
+
 </body>
 </html>

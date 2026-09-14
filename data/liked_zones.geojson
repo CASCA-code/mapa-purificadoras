@@ -1,0 +1,77 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3259454,
+          25.7224135
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-14_timoteo",
+        "name": "José Timoteo Rosales 5013-A, Niño Artillero",
+        "colonia": "Niño Artillero",
+        "nota": "Me gustó la zona para regresar. En campo me mandaron a la verga (rechazo fuerte).",
+        "maps": "https://maps.app.goo.gl/AieCEuQEZnFUXqDj6?g_st=ic",
+        "status": "liked_rejected"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3278522,
+          25.7320738
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-14_rayones",
+        "name": "Calle Rayones, Topo Chico",
+        "colonia": "Topo Chico",
+        "nota": "Me gustó. Volver.",
+        "maps": "https://maps.app.goo.gl/Rpfr8CsybXxSvMqZA?g_st=ic",
+        "status": "liked"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3273341,
+          25.7266511
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-14_constituyentes57",
+        "name": "Constituyentes del 57",
+        "colonia": "Constituyentes del 57 / Topo Chico",
+        "nota": "Me gustó (igual está). Volver.",
+        "maps": "https://maps.app.goo.gl/BZBGuaJpSaQU1Jui7?g_st=ic",
+        "status": "liked"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3327465,
+          25.7333849
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-14_25_7334",
+        "name": "Avenida General Bernardo Reyes, Topo Chico",
+        "colonia": "Topo Chico",
+        "nota": "Me gustó (igual está). Volver.",
+        "maps": "https://maps.app.goo.gl/xWcXm2s8xTFhYGmw6?g_st=ic",
+        "status": "liked"
+      }
+    }
+  ]
+}
