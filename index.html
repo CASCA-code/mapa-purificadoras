@@ -623,7 +623,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Competencia agua</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v28 · hojas arriba del backdrop</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v29 · plus tap-to-drop + ✓ otros</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div id="fieldAddOtraWrap" hidden>
     <label for="fieldAddOtra">¿Qué hay?</label>
@@ -670,12 +670,12 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <button type="button" class="tile" data-kind="express">Express<br><span style="font:600 11px/1.2 system-ui;opacity:.75">Bodega/Soriana Express</span></button>
     <button type="button" class="tile wide" data-kind="otro">Otros</button>
   </div>
-  <div id="anchorAddOtroWrap">
-    <label for="anchorAddOtro">¿Qué es? (requerido)</label>
-    <input id="anchorAddOtro" type="text" placeholder="ej. parque, tianguis…" autocomplete="off"/>
-  </div>
-  <div class="row">
-    <button type="button" class="btnSave" id="anchorAddSave" disabled>Guardar</button>
+  <div id="anchorAddOtroWrap" hidden>
+    <label for="anchorAddOtro">¿Qué es?</label>
+    <div class="otroRow">
+      <input id="anchorAddOtro" type="text" placeholder="ej. parque, tianguis…" autocomplete="off"/>
+      <button type="button" id="anchorAddConfirm" aria-label="Guardar otro" title="Guardar">✓</button>
+    </div>
   </div>
 </div>
 
@@ -2362,7 +2362,7 @@ if (window.ResizeObserver){
   const anchorCoords = document.getElementById('anchorAddCoords');
   const otroWrap = document.getElementById('anchorAddOtroWrap');
   const otroIn = document.getElementById('anchorAddOtro');
-  const btnSaveAnchor = document.getElementById('anchorAddSave');
+  const btnSaveAnchor = document.getElementById('anchorAddConfirm');
   const anchorTiles = sheetPlus ? Array.prototype.slice.call(sheetPlus.querySelectorAll('.tile')) : [];
 
   let kind = 'purificadora';
@@ -2782,23 +2782,39 @@ if (window.ResizeObserver){
   function setAnchorKind(k){
     anchorKind = k;
     anchorTiles.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-kind') === k); });
-    if (otroWrap) otroWrap.style.display = k === 'otro' ? 'block' : 'none';
-    validateAnchor();
+    if (k === 'otro') {
+      if (otroWrap) {
+        otroWrap.hidden = false;
+        otroWrap.style.setProperty('display', 'block', 'important');
+      }
+      setTimeout(function(){ try { if (otroIn) otroIn.focus(); } catch (e) {} }, 40);
+      return;
+    }
+    if (otroWrap) {
+      otroWrap.hidden = true;
+      otroWrap.style.setProperty('display', 'none', 'important');
+    }
+    if (otroIn) otroIn.value = '';
+    // Un toque = se pone y cierra
+    saveAnchor();
   }
   function validateAnchor(){
-    const g = geoOk();
-    let ok = !!g && !!anchorKind;
-    if (anchorKind === 'otro') ok = ok && !!(otroIn && (otroIn.value || '').trim());
-    if (btnSaveAnchor) btnSaveAnchor.disabled = !ok;
+    /* ya no hay Guardar grande */
   }
   function openPlus(){
     const g = geoOk();
     if (!g) { alert('Primero toca Ubicarme y espera a que te localice.'); return; }
     hideOthers(sheetPlus);
+    anchorKind = null;
+    anchorTiles.forEach(function(b){ b.classList.remove('on'); });
+    if (otroIn) otroIn.value = '';
+    if (otroWrap) {
+      otroWrap.hidden = true;
+      otroWrap.style.setProperty('display', 'none', 'important');
+    }
     showSheet(sheetPlus);
     if (window.__purifShowSheetBackdrop) window.__purifShowSheetBackdrop();
     if (anchorCoords) anchorCoords.textContent = g.lat.toFixed(5) + ', ' + g.lon.toFixed(5);
-    validateAnchor();
   }
   function featureAnchor(g){
     const raw = (otroIn && otroIn.value || '').trim();
@@ -2838,7 +2854,10 @@ if (window.ResizeObserver){
   function saveAnchor(){
     const g = geoOk();
     if (!g || !anchorKind) return;
-    if (anchorKind === 'otro' && !(otroIn && (otroIn.value || '').trim())) return;
+    if (anchorKind === 'otro' && !(otroIn && (otroIn.value || '').trim())) {
+      try { if (otroIn) otroIn.focus(); } catch (e) {}
+      return;
+    }
     const feat = featureAnchor(g);
     const arr = loadLS(LS_ANCLAS);
     arr.push(feat);
@@ -2848,7 +2867,10 @@ if (window.ResizeObserver){
     if (otroIn) otroIn.value = '';
     anchorKind = null;
     anchorTiles.forEach(function(b){ b.classList.remove('on'); });
-    if (otroWrap) otroWrap.style.display = 'none';
+    if (otroWrap) {
+      otroWrap.hidden = true;
+      otroWrap.style.setProperty('display', 'none', 'important');
+    }
     if (window.__purifCloseSheets) window.__purifCloseSheets();
   }
 
@@ -2858,7 +2880,16 @@ if (window.ResizeObserver){
   [oursName, oursPhone, oursDesc].forEach(function(el){
     if (el) el.addEventListener('input', validateOurs);
   });
-  if (otroIn) otroIn.addEventListener('input', validateAnchor);
+  if (otroIn) {
+    otroIn.addEventListener('keydown', function(e){
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        anchorKind = 'otro';
+        saveAnchor();
+      }
+    });
+  }
   anchorTiles.forEach(function(b){
     b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setAnchorKind(b.getAttribute('data-kind')); });
   });
