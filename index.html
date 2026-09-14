@@ -646,7 +646,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Competencia agua</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v31 · sync compartido auto</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v32 · fav taller esquinita +tel</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div id="fieldAddOtraWrap" hidden>
     <label for="fieldAddOtra">¿Qué hay?</label>
@@ -3020,7 +3020,7 @@ if (window.ResizeObserver){
       (col?'<div style="margin:4px 0;font-size:12px;opacity:.9">'+col+'</div>':'')+
       '<div style="margin:6px 0;font-size:12px;line-height:1.35;white-space:pre-wrap">'+note+'</div>'+st+maps+'</div>';
   }
-  fetch('data/liked_zones.geojson?v=2').then(function(r){ return r.json(); }).then(function(fc){
+  fetch('data/liked_zones.geojson?v=3').then(function(r){ return r.json(); }).then(function(fc){
     (fc.features||[]).forEach(function(f){
       var c = f.geometry && f.geometry.coordinates; if (!c) return;
       var p = f.properties || {};

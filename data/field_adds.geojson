@@ -13,10 +13,10 @@
       "properties": {
         "id": "ours_manual_2026-09-14_taller_esquinita",
         "kind": "favorito",
-        "name": "Avenida General Bernardo Reyes",
+        "name": "Taller en la esquinita",
         "telefono": "81 1060 2066",
         "descripcion": "TALLER EN LA ESQUINITA",
-        "colonia": "",
+        "colonia": "Av. Gral. Bernardo Reyes",
         "ts": "2026-09-14T20:09:20.562512+00:00",
         "fuente": "purificador_chat",
         "status": "published",
