@@ -1,0 +1,41 @@
+name: Merge field adds
+
+on:
+  schedule:
+    # Cada 2 h (campo); NO_CHANGES = silencio
+    - cron: "15 */2 * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [merge-field-adds]
+
+permissions:
+  contents: write
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Merge ntfy inbox (+ optional GitHub issues)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/merge_field_add_issues.py
+
+      - name: Commit data if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/field_adds.geojson data/field_adds_deleted.json
+          if git diff --staged --quiet; then
+            echo "No file changes"
+            exit 0
+          fi
+          git commit -m "Merge field-adds from ntfy inbox"
+          git push origin HEAD:main
