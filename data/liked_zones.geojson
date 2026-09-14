@@ -72,6 +72,24 @@
         "maps": "https://maps.app.goo.gl/xWcXm2s8xTFhYGmw6?g_st=ic",
         "status": "liked"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.325833559252,
+          25.717376572557
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-14_sndcy22",
+        "name": "Calle José Timoteo Rosales, Niño Artillero, Monterrey, Nuevo León, 64280",
+        "colonia": "Niño Artillero",
+        "nota": "Me gustó (igual acá). Volver.",
+        "maps": "https://maps.app.goo.gl/SNDcy22SRPfGJ1jC7?g_st=ic",
+        "status": "liked"
+      }
     }
   ]
 }
