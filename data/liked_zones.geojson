@@ -149,6 +149,24 @@
         "maps": "https://maps.app.goo.gl/pUWh5e7d33aL1sf89",
         "status": "liked"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.2457166,
+          25.592113
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-15_paseo_de_las_flores",
+        "name": "Calle Paseo De Las Flores, Estanzuela (Fomerrey 45)",
+        "colonia": "Estanzuela (Fomerrey 45)",
+        "nota": "Me gustó. Volver.",
+        "maps": "https://maps.app.goo.gl/A6hHNEBP8GZnqMEA9?g_st=ic",
+        "status": "liked"
+      }
     }
   ]
 }
