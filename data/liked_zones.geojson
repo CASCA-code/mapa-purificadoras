@@ -203,6 +203,24 @@
         "maps": "https://maps.app.goo.gl/8u7CJKx4FXdW5VN5A?g_st=ic",
         "status": "liked"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.242104,
+          25.5918206
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-15_paseo_del_norte_2",
+        "name": "Calle Paseo Del Norte, Estanzuela (Fomerrey 45)",
+        "colonia": "Estanzuela (Fomerrey 45)",
+        "nota": "Me gustó. Volver.",
+        "maps": "https://maps.app.goo.gl/asxK1jnTrqwDKhCi7?g_st=ic",
+        "status": "liked"
+      }
     }
   ]
 }
