@@ -2808,6 +2808,7 @@ if (window.ResizeObserver){
     const id = p.id;
     const lines = [];
     if (p.telefono) lines.push('Tel: ' + p.telefono);
+    if (p.anfitrion) lines.push('Anfitrión: ' + p.anfitrion);
     if (p.descripcion) lines.push(p.descripcion);
     lines.push('Favorito');
     var phoneVal = pickPhone(p);
@@ -3080,12 +3081,14 @@ if (window.ResizeObserver){
     var maps = p.maps ? '<div style="margin-top:8px"><a href="'+String(p.maps).replace(/"/g,'')+'" target="_blank" rel="noopener" style="color:#93c5fd">Abrir en Maps</a></div>' : '';
     var phone = p.telefono || p.phone || '';
     var tel = dialHrefLiked(phone);
+    var host = (p.anfitrion || '').replace(/</g,'&lt;');
+    var hostLine = host ? '<div style="margin:4px 0;font-size:12px">Anfitrión: '+host+'</div>' : '';
     var call = tel
       ? '<div style="margin-top:8px"><a href="'+tel+'" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;background:#16a34a;color:#fff!important;font:700 13px system-ui;text-decoration:none">📞 Llamar</a></div>'
       : '';
     return '<div class="field-popup" style="min-width:180px;color:#fff"><b style="color:#fde68a">★ '+name+'</b>'+
       (col?'<div style="margin:4px 0;font-size:12px;opacity:.9">'+col+'</div>':'')+
-      '<div style="margin:6px 0;font-size:12px;line-height:1.35;white-space:pre-wrap">'+note+'</div>'+st+call+maps+'</div>';
+      '<div style="margin:6px 0;font-size:12px;line-height:1.35;white-space:pre-wrap">'+note+'</div>'+st+hostLine+call+maps+'</div>';
   }
   function isDupOfFieldFav(f){
     var keys = window.__purifSharedFavKeys || {};

@@ -15,13 +15,38 @@
         "kind": "favorito",
         "name": "Taller en la esquinita",
         "telefono": "81 1060 2066",
-        "descripcion": "TALLER EN LA ESQUINITA",
+        "descripcion": "TALLER EN LA ESQUINITA. Anfitrión: Ezequiel",
         "colonia": "Av. Gral. Bernardo Reyes",
         "ts": "2026-09-14T20:09:20.562512+00:00",
         "fuente": "purificador_chat",
         "status": "published",
         "layer": "favoritos",
-        "maps": "https://maps.google.com/?q=25.726089,-100.331291"
+        "maps": "https://maps.google.com/?q=25.726089,-100.331291",
+        "anfitrion": "Ezequiel"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.328697,
+          25.733938
+        ]
+      },
+      "properties": {
+        "id": "ours_manual_2026-09-15_luis_volkswagen",
+        "kind": "favorito",
+        "name": "Luis Volkswagen",
+        "anfitrion": "Luis",
+        "telefono": "81 1525 3207",
+        "descripcion": "Luis Volkswagen. Anfitrión: Luis",
+        "colonia": "Topo Chico",
+        "ts": "2026-09-15T15:08:07.012865+00:00",
+        "fuente": "purificador_chat",
+        "status": "published",
+        "layer": "favoritos",
+        "maps": "https://maps.google.com/?q=25.733938,-100.328697"
       }
     }
   ]

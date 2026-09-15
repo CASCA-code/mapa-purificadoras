@@ -104,10 +104,31 @@
         "id": "liked_2026-09-14_taller_esquinita",
         "name": "Taller en la esquinita",
         "colonia": "Monterrey",
-        "nota": "TALLER EN LA ESQUINITA\nTel: 81 1060 2066",
+        "nota": "TALLER EN LA ESQUINITA\nAnfitrión: Ezequiel\nTel: 81 1060 2066",
         "telefono": "81 1060 2066",
         "descripcion": "TALLER EN LA ESQUINITA",
         "maps": "https://maps.google.com/?q=25.726089,-100.331291",
+        "status": "liked",
+        "anfitrion": "Ezequiel"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.328697,
+          25.733938
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-15_luis_volkswagen",
+        "name": "Luis Volkswagen",
+        "colonia": "Topo Chico",
+        "nota": "Luis Volkswagen\nAnfitrión: Luis\nTel: 81 1525 3207",
+        "telefono": "81 1525 3207",
+        "anfitrion": "Luis",
+        "maps": "https://maps.google.com/?q=25.733938,-100.328697",
         "status": "liked"
       }
     }
