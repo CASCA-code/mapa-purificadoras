@@ -185,6 +185,24 @@
         "maps": "https://maps.app.goo.gl/EZXUfP8S2G7BGfgn9?g_st=ic",
         "status": "liked"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.2410639,
+          25.5924375
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-15_paseo_de_la_hacienda",
+        "name": "Calle Paseo De La Hacienda, Estanzuela (Fomerrey 45)",
+        "colonia": "Estanzuela (Fomerrey 45)",
+        "nota": "Me gustó. Volver.",
+        "maps": "https://maps.app.goo.gl/8u7CJKx4FXdW5VN5A?g_st=ic",
+        "status": "liked"
+      }
     }
   ]
 }
