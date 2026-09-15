@@ -221,6 +221,24 @@
         "maps": "https://maps.app.goo.gl/asxK1jnTrqwDKhCi7?g_st=ic",
         "status": "liked"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.2425073,
+          25.5924937
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-15_paseo_de_la_cumbre",
+        "name": "Calle Paseo De La Cumbre, Estanzuela (Fomerrey 45)",
+        "colonia": "Estanzuela (Fomerrey 45)",
+        "nota": "Me gustó. Volver.",
+        "maps": "https://maps.app.goo.gl/SFpXkdSxf5ABT6zF8?g_st=ic",
+        "status": "liked"
+      }
     }
   ]
 }
