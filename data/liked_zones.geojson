@@ -131,6 +131,24 @@
         "maps": "https://maps.google.com/?q=25.733938,-100.328697",
         "status": "liked"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.2392218,
+          25.5821163
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-15_congreso_norte",
+        "name": "Calle Congreso Norte, La Estanzuela",
+        "colonia": "La Estanzuela",
+        "nota": "Me gustó. Volver.",
+        "maps": "https://maps.app.goo.gl/pUWh5e7d33aL1sf89",
+        "status": "liked"
+      }
     }
   ]
 }
