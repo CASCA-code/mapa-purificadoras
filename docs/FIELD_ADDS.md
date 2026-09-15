@@ -1,5 +1,7 @@
 # Field adds (multi-celular)
 
+Actualizado: 2026-09-15 — dock ★/＋/Comp + ntfy sync sigue vigente post-slim `67cf5f9`.
+
 ## Qué hace cada teléfono
 1. Ubicarme → ★ Fav / ＋ anclas / Comp
 2. Al **guardar**, el pin se pinta local y se manda solo a la bandeja ntfy (`purif-zmm-campo-casca-v1`). La otra persona no toca nada extra.

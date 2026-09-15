@@ -47,3 +47,11 @@ Si no sale el aviso de ubicación:
 ## Nombre fuera del estudio
 
 Reverse Nominatim para nombre; score solo en estudio.
+
+
+## Update 2026-09-15 (slim / campo)
+
+- Dot azul sigue al GPS; el mapa se **centra una vez** al tocar Ubicarme (no persigue).
+- Botón **Parar** detiene el watch.
+- Al abrir ficha/sheet de campo, el GPS se **congela** mientras editas.
+- Live tip: abre con `?v=67cf5f9` tras el slim deploy.

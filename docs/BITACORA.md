@@ -1,5 +1,18 @@
 # Bitácora Purificadoras
 
+## 2026-09-14 / 15 (campo + slim móvil)
+
+- **Slim map** `67cf5f9`: `index.html` ~161 KB; GeoJSON en `data/`; tiles Carto→OSM→Esri; SW cache para celular MX.
+- Live: https://casca-code.github.io/mapa-purificadoras/?v=67cf5f9
+- **Ubicarme**: punto sigue GPS; mapa centra una vez; Parar; freeze GPS al abrir sheet.
+- Dock campo ★ / ＋ / Comp; sync `field_adds` vía ntfy; anclas one-tap.
+- **CRM pins**: Ezequiel (Taller esquinita, 81 1060 2066 @ 25.726089,-100.331291); Luis Volkswagen (81 1525 3207 @ 25.733938,-100.328697) — nombre+tel en Nosotros/Fav.
+- **Liked**: cluster Estanzuela Fomerrey 45; Topo Chico / Niño Artillero; Timoteo `liked_rejected` (rechazo fuerte).
+- Agente **Psicología** en equipo Purificadoras (embudo permiso pared / Carnegie).
+- Recordatorio: llamada barbacoa **miércoles**.
+
+
+
 ## 2026-09-13 (mapa Tec + Centro)
 
 - Expandido `/tec/` a Tec + Centro (Independencia excluida). ~90 deptos, Oxxo/7-Eleven, puris GMaps.
