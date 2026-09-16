@@ -239,6 +239,24 @@
         "maps": "https://maps.app.goo.gl/SFpXkdSxf5ABT6zF8?g_st=ic",
         "status": "liked"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3005044,
+          25.6432432
+        ]
+      },
+      "properties": {
+        "id": "liked_2026-09-15_rio_nazas_710",
+        "name": "Calle Río Nazas 710, Monterrey",
+        "colonia": "Monterrey",
+        "nota": "Me gustó. Volver.",
+        "maps": "https://maps.app.goo.gl/EiWT2KJTuZX1kJgk9?g_st=ic",
+        "status": "liked"
+      }
     }
   ]
 }
