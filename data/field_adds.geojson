@@ -48,6 +48,28 @@
         "layer": "favoritos",
         "maps": "https://maps.google.com/?q=25.733938,-100.328697"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3004717,
+          25.6433153
+        ]
+      },
+      "properties": {
+        "id": "ours_mu3e7spk_ldq7sd",
+        "kind": "favorito",
+        "name": "Por el tec enfrente de bodega ayrrera",
+        "telefono": "80000000",
+        "descripcion": "",
+        "accuracy_m": 5,
+        "ts": "2026-09-16T00:59:17.144Z",
+        "fuente": "campo",
+        "status": "inbox",
+        "layer": "favoritos"
+      }
     }
   ]
 }
