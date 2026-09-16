@@ -588,7 +588,52 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 }
 #btnFieldUndo.show{ display:flex !important; }
 
-
+#btnExportLocal{
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  min-width:56px; min-height:48px; padding:12px 14px; border-radius:999px; border:1px solid var(--hair);
+  font:700 14px/1 IBM Plex Sans,system-ui,sans-serif;
+  box-shadow:var(--shadow); cursor:pointer; -webkit-appearance:none; touch-action:manipulation;
+  background:#334155; color:#fff;
+}
+#exportLocalSheet{
+  display:none; position:fixed; z-index:1950;
+  left:0; right:0; top:0; bottom:0;
+  background:var(--surface);
+  padding:max(14px, env(safe-area-inset-top, 0px)) 14px calc(18px + env(safe-area-inset-bottom, 0px));
+  overflow:auto; -webkit-overflow-scrolling:touch;
+  box-sizing:border-box;
+  flex-direction:column; gap:10px;
+}
+#exportLocalSheet.show{ display:flex !important; pointer-events:auto !important; z-index:1950 !important; }
+#exportLocalSheet h2{ margin:0 36px 4px 0; font:700 18px/1.2 Fraunces,Georgia,serif; color:#111 }
+#exportLocalSheet .hint{ color:#3f3a34; font-size:13px; margin:0 }
+#exportLocalSheet .exportCounts{
+  display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 0;
+}
+#exportLocalSheet .exportCounts span{
+  display:inline-flex; align-items:center; gap:6px;
+  border:1px solid var(--hair); border-radius:999px; padding:6px 10px;
+  font:600 12px/1 IBM Plex Sans,system-ui,sans-serif; background:#f8f5f0; color:#1c1916;
+}
+#exportLocalSheet textarea{
+  width:100%; flex:1 1 auto; min-height:42vh; box-sizing:border-box;
+  border:1px solid var(--hair); border-radius:12px;
+  padding:12px; font:12px/1.35 IBM Plex Mono,ui-monospace,monospace;
+  background:#fff; color:#111; resize:vertical;
+  pointer-events:auto !important; -webkit-user-select:text !important; user-select:text !important;
+  font-size:16px;
+}
+#exportLocalSheet .exportActions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px }
+#exportLocalSheet .exportActions button{
+  flex:1 1 auto; min-width:110px; border:none; border-radius:12px; padding:12px 14px;
+  font:700 14px/1 IBM Plex Sans,system-ui,sans-serif; cursor:pointer;
+  -webkit-appearance:none; touch-action:manipulation;
+}
+#exportLocalSheet #exportLocalCopy{ background:#0f766e; color:#fff }
+#exportLocalSheet #exportLocalShare{ background:#2563eb; color:#fff }
+#exportLocalSheet #exportLocalDownload{ background:#1c1916; color:#fff }
+#exportLocalSheet #exportLocalCopy.ok{ background:#15803d }
+#exportLocalSheet .exportNote{ color:#3f3a34; font-size:12.5px; margin:2px 0 0 }
 
 #fieldAddSheet input, #fieldAddSheet textarea,
 #oursAddSheet input, #oursAddSheet textarea,
@@ -599,7 +644,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   touch-action:manipulation;
   font-size:16px; /* evita zoom-iOS que a veces rompe el focus */
 }
-#fieldAddSheet, #oursAddSheet, #anchorAddSheet{
+#fieldAddSheet, #oursAddSheet, #anchorAddSheet, #exportLocalSheet{
   pointer-events:auto !important;
   -webkit-overflow-scrolling:touch;
 }
@@ -648,6 +693,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <button type="button" id="btnAddPlus" title="Añadir ancla de campo en tu GPS" aria-label="Añadir ancla" style="display:none">＋</button>
 <button type="button" id="btnAddComp" title="Añadir competencia en tu GPS" style="display:none">Comp</button>
 <button type="button" id="btnFieldUndo" title="Deshacer quitar" aria-label="Deshacer" hidden style="display:none">↩ Deshacer</button>
+<button type="button" id="btnExportLocal" title="Exportar pines locales" aria-label="Exportar">⬇ Exportar</button>
 </div>
 </div>
 <div id="geoPanel" role="status" aria-live="polite"></div>
@@ -710,6 +756,21 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <button type="button" id="anchorAddConfirm" aria-label="Guardar otro" title="Guardar">✓</button>
     </div>
   </div>
+</div>
+
+<div id="exportLocalSheet" role="dialog" aria-modal="true" aria-labelledby="exportLocalTitle" hidden>
+  <button type="button" id="exportLocalClose" aria-label="Cerrar" style="position:absolute;right:10px;top:max(10px, env(safe-area-inset-top, 0px));border:none;background:#eee;width:36px;height:36px;border-radius:18px;font:700 20px/36px system-ui;cursor:pointer;color:#111;z-index:1">×</button>
+  <h2 id="exportLocalTitle">Exportar pines</h2>
+  <p class="hint">Pines guardados en este teléfono (localStorage).</p>
+  <div class="exportCounts" id="exportLocalCounts" aria-live="polite"></div>
+  <label for="exportLocalJson" class="hint" style="margin-top:6px;font-weight:600">JSON</label>
+  <textarea id="exportLocalJson" readonly rows="14" spellcheck="false"></textarea>
+  <div class="exportActions">
+    <button type="button" id="exportLocalCopy">Copiar</button>
+    <button type="button" id="exportLocalShare" hidden>Compartir</button>
+    <button type="button" id="exportLocalDownload" hidden>Descargar</button>
+  </div>
+  <p class="exportNote">Pega el texto en el chat de Purificador</p>
 </div>
 
 <div id="coloniaCard" hidden>
@@ -863,7 +924,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260916-dock-deshacer';
+window.__PURIF_BUILD = '20260916-exportar-ls';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -2361,7 +2422,7 @@ window.__purifReady && window.__purifReady.then(function(){
     return backdrop;
   }
   function closeCompOurs(){
-    ['fieldAddSheet','oursAddSheet','anchorAddSheet'].forEach(function(id){
+    ['fieldAddSheet','oursAddSheet','anchorAddSheet','exportLocalSheet'].forEach(function(id){
       var el = document.getElementById(id);
       if (!el) return;
       el.classList.remove('show');
@@ -2411,9 +2472,11 @@ window.__purifReady && window.__purifReady.then(function(){
   var xc = document.getElementById('fieldAddClose');
   var xo = document.getElementById('oursAddClose');
   var xa = document.getElementById('anchorAddClose');
+  var xe = document.getElementById('exportLocalClose');
   if (xc) xc.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); closeCompOurs(); });
   if (xo) xo.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); closeCompOurs(); });
   if (xa) xa.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); closeCompOurs(); });
+  if (xe) xe.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); closeCompOurs(); });
 })();
 
 /* ---------- FIELD ADD: Comp (agua) + Favoritos + Anclas campo ---------- */
@@ -2429,6 +2492,8 @@ window.__purifReady && window.__purifReady.then(function(){
   const sheetComp = document.getElementById('fieldAddSheet');
   const sheetOurs = document.getElementById('oursAddSheet');
   const sheetPlus = document.getElementById('anchorAddSheet');
+  const sheetExport = document.getElementById('exportLocalSheet');
+  const btnExport = document.getElementById('btnExportLocal');
   if (!btnComp || !sheetComp) return;
 
   function getMap(){ return window.map || null; }
@@ -2620,7 +2685,8 @@ window.__purifReady && window.__purifReady.then(function(){
     el.removeAttribute('hidden');
     el.classList.add('show');
     el.style.setProperty('display', 'block', 'important');
-    el.style.setProperty('z-index', el.id === 'anchorAddSheet' ? '1910' : '1900', 'important');
+    el.style.setProperty('z-index', el.id === 'exportLocalSheet' ? '1950' : (el.id === 'anchorAddSheet' ? '1910' : '1900'), 'important');
+    if (el.id === 'exportLocalSheet') el.style.setProperty('display', 'flex', 'important');
     el.style.setProperty('pointer-events', 'auto', 'important');
     window.__purifSheetGuardUntil = Date.now() + 600;
     // Focus primer input usable
@@ -2634,12 +2700,14 @@ window.__purifReady && window.__purifReady.then(function(){
   function anySheetOpen(){
     return (sheetComp && sheetComp.classList.contains('show')) ||
       (sheetOurs && sheetOurs.classList.contains('show')) ||
-      (sheetPlus && sheetPlus.classList.contains('show'));
+      (sheetPlus && sheetPlus.classList.contains('show')) ||
+      (sheetExport && sheetExport.classList.contains('show'));
   }
   function hideOthers(except){
     if (except !== sheetComp) hideSheet(sheetComp);
     if (except !== sheetOurs) hideSheet(sheetOurs);
     if (except !== sheetPlus) hideSheet(sheetPlus);
+    if (except !== sheetExport) hideSheet(sheetExport);
   }
 
   function syncGeoUi(){
@@ -3136,6 +3204,187 @@ window.__purifReady && window.__purifReady.then(function(){
     b.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); setAnchorKind(b.getAttribute('data-kind')); });
   });
 
+
+  // ----- Exportar pines locales (Chrome iPhone / sin bookmarklet) -----
+  function readLsBundle(key){
+    var raw = null;
+    try { raw = localStorage.getItem(key); } catch (e) { raw = null; }
+    if (raw == null || raw === '') {
+      return { key: key, parsed: [], count: 0, ok: true, raw: null };
+    }
+    try {
+      var parsed = JSON.parse(raw);
+      var count = Array.isArray(parsed) ? parsed.length : (parsed == null ? 0 : 1);
+      return { key: key, parsed: parsed, count: count, ok: true, raw: raw };
+    } catch (e) {
+      return { key: key, parsed: null, count: 0, ok: false, raw: raw };
+    }
+  }
+  function buildExportPayload(){
+    var keys = [LS_COMP, LS_OURS, LS_ANCLAS];
+    var labels = {};
+    labels[LS_COMP] = 'Comp';
+    labels[LS_OURS] = 'Fav';
+    labels[LS_ANCLAS] = 'Anclas';
+    var bundles = keys.map(readLsBundle);
+    var out = { exported_at: new Date().toISOString(), keys: {} };
+    var rawFallback = {};
+    var counts = [];
+    bundles.forEach(function(b){
+      out.keys[b.key] = b.ok ? b.parsed : null;
+      if (!b.ok) rawFallback[b.key] = b.raw;
+      counts.push({ key: b.key, label: labels[b.key] || b.key, count: b.count, ok: b.ok });
+    });
+    if (Object.keys(rawFallback).length) out.raw = rawFallback;
+    return { payload: out, counts: counts, text: JSON.stringify(out, null, 2) };
+  }
+  function exportFilename(){
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return 'purif-locales-' + y + m + day + '.json';
+  }
+  function copyExportText(text){
+    var ta = document.getElementById('exportLocalJson');
+    function fallback(){
+      if (!ta) return false;
+      try {
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        return document.execCommand('copy');
+      } catch (e) { return false; }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function(){ return true; }).catch(function(){ return fallback(); });
+    }
+    return Promise.resolve(fallback());
+  }
+  function openExportSheet(){
+    if (!sheetExport) return;
+    hideOthers(sheetExport);
+    var built = buildExportPayload();
+    var countsEl = document.getElementById('exportLocalCounts');
+    var ta = document.getElementById('exportLocalJson');
+    var btnCopy = document.getElementById('exportLocalCopy');
+    var btnShare = document.getElementById('exportLocalShare');
+    var btnDl = document.getElementById('exportLocalDownload');
+    if (countsEl) {
+      countsEl.innerHTML = built.counts.map(function(c){
+        var tip = c.ok ? (c.count + ' pin' + (c.count === 1 ? '' : 's')) : 'JSON inválido';
+        return '<span title="' + c.key + '">' + c.label + ': <strong>' + tip + '</strong></span>';
+      }).join('');
+    }
+    if (ta) ta.value = built.text;
+    if (btnCopy) {
+      btnCopy.textContent = 'Copiar';
+      btnCopy.classList.remove('ok');
+    }
+    if (btnShare) {
+      if (typeof navigator.share === 'function') {
+        btnShare.hidden = false;
+        btnShare.style.display = '';
+      } else {
+        btnShare.hidden = true;
+        btnShare.style.display = 'none';
+      }
+    }
+    if (btnDl) {
+      // Desktop Chrome: blob download; hide on coarse touch-only if preferred — keep available whenever createObjectURL exists
+      var canDl = typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function';
+      btnDl.hidden = !canDl;
+      btnDl.style.display = canDl ? '' : 'none';
+    }
+    window.__purifLastExport = built;
+    showSheet(sheetExport);
+    // Full-screen: no backdrop needed, but hide dock conflict — keep backdrop off
+    var b = document.getElementById('sheetBackdrop');
+    if (b) {
+      b.classList.remove('show');
+      b.hidden = true;
+      b.style.setProperty('display', 'none', 'important');
+      b.setAttribute('aria-hidden', 'true');
+    }
+  }
+  function closeExport(){
+    hideSheet(sheetExport);
+    if (!anySheetOpen() && window.__purifCloseSheets) window.__purifCloseSheets();
+  }
+  if (btnExport) {
+    btnExport.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      openExportSheet();
+    });
+  }
+  var btnExportCopy = document.getElementById('exportLocalCopy');
+  var btnExportShare = document.getElementById('exportLocalShare');
+  var btnExportDl = document.getElementById('exportLocalDownload');
+  if (btnExportCopy) {
+    btnExportCopy.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      var built = window.__purifLastExport || buildExportPayload();
+      var btn = btnExportCopy;
+      copyExportText(built.text).then(function(ok){
+        if (ok) {
+          btn.textContent = 'Copiado';
+          btn.classList.add('ok');
+          setTimeout(function(){ btn.textContent = 'Copiar'; btn.classList.remove('ok'); }, 1600);
+        } else {
+          try { alert('No se pudo copiar. Selecciona el texto y copia a mano.'); } catch (err) {}
+        }
+      });
+    });
+  }
+  if (btnExportShare) {
+    btnExportShare.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      if (typeof navigator.share !== 'function') return;
+      var built = window.__purifLastExport || buildExportPayload();
+      var fname = exportFilename();
+      var shareText = built.text;
+      var note = 'Pega el texto en el chat de Purificador';
+      (async function(){
+        try {
+          if (navigator.canShare) {
+            try {
+              var file = new File([shareText], fname, { type: 'application/json' });
+              if (navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: 'Pines locales', text: note });
+                return;
+              }
+            } catch (errFile) {}
+          }
+          await navigator.share({ title: 'Pines locales', text: shareText });
+        } catch (err) {
+          // user cancel or share failed — ignore
+        }
+      })();
+    });
+  }
+  if (btnExportDl) {
+    btnExportDl.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      var built = window.__purifLastExport || buildExportPayload();
+      try {
+        var blob = new Blob([built.text], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = exportFilename();
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function(){
+          try { URL.revokeObjectURL(url); } catch (e2) {}
+          try { a.remove(); } catch (e3) {}
+        }, 800);
+      } catch (err) {
+        try { alert('No se pudo descargar el archivo.'); } catch (e2) {}
+      }
+    });
+  }
+
   btnComp.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); openComp(); });
   if (btnFav) btnFav.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); openFavoritos(); });
   if (btnPlus) btnPlus.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); openPlus(); });
@@ -3144,7 +3393,7 @@ window.__purifReady && window.__purifReady.then(function(){
   if (btnSaveAnchor) btnSaveAnchor.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); saveAnchor(); });
   // Solo bubble (sin capture) y sin touchstart: si no, iOS no enfoca el input
   function markSheetGuard(){ window.__purifSheetGuardUntil = Date.now() + 1200; }
-  [sheetComp, sheetOurs, sheetPlus].forEach(function(sh){
+  [sheetComp, sheetOurs, sheetPlus, sheetExport].forEach(function(sh){
     if (!sh) return;
     sh.addEventListener('click', function(e){ e.stopPropagation(); markSheetGuard(); });
     sh.addEventListener('focusin', markSheetGuard);
