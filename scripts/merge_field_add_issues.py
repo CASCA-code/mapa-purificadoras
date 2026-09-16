@@ -106,8 +106,12 @@ def main():
         if isinstance(feat, dict) and feat.get('type') == 'Feature':
             props = feat.get('properties') or {}
             pid = props.get('id')
+            # Upsert after delete = restore (undo / re-add). Tombstones still block
+            # bare reappearance until an explicit upsert feature arrives.
             if pid and pid in deleted:
-                continue
+                deleted.discard(pid)
+                changed_deleted = True
+                merged.append(('undelete', pid, props))
             if pid and pid in ids:
                 # replace existing
                 fc['features'] = [f for f in fc['features'] if (f.get('properties') or {}).get('id') != pid]
