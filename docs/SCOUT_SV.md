@@ -1,11 +1,13 @@
 # Scout SV (Street View remoto)
 
-Actualizado: 2026-09-21 — polish v2 (`scout-sv.html`): colores normales, mini-mapa Leaflet, sync LS+ntfy al soltar pin, hotkeys primarios M/S, comentario de zona (LineString).
+Actualizado: 2026-09-21 — **estado operativo**
 
-**Abrir:** https://casca-code.github.io/mapa-purificadoras/scout-sv.html  
+> **Billing Google Cloud:** Nicolás rechazó el hold ~$500 MXN de Maps Platform.  
+> **Mapillary:** pivot abortado (también rechazado). Hay un `scout.html` experimental Mapillary en el árbol de trabajo / opcional — **no es el camino primario** y no se promociona en Pages.  
+> **Próximo (planned):** userscript Tampermonkey / extensión Chrome que corre **sobre** `google.com/maps` Street View (Maps de consumidor, **sin** Cloud billing / API key). Hotkeys → mismos `localStorage` + ntfy que campo; auto-forward opcional vía flechas UI de SV; mini-mapa overlay. Build aparte.
 
-Cache-bust: añade `?v=<sha7>` (o cualquier query) si el navegador sirve HTML viejo, p. ej.  
-`https://casca-code.github.io/mapa-purificadoras/scout-sv.html?v=SHA7`.
+Polish v2 ya en Pages (`scout-sv.html`): colores normales, mini-mapa Leaflet, sync LS+ntfy al soltar pin, hotkeys primarios M/S, comentario de zona (LineString). Esa página **sigue requiriendo** API key de Maps JS (billing) — útil solo si algún día se habilita Cloud; no pedir billing a Nicolás.
+
 
 ## Qué es
 

@@ -39,4 +39,4 @@ Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
 
 
 ## Scout SV (Street View remoto)
-https://casca-code.github.io/mapa-purificadoras/scout-sv.html — camina panoramas y marca competencia/anclas con teclado. Ver [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md). Cache-bust: `?v=<sha7>`.
+`scout-sv.html` en Pages sigue existiendo pero **requiere Google Maps billing** (hold ~$500 MXN — rechazado). Mapillary abortado. **Próximo:** userscript Tampermonkey sobre Street View de consumidor (`google.com/maps`, sin Cloud key). Detalle: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).
