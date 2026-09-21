@@ -1,3 +1,8 @@
+## 2026-09-21 (scout userscript v1.2.1)
+
+- Falso positivo “sin API key” + trayecto que moría al primer waypoint (`location.assign` sin persistir ruta).
+- Fix: persist/resume trayecto, URL `/@lat,lng,3a,…`, HUD “usa google.com/maps (NO scout-sv)”. Cero Maps Platform key.
+
 # Bitácora Purificadoras
 
 ## 2026-09-14 / 15 (campo + slim móvil)

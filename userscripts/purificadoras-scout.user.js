@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.2.0
-// @description  Scout de campo sobre Google Maps Street View (sin Maps Platform / sin billing). Hotkeys + trayecto por colonia (prebaked OSM + Overpass fallback). Para Nicolás / Purificadoras ZMM.
+// @version      1.2.1
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps Platform API key / billing. Hotkeys + trayecto por colonia (URL SV + prebaked OSM). NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -28,10 +28,13 @@
   'use strict';
 
   /*
-   * Purificadoras Scout — Tampermonkey sobre Street View de consumidor.
-   * Sin API key de Maps Platform. Sync primario: ntfy (mismo topic que index.html).
-   * v1.1: auto-walk robusto + picker de colonia + trayecto OSM (Overpass) sin billing.
-   * v1.2: prebaked roads_zmm.geojson + Overpass hard-timeout/mirrors + grid fallback + fuzzy colonia.
+   * Purificadoras Scout — Tampermonkey sobre Street View de consumidor (google.com/maps).
+   * CERO Maps Platform API key / billing. Nunca llama Street View Static/JS API con key.
+   * Sync primario: ntfy (mismo topic que index.html).
+   * NO uses scout-sv.html (esa página SÍ pide key). Si ves mensaje de API key → actualiza script.
+   * v1.1: auto-walk + picker colonia + trayecto OSM.
+   * v1.2: prebaked roads + Overpass timeout + grid + fuzzy.
+   * v1.2.1: trayecto persiste tras navigate; URL /@lat,lng,3a,… (sin ?api=1 confuso); HUD sin falso “falta key”.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -39,6 +42,8 @@
   var LS_ANCLAS = 'purificadoras_anclas_v1';
   var LS_SESSION = 'purificadoras_scout_tm_session_v1';
   var LS_SPEED = 'purificadoras_scout_tm_speed_ms';
+  var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
+  var SCRIPT_VERSION = '1.2.1';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -131,6 +136,47 @@
   function saveSession() {
     try { localStorage.setItem(LS_SESSION, JSON.stringify(state.sessionPins)); }
     catch (e) {}
+  }
+
+  function saveRoute() {
+    try {
+      if (!state.route) {
+        try { sessionStorage.removeItem(LS_ROUTE); } catch (e0) {}
+        try { if (typeof GM_setValue === 'function') GM_setValue(LS_ROUTE, ''); } catch (e1) {}
+        return;
+      }
+      var payload = JSON.stringify({
+        name: state.route.name,
+        points: state.route.points,
+        i: state.route.i,
+        paused: !!state.route.paused,
+        status: state.route.status || 'running',
+        skipped: state.route.skipped || 0,
+        savedAt: Date.now()
+      });
+      try { sessionStorage.setItem(LS_ROUTE, payload); } catch (e2) {}
+      try { if (typeof GM_setValue === 'function') GM_setValue(LS_ROUTE, payload); } catch (e3) {}
+    } catch (e) {}
+  }
+
+  function loadRoute() {
+    try {
+      var raw = null;
+      try { raw = sessionStorage.getItem(LS_ROUTE); } catch (e0) {}
+      if (!raw && typeof GM_getValue === 'function') {
+        try { raw = GM_getValue(LS_ROUTE, ''); } catch (e1) {}
+      }
+      if (!raw) return null;
+      var r = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!r || !Array.isArray(r.points) || !r.points.length) return null;
+      if (r.savedAt && (Date.now() - r.savedAt) > 6 * 60 * 60 * 1000) return null; // stale
+      return r;
+    } catch (e) { return null; }
+  }
+
+  function clearRoutePersist() {
+    try { sessionStorage.removeItem(LS_ROUTE); } catch (e0) {}
+    try { if (typeof GM_setValue === 'function') GM_setValue(LS_ROUTE, ''); } catch (e1) {}
   }
 
   function toast(msg) {
@@ -1148,21 +1194,55 @@
   }
 
   function buildStreetViewUrl(lat, lng, heading) {
-    var h = (heading != null && isFinite(heading)) ? heading : 0;
-    // Official Maps URLs (no API key / no billing) — preferred 2026
+    var h = Math.round((heading != null && isFinite(heading)) ? heading : 0);
+    // Consumer Maps Street View path — zero Maps Platform key / billing.
+    // Prefer /@lat,lng,3a,… (same pattern as dropping the pegman). Avoid ?api=1 noise.
+    return 'https://www.google.com/maps/@' + lat + ',' + lng + ',3a,75y,' + h + 'h,90t';
+  }
+
+  function buildStreetViewUrlPanoAction(lat, lng, heading) {
+    var h = Math.round((heading != null && isFinite(heading)) ? heading : 0);
+    // Official Maps URLs scheme (map_action=pano). Still consumer session — NOT a Platform key.
     return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' +
       encodeURIComponent(lat + ',' + lng) +
-      '&heading=' + encodeURIComponent(String(Math.round(h))) +
+      '&heading=' + encodeURIComponent(String(h)) +
       '&pitch=0&fov=75';
   }
 
-  function navigateToSv(lat, lng, heading) {
-    var url = buildStreetViewUrl(lat, lng, heading);
-    // Same-tab navigation keeps Tampermonkey running
+  function navigateToSv(lat, lng, heading, opt) {
+    opt = opt || {};
+    // Persist trayecto BEFORE any navigation — location.assign reloads the page and would kill state.
+    saveRoute();
+    var url = opt.usePanoAction ? buildStreetViewUrlPanoAction(lat, lng, heading) : buildStreetViewUrl(lat, lng, heading);
+    // Soft try: if already on Maps SPA and URL already looks like /@…, rewrite path in-place.
+    // Maps often ignores pushState alone, so we still fall through to assign.
+    try {
+      if (/\/maps/i.test(location.pathname) && !opt.forceReload) {
+        var soft = '/maps/@' + lat + ',' + lng + ',3a,75y,' +
+          Math.round((heading != null && isFinite(heading)) ? heading : 0) + 'h,90t';
+        try {
+          history.pushState(history.state, '', soft);
+          setTimeout(refreshPose, 40);
+        } catch (ePush) {}
+      }
+    } catch (eSoft) {}
     try {
       location.assign(url);
     } catch (e) {
       location.href = url;
+    }
+  }
+
+  function showSvEntryHelp(lat, lng, heading) {
+    var link = buildStreetViewUrl(lat, lng, heading);
+    var msg = 'No entró a Street View. Quédate en google.com/maps (NO abras scout-sv.html). ' +
+      'Arrastra el peoncito naranja a la calle, o abre: ' + link;
+    setRouteStatus('⚠ Entra a SV con el peoncito · no scout-sv');
+    toast('⚠ Arrastra el peoncito a la calle (google.com/maps)');
+    state.lastTrayectoError = msg;
+    var el = document.getElementById('purif-scout-route-status');
+    if (el) {
+      el.textContent = '⚠ Sin SV — peoncito en google.com/maps · NO scout-sv · actualiza script si ves “API key”';
     }
   }
 
@@ -1180,7 +1260,10 @@
     if (state.route) {
       state.route.paused = true;
       state.route.status = 'stopped';
+      saveRoute();
     }
+    clearRoutePersist();
+    state.route = null;
     if (msg) toast(msg);
     updateHud();
   }
@@ -1190,7 +1273,7 @@
       toast('Sin calles OSM en esta colonia');
       return;
     }
-    // Pause local auto-walk — trayecto drives via URL
+    // Pause local auto-walk — trayecto drives via URL / ArrowUp
     if (state.autoWalk) setAutoWalk(false);
     state.route = {
       name: name || 'colonia',
@@ -1198,8 +1281,10 @@
       i: 0,
       paused: false,
       status: 'running',
-      skipped: 0
+      skipped: 0,
+      failStreak: 0
     };
+    saveRoute();
     if (state.routeTimer) clearInterval(state.routeTimer);
     state.routeTimer = setInterval(routeTick, state.autoMs);
     toast('🛣 Trayecto: ' + points.length + ' pts · ' + name);
@@ -1207,6 +1292,27 @@
     updateHud();
     // kick immediately
     routeTick();
+  }
+
+  function resumeRouteFromPersist() {
+    var r = loadRoute();
+    if (!r || r.status !== 'running') return false;
+    state.route = r;
+    state.routeBusy = false;
+    if (state.routeTimer) clearInterval(state.routeTimer);
+    if (!r.paused) {
+      state.routeTimer = setInterval(routeTick, state.autoMs);
+      setRouteStatus('reanudado · punto ' + Math.min(r.i + 1, r.points.length) + '/' + r.points.length + ' · ' + r.name);
+      // Wait for Maps + URL pose to settle after location.assign reload
+      setTimeout(function () {
+        refreshPose();
+        routeTick();
+      }, 1400);
+    } else {
+      setRouteStatus('PAUSA · punto ' + Math.min(r.i + 1, r.points.length) + '/' + r.points.length);
+    }
+    updateHud();
+    return true;
   }
 
   function routeTick() {
@@ -1221,32 +1327,95 @@
     var pt = r.points[r.i];
     var next = r.points[r.i + 1];
     var heading = next ? bearingDeg(pt.lat, pt.lng, next.lat, next.lng) : (state.heading || 0);
-    var targetKey = pt.lat.toFixed(5) + ',' + pt.lng.toFixed(5);
     state.routeBusy = true;
     setRouteStatus('punto ' + (r.i + 1) + '/' + r.points.length + ' · ' + r.name);
+    saveRoute();
     updateHud();
-    navigateToSv(pt.lat, pt.lng, heading);
+    refreshPose();
 
+    // Already near this waypoint in SV → count it and optionally ArrowUp toward next
+    if (state.inSV && state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 45) {
+      r.i += 1;
+      r.failStreak = 0;
+      saveRoute();
+      state.routeBusy = false;
+      updateHud();
+      if (next && state.inSV) {
+        stepForwardAsync().then(function () { /* best-effort */ });
+      }
+      return;
+    }
+
+    // Mid-range while already in SV: try ArrowUp / forward click before hard URL jump
+    if (state.inSV && state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 110) {
+      stepForwardAsync().then(function (moved) {
+        refreshPose();
+        if (moved && state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 55) {
+          r.i += 1;
+          r.failStreak = 0;
+          saveRoute();
+          state.routeBusy = false;
+          updateHud();
+          return;
+        }
+        // Fall through to URL navigation
+        navigateToSv(pt.lat, pt.lng, heading);
+        waitArrive(pt, r, heading, false);
+      });
+      return;
+    }
+
+    // If this page load already landed on/near the target (post-assign resume), don't loop-reload
+    refreshPose();
+    var urlNear = state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 70;
+    var urlLooksSv = /map_action=pano|,\d+(?:\.\d+)?a,/.test(location.href);
+    if (urlNear || (urlLooksSv && state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 120)) {
+      waitArrive(pt, r, heading, true);
+      return;
+    }
+    navigateToSv(pt.lat, pt.lng, heading);
+    waitArrive(pt, r, heading, false);
+  }
+
+  function waitArrive(pt, r, heading, usedAlt) {
     var start = Date.now();
     var check = setInterval(function () {
+      if (!state.route || state.route !== r) { clearInterval(check); return; }
       refreshPose();
       var okSv = state.inSV;
       var near = state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 55;
       var urlSv = /map_action=pano|,\d+(?:\.\d+)?a,/.test(location.href);
-      if ((okSv || urlSv) && (near || poseKey())) {
-        // Accept snap even if slightly offset (SV nearest pano)
+      if ((okSv || urlSv) && (near || (okSv && poseKey()))) {
         clearInterval(check);
         state.routeBusy = false;
         r.i += 1;
+        r.failStreak = 0;
+        saveRoute();
         updateHud();
         return;
       }
       if (Date.now() - start > SV_WAIT_MS) {
         clearInterval(check);
+        // One retry with map_action=pano if /@…3a… did not enter SV
+        if (!usedAlt && !okSv && !urlSv) {
+          navigateToSv(pt.lat, pt.lng, heading, { usePanoAction: true, forceReload: true });
+          waitArrive(pt, r, heading, true);
+          return;
+        }
         r.skipped += 1;
+        r.failStreak = (r.failStreak || 0) + 1;
         r.i += 1;
         state.routeBusy = false;
-        setRouteStatus('skip SV · punto ' + r.i + '/' + r.points.length + ' · ' + r.name);
+        saveRoute();
+        if (!okSv && !urlSv && r.failStreak >= 2) {
+          showSvEntryHelp(pt.lat, pt.lng, heading);
+          // Pause so Nicolás can drop pegman; don't keep burning waypoints blind
+          r.paused = true;
+          saveRoute();
+          toast('⏸ Trayecto pausado — entra a SV con el peoncito');
+        } else {
+          setRouteStatus('skip SV · punto ' + r.i + '/' + r.points.length + ' · ' + r.name);
+        }
         updateHud();
       }
     }, 250);
@@ -1263,6 +1432,7 @@
       if (!state.routeTimer) state.routeTimer = setInterval(routeTick, state.autoMs);
       setTimeout(routeTick, 100);
     }
+    saveRoute();
     updateHud();
     return true;
   }
@@ -1441,6 +1611,7 @@
     root.innerHTML = [
       '<div id="purif-scout-hud">',
       '  <div class="badge off" id="purif-scout-badge">Mapa</div>',
+      '  <div class="meta" id="purif-scout-nokey" style="margin:0 0 6px;color:#86efac;font-weight:600">v' + SCRIPT_VERSION + ' · Sin API key · usa google.com/maps (NO scout-sv)</div>',
       '  <div class="row"><kbd>M</kbd><b>Modelorama</b></div>',
       '  <div class="row"><kbd>S</kbd><b>Semáforo</b></div>',
       '  <div class="row"><kbd class="sec">Y</kbd>Comp · <kbd class="sec">E</kbd>Express · <kbd class="sec">P</kbd>Iglesia</div>',
@@ -1556,7 +1727,17 @@
     var badge = document.getElementById('purif-scout-badge');
     var meta = document.getElementById('purif-scout-meta');
     var link = document.getElementById('purif-scout-openmap');
+    var nokey = document.getElementById('purif-scout-nokey');
     if (!badge || !meta) return;
+    if (nokey) {
+      nokey.textContent = 'v' + SCRIPT_VERSION + ' · Sin API key · usa google.com/maps (NO scout-sv)';
+      if (/scout-sv\.html/i.test(location.href)) {
+        nokey.style.color = '#fca5a5';
+        nokey.textContent = '⚠ Estás en scout-sv.html (pide key). Abre google.com/maps + peoncito.';
+      } else {
+        nokey.style.color = '#86efac';
+      }
+    }
     if (state.route && state.route.status === 'running') {
       badge.textContent = state.route.paused
         ? ('Trayecto ⏸ ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length)
@@ -1566,7 +1747,7 @@
       badge.textContent = state.autoWalk ? ('SV · auto ▶' + (state._lastWalkMethod ? ' · ' + state._lastWalkMethod : '')) : 'Street View';
       badge.className = 'badge on';
     } else {
-      badge.textContent = 'No SV — arrastra peoncito';
+      badge.textContent = 'No SV — peoncito en Maps';
       badge.className = 'badge warn';
     }
     var lat = state.lat != null ? state.lat.toFixed(6) : '—';
@@ -1747,7 +1928,13 @@
     refreshPose();
     document.addEventListener('keydown', onKeyDown, true);
     loadColonias().catch(function () {});
-    toast('Scout Purificadoras v1.1 · sin API key');
+    var resumed = resumeRouteFromPersist();
+    if (resumed) {
+      toast('Scout v' + SCRIPT_VERSION + ' · reanudando trayecto');
+    } else {
+      toast('Scout v' + SCRIPT_VERSION + ' · google.com/maps · sin facturación');
+    }
+    updateHud();
   }
 
   if (document.readyState === 'loading') {

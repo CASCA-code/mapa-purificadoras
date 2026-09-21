@@ -1,10 +1,11 @@
 # Scout Userscript (Tampermonkey) — Street View sin billing
 
-Actualizado: 2026-09-21 (v1.2.0)
+Actualizado: 2026-09-21 (v1.2.1)
 
-> **Camino primario para Nicolás.** Corre **sobre** Google Maps de consumidor (`google.com/maps` Street View).  
-> **No** requiere Google Cloud / Maps Platform API key / hold de facturación.  
-> Mapillary: abandonado. `scout-sv.html` (Maps JS embebido) queda solo si algún día hay billing.
+> **Camino primario para Nicolás.** Corre **sobre** Google Maps de consumidor (`https://www.google.com/maps` Street View).  
+> **Cero** Google Cloud / Maps Platform API key / hold de facturación. Si ves un mensaje de “API key”, **actualiza el userscript** (v1.2.1+) — ese aviso era un falso positivo o estabas en `scout-sv.html`.  
+> **Usa siempre `google.com/maps` + peoncito.** No abras `scout-sv.html` (esa página sí pide key/billing).  
+> Mapillary: abandonado.
 
 ## Qué es
 
@@ -14,6 +15,7 @@ Extensión de usuarios (Tampermonkey) que, mientras ves **Street View** en el Ma
 - No scrapea negocios ni cachea imagery de Street View — solo GeoJSON (coords + props).
 - Sync **primario: ntfy** (el userscript en `google.com` **no** puede compartir `localStorage` con `casca-code.github.io`).
 - **v1.1:** picker de colonia + **trayecto** de cobertura vial (OSM Overpass) + auto-walk más fiable.
+- **v1.2.1:** trayecto **persiste** tras cada salto de URL; navegación `/@lat,lng,3a,…` (sin ruido `?api=1`); fallback ArrowUp; HUD aclara “sin API key = correcto, usa Maps consumidor”.
 - **v1.2:** calles **prebaked** (`data/roads_zmm.geojson`) para Escobedo — ya no depende de Overpass en vivo para colonias comunes; Overpass con timeout duro + mirrors + **Reintentar**; fallback rejilla; búsqueda fuzzy de colonia.
 
 ## Instalación (Chrome / Edge / Firefox)
@@ -27,8 +29,9 @@ Extensión de usuarios (Tampermonkey) que, mientras ves **Street View** en el Ma
 
    Alternativa: abre esa URL → Tampermonkey ofrece **Instalar**.
 3. Confirma permisos (`ntfy.sh`, Maps, `casca-code.github.io`, Overpass, raw GitHub).
-4. Abre [Google Maps](https://www.google.com/maps) → arrastra el **peoncito** a una calle de la ZMM (Street View).
-5. Debe aparecer el **HUD** (arriba-izquierda) y el **mini-peg** (abajo-izquierda).
+4. Abre **[Google Maps](https://www.google.com/maps)** (no `scout-sv.html`) → arrastra el **peoncito** naranja a una calle de la ZMM (Street View).
+5. Debe aparecer el **HUD** (arriba-izquierda) con la línea verde **“Sin API key · usa google.com/maps”** y el **mini-peg** (abajo-izquierda).
+6. Si el HUD no aparece o habla de API key: Tampermonkey → actualizar script a **v1.2.1+** desde la URL raw de arriba.
 
 Actualizar: Tampermonkey suele detectar la nueva versión en el raw de GitHub; o reabre la URL e “Actualizar”.
 
@@ -88,15 +91,27 @@ Si ya estás en Street View y solo quieres avanzar por los links del panorama (s
 
 El método que avanzó se muestra en el badge (`SV · auto ▶ · ArrowUp` / `btn:…` / `canvas-hotspot`). En la práctica **ArrowUp con foco en el canvas** + detección por URL es el más estable; el click de UI es respaldo.
 
-## Cómo se navega el trayecto (sin API key)
+## Cómo se navega el trayecto (cero API key)
 
-Para cada waypoint se usa la URL oficial de Maps (sin billing):
+**No** se llama a Street View Static API ni a Maps JavaScript API. Solo URLs de Maps consumidor en tu sesión del navegador.
+
+1. **Preferido** — path de Street View (igual que al soltar el peoncito):
+
+```
+https://www.google.com/maps/@LAT,LNG,3a,75y,HEADINGh,90t
+```
+
+2. **Respaldo** — Maps URLs `map_action=pano` (el `api=1` de esa URL es el esquema público de Google, **no** una API key de Cloud):
 
 ```
 https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=LAT,LNG&heading=H&pitch=0&fov=75
 ```
 
-`heading` apunta al siguiente punto. Misma pestaña (`location.assign`) para que Tampermonkey siga activo. Progreso en HUD: `punto i/n · colonia`.
+3. Si ya estás en SV y el siguiente punto está cerca → **ArrowUp / click Adelante** sin recargar.
+
+El trayecto se **guarda** (`sessionStorage` + `GM_setValue`) antes de cada `location.assign`, porque el reload mataría el estado. Al volver a cargar, el script **reanuda** solo.
+
+Si tras 2 intentos **no entra a Street View**: el HUD pausa y dice en español que arrastres el **peoncito** en `google.com/maps` (nunca `scout-sv.html`). Progreso: `punto i/n · colonia`.
 
 ## Cómo llegan los pines al mapa principal
 
@@ -143,6 +158,17 @@ Cambios:
 3. **Prebaked** `data/roads_zmm.geojson` (Escobedo) servido desde Pages/raw — camino feliz sin Overpass.
 4. Fallback densificar borde del polígono + rejilla ~50 m.
 5. Búsqueda fuzzy de colonias.
+
+## v1.2.1 — falso “API key” + trayecto que no camina
+
+**Qué reportó Nicolás:** el userscript “dice que no tiene API key” y por eso el trayecto no camina bien.
+
+**Causa real (no faltaba key):**
+1. El toast de boot decía `sin API key` (mensaje positivo mal leído como error).
+2. Cada waypoint hacía `location.assign` → reload → se perdía `state.route` → el trayecto moría al primer punto.
+3. Posible confusión con `scout-sv.html` (esa página **sí** muestra gate de API key).
+
+**Fix:** persistir/reanudar trayecto; URL `/@…,3a,…`; HUD fijo “Sin API key · usa google.com/maps (NO scout-sv)”; si falla el walk, instrucciones del peoncito en español (sin culpar a una key).
 
 ## Relacionado
 
