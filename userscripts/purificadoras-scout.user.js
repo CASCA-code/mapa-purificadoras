@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.5.0
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.5: auto-walk REQUIERE extensión Chrome (debugger ArrowUp/Left/Right). Trayecto colonia camina solo. NO uses scout-sv.html.
+// @version      1.6.0
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.6: cobertura total de calles (Chinese Postman) + giros; auto-walk REQUIERE extensión. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -38,6 +38,7 @@
    * v1.3.0: walk = saltos URL map_action=pano (causaba pantalla negra).
    * v1.4.0: walk = flecha SV in-pano (click chevron / pointer / tecla); URL solo 1er punto trayecto o recovery raro.
    * v1.5.0: extensión Chrome = PRIMARY (requerida). Ext FIRST cada tick; giro Left/Right + ArrowUp; trayecto auto sin clicks; pace ~800ms.
+   * v1.6.0: trayecto = cobertura total calles (grafo + Chinese Postman approx); steering turnDeg; U-turn dead-end; hop raro entre componentes.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -48,7 +49,7 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.5.0';
+  var SCRIPT_VERSION = '1.6.0';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -74,13 +75,19 @@
   var ROUTE_MS_MAX = 2500;
   var FORWARD_M_MIN = 8;
   var FORWARD_M_MAX = 14;
-  var STEP_M = 20;
+  var STEP_M = 15; // sample waypoints every ~12–18 m along covering walk
+  var MAX_ROUTE_PTS = 2500; // raise from 900 so medium colonias keep full coverage
   var SV_WAIT_MS = 4500;
-  var DEAD_END_FAILS = 10;
+  var DEAD_END_FAILS = 10; // auto-walk (no route) abort
+  var ROUTE_DEAD_END_FAILS = 3; // trayecto: U-turn after N no-move ArrowUps
+  var ROUTE_HOP_FAILS = 5; // trayecto: pano hop after N fails if next WP > HOP_DIST_M
+  var HOP_DIST_M = 90; // component hop threshold
   var CONSEC_SV_FAILS = 3;
   var URL_RECOVERY_EVERY = 8; // rare URL jump after N flecha failures
   var NEAR_WP_M = 28; // haversine to advance trayecto index
+  var LOOKAHEAD_NEAR_M = 22; // when this close to WP, steer toward WP+1
   var EXT_TURN_THRESH = 18; // deg — ask extension to turn if |delta| above this
+  var STRONG_TURN_DEG = 35; // |delta| above this → turn keys before ArrowUp
   var EXT_STEP_TIMEOUT_MS = 4500;
   var WALK_MODE = "ext";
   var FUENTE = 'scout_userscript';
@@ -113,7 +120,7 @@
     coloniasLoaded: false,
     coloniasLoading: false,
     selectedColonia: null,
-    route: null, // { name, points:[{lat,lng}], i, paused, status, skipped }
+    route: null, // { name, points, i, paused, status, skipped, streetCount, edgeCount, capped }
     routeTimer: null,
     routeBusy: false,
     roadsFc: null,
@@ -123,6 +130,7 @@
     walkMethod: 'flecha SV',
     flechaFailStreak: 0,
     urlRecoveryCount: 0,
+    hopCount: 0,
     extAvailable: false,
     routeEntered: false // first URL jump done for trayecto
   };
@@ -1605,7 +1613,7 @@
       }
     }
 
-    var MAX_PTS = 900;
+    var MAX_PTS = MAX_ROUTE_PTS;
     if (points.length > MAX_PTS) {
       var stride = Math.ceil(points.length / MAX_PTS);
       var thinned = [];
@@ -1627,75 +1635,326 @@
     toast(state.lastTrayectoError);
   }
 
+  /**
+   * Full street-coverage walk (Chinese Postman approximation on undirected multigraph).
+   * 1) Clip OSM ways to colonia polygon → atomic edges between snapped nodes.
+   * 2) Per connected component: pair odd-degree nodes (greedy shortest paths) → Eulerian.
+   * 3) Hierholzer circuit → sample waypoints every STEP_M.
+   * Returns { points, streetCount, edgeCount, capped }.
+   */
   function waysToCoveragePoints(elements, geom) {
+    var NODE_PREC = 5; // ~1.1 m snap
     var ways = [];
     (elements || []).forEach(function (el) {
       if (!el || el.type !== 'way' || !el.geometry || el.geometry.length < 2) return;
       var hw = (el.tags && el.tags.highway) || '';
-      // skip parking aisles / driveways-heavy if service+parking
       if (hw === 'service' && el.tags && /parking|driveway/i.test(el.tags.service || '')) return;
       var coords = [];
       for (var i = 0; i < el.geometry.length; i++) {
         var g = el.geometry[i];
         if (pointInPolygon(g.lon, g.lat, geom)) coords.push([g.lon, g.lat]);
         else if (coords.length >= 2) {
-          ways.push({ coords: coords, len: 0 });
+          ways.push(coords);
           coords = [];
         } else coords = [];
       }
-      if (coords.length >= 2) ways.push({ coords: coords, len: 0 });
+      if (coords.length >= 2) ways.push(coords);
     });
-    ways.forEach(function (w) {
-      var len = 0;
-      for (var i = 1; i < w.coords.length; i++) {
-        len += haversineM(w.coords[i - 1][1], w.coords[i - 1][0], w.coords[i][1], w.coords[i][0]);
-      }
-      w.len = len;
-    });
-    ways.sort(function (a, b) { return b.len - a.len; });
+    if (!ways.length) return { points: [], streetCount: 0, edgeCount: 0, capped: false };
 
-    // Order ways into a walkable sequence (greedy endpoint chaining)
-    var remaining = ways.slice();
-    var ordered = [];
-    if (!remaining.length) return [];
-    ordered.push(remaining.shift());
-    while (remaining.length) {
-      var cur = ordered[ordered.length - 1];
-      var end = cur.coords[cur.coords.length - 1];
-      var bestI = 0, bestD = Infinity, bestRev = false;
-      for (var i = 0; i < remaining.length; i++) {
-        var w = remaining[i];
-        var d0 = haversineM(end[1], end[0], w.coords[0][1], w.coords[0][0]);
-        var d1 = haversineM(end[1], end[0], w.coords[w.coords.length - 1][1], w.coords[w.coords.length - 1][0]);
-        if (d0 < bestD) { bestD = d0; bestI = i; bestRev = false; }
-        if (d1 < bestD) { bestD = d1; bestI = i; bestRev = true; }
-      }
-      var pick = remaining.splice(bestI, 1)[0];
-      if (bestRev) pick.coords = pick.coords.slice().reverse();
-      ordered.push(pick);
+    function nodeKey(lng, lat) {
+      return roundCoord(lng, NODE_PREC) + ',' + roundCoord(lat, NODE_PREC);
+    }
+    function roundCoord(x, p) {
+      var m = Math.pow(10, p);
+      return Math.round(x * m) / m;
+    }
+    function parseKey(k) {
+      var sp = k.split(',');
+      return { lng: Number(sp[0]), lat: Number(sp[1]) };
     }
 
+    var adj = {}; // nodeKey -> [{v, eid}]
+    var edges = []; // {a,b,coords:[[lng,lat],...], len}
+
+    function addAdj(u, v, eid) {
+      if (!adj[u]) adj[u] = [];
+      adj[u].push({ v: v, eid: eid });
+    }
+
+    for (var wi = 0; wi < ways.length; wi++) {
+      var w = ways[wi];
+      for (var j = 0; j < w.length - 1; j++) {
+        var aLng = w[j][0], aLat = w[j][1];
+        var bLng = w[j + 1][0], bLat = w[j + 1][1];
+        var a = nodeKey(aLng, aLat);
+        var b = nodeKey(bLng, bLat);
+        if (a === b) continue;
+        var len = haversineM(aLat, aLng, bLat, bLng);
+        if (len < 0.4) continue;
+        var eid = edges.length;
+        edges.push({
+          a: a,
+          b: b,
+          coords: [[aLng, aLat], [bLng, bLat]],
+          len: len
+        });
+        addAdj(a, b, eid);
+        addAdj(b, a, eid);
+      }
+    }
+    if (!edges.length) return { points: [], streetCount: ways.length, edgeCount: 0, capped: false };
+
+    // Connected components
+    var seen = {};
+    var comps = [];
+    Object.keys(adj).forEach(function (n) {
+      if (seen[n]) return;
+      var stack = [n];
+      seen[n] = true;
+      var nodes = [];
+      while (stack.length) {
+        var u = stack.pop();
+        nodes.push(u);
+        (adj[u] || []).forEach(function (e) {
+          if (!seen[e.v]) { seen[e.v] = true; stack.push(e.v); }
+        });
+      }
+      comps.push(nodes);
+    });
+    // Longer components first (main street network before stubs)
+    comps.sort(function (A, B) { return B.length - A.length; });
+
+    function dijkstra(compSet, start) {
+      var dist = {};
+      var prev = {};
+      dist[start] = 0;
+      // binary-ish heap via sorted insert is fine for colonia size
+      var pq = [{ d: 0, u: start }];
+      function pushPq(item) {
+        pq.push(item);
+        var i = pq.length - 1;
+        while (i > 0) {
+          var p = (i - 1) >> 1;
+          if (pq[p].d <= pq[i].d) break;
+          var tmp = pq[p]; pq[p] = pq[i]; pq[i] = tmp;
+          i = p;
+        }
+      }
+      function popPq() {
+        var top = pq[0];
+        var last = pq.pop();
+        if (!pq.length) return top;
+        pq[0] = last;
+        var i = 0;
+        for (;;) {
+          var l = i * 2 + 1, r = l + 1, sm = i;
+          if (l < pq.length && pq[l].d < pq[sm].d) sm = l;
+          if (r < pq.length && pq[r].d < pq[sm].d) sm = r;
+          if (sm === i) break;
+          var t2 = pq[i]; pq[i] = pq[sm]; pq[sm] = t2;
+          i = sm;
+        }
+        return top;
+      }
+      while (pq.length) {
+        var cur = popPq();
+        if (cur.d !== dist[cur.u]) continue;
+        var nbrs = adj[cur.u] || [];
+        for (var ni = 0; ni < nbrs.length; ni++) {
+          var v = nbrs[ni].v;
+          if (!compSet[v]) continue;
+          var eid = nbrs[ni].eid;
+          var nd = cur.d + edges[eid].len;
+          if (dist[v] == null || nd < dist[v]) {
+            dist[v] = nd;
+            prev[v] = { u: cur.u, eid: eid };
+            pushPq({ d: nd, u: v });
+          }
+        }
+      }
+      return { dist: dist, prev: prev };
+    }
+
+    function reconstruct(prev, start, goal) {
+      var out = [];
+      var u = goal;
+      while (u !== start) {
+        if (!prev[u]) return null;
+        out.push(prev[u].eid);
+        u = prev[u].u;
+      }
+      out.reverse();
+      return out;
+    }
+
+    var walkLngLat = []; // continuous covering polyline [lng,lat]
+    var totalEdges = 0;
+
+    for (var ci = 0; ci < comps.length; ci++) {
+      var comp = comps[ci];
+      var compSet = {};
+      for (var ci2 = 0; ci2 < comp.length; ci2++) compSet[comp[ci2]] = true;
+
+      var compEids = [];
+      for (var ei = 0; ei < edges.length; ei++) {
+        if (compSet[edges[ei].a] && compSet[edges[ei].b]) compEids.push(ei);
+      }
+      totalEdges += compEids.length;
+      if (!compEids.length) continue;
+
+      var deg = {};
+      for (var di = 0; di < compEids.length; di++) {
+        var ed = edges[compEids[di]];
+        deg[ed.a] = (deg[ed.a] || 0) + 1;
+        deg[ed.b] = (deg[ed.b] || 0) + 1;
+      }
+      var odds = [];
+      for (var oi = 0; oi < comp.length; oi++) {
+        if ((deg[comp[oi]] || 0) % 2 === 1) odds.push(comp[oi]);
+      }
+
+      // Greedy odd-pairing via shortest paths (CPP approximation)
+      var duplicateEids = [];
+      var rem = odds.slice();
+      while (rem.length >= 2) {
+        var s = rem.shift();
+        var dj = dijkstra(compSet, s);
+        var best = null;
+        var bestD = Infinity;
+        for (var ri = 0; ri < rem.length; ri++) {
+          var t = rem[ri];
+          if (dj.dist[t] != null && dj.dist[t] < bestD) {
+            bestD = dj.dist[t];
+            best = t;
+          }
+        }
+        if (best == null) break;
+        rem.splice(rem.indexOf(best), 1);
+        var path = reconstruct(dj.prev, s, best);
+        if (path && path.length) {
+          for (var pi = 0; pi < path.length; pi++) duplicateEids.push(path[pi]);
+        }
+      }
+
+      // Multigraph instances for Hierholzer
+      var instances = []; // eid per instance
+      var multi = {}; // node -> [instIdx]
+      function addInst(eid) {
+        var e = edges[eid];
+        var ii = instances.length;
+        instances.push(eid);
+        if (!multi[e.a]) multi[e.a] = [];
+        if (!multi[e.b]) multi[e.b] = [];
+        multi[e.a].push(ii);
+        multi[e.b].push(ii);
+      }
+      for (var ae = 0; ae < compEids.length; ae++) addInst(compEids[ae]);
+      for (var de = 0; de < duplicateEids.length; de++) addInst(duplicateEids[de]);
+
+      var usedInst = [];
+      for (var ui = 0; ui < instances.length; ui++) usedInst[ui] = false;
+
+      var startNode = comp[0];
+      for (var so = 0; so < odds.length; so++) {
+        if (compSet[odds[so]]) { startNode = odds[so]; break; }
+      }
+
+      var stack = [startNode];
+      var nodeCircuit = [];
+      while (stack.length) {
+        var u = stack[stack.length - 1];
+        var advanced = false;
+        var bag = multi[u] || [];
+        while (bag.length) {
+          var ii = bag.pop();
+          if (usedInst[ii]) continue;
+          usedInst[ii] = true;
+          var eid2 = instances[ii];
+          var e2 = edges[eid2];
+          var v = (u === e2.a) ? e2.b : e2.a;
+          stack.push(v);
+          advanced = true;
+          break;
+        }
+        if (!advanced) nodeCircuit.push(stack.pop());
+      }
+      nodeCircuit.reverse();
+
+      // Playback: bag of oriented coords keyed by directed pair
+      var orientBag = {};
+      function pushOrient(eid) {
+        var e = edges[eid];
+        var kFwd = e.a + '>' + e.b;
+        var kRev = e.b + '>' + e.a;
+        if (!orientBag[kFwd]) orientBag[kFwd] = [];
+        if (!orientBag[kRev]) orientBag[kRev] = [];
+        orientBag[kFwd].push(e.coords);
+        orientBag[kRev].push([e.coords[1], e.coords[0]]);
+      }
+      for (var pe = 0; pe < compEids.length; pe++) pushOrient(compEids[pe]);
+      for (var pd = 0; pd < duplicateEids.length; pd++) pushOrient(duplicateEids[pd]);
+
+      var segCoords = [];
+      for (var ni = 0; ni < nodeCircuit.length - 1; ni++) {
+        var na = nodeCircuit[ni];
+        var nb = nodeCircuit[ni + 1];
+        var key = na + '>' + nb;
+        var lst = orientBag[key];
+        if (!lst || !lst.length) continue;
+        var coords = lst.pop();
+        if (!segCoords.length) {
+          for (var c0 = 0; c0 < coords.length; c0++) segCoords.push(coords[c0]);
+        } else {
+          for (var c1 = 1; c1 < coords.length; c1++) segCoords.push(coords[c1]);
+        }
+      }
+
+      // Append component walk (gap = component hop later in routeTick)
+      if (segCoords.length >= 2) {
+        if (!walkLngLat.length) {
+          for (var s0 = 0; s0 < segCoords.length; s0++) walkLngLat.push(segCoords[s0]);
+        } else {
+          // mark discontinuity: still append; hop logic handles large jumps
+          for (var s1 = 0; s1 < segCoords.length; s1++) walkLngLat.push(segCoords[s1]);
+        }
+      }
+    }
+
+    if (walkLngLat.length < 2) {
+      return { points: [], streetCount: ways.length, edgeCount: totalEdges, capped: false };
+    }
+
+    var samples = samplePolyline(walkLngLat, STEP_M);
     var points = [];
     var last = null;
-    ordered.forEach(function (w) {
-      var samples = samplePolyline(w.coords, STEP_M);
-      samples.forEach(function (pt) {
-        if (!pointInPolygon(pt.lng, pt.lat, geom)) return;
-        if (last && haversineM(last.lat, last.lng, pt.lat, pt.lng) < STEP_M * 0.45) return;
-        points.push(pt);
-        last = pt;
-      });
-    });
-    // Cap very large colonias so trayecto stays usable
-    var MAX_PTS = 900;
-    if (points.length > MAX_PTS) {
-      var stride = Math.ceil(points.length / MAX_PTS);
+    for (var si = 0; si < samples.length; si++) {
+      var pt = samples[si];
+      if (!pointInPolygon(pt.lng, pt.lat, geom)) continue;
+      if (last && haversineM(last.lat, last.lng, pt.lat, pt.lng) < STEP_M * 0.4) continue;
+      points.push(pt);
+      last = pt;
+    }
+
+    var capped = false;
+    if (points.length > MAX_ROUTE_PTS) {
+      capped = true;
+      var stride = Math.ceil(points.length / MAX_ROUTE_PTS);
       var thinned = [];
       for (var t = 0; t < points.length; t += stride) thinned.push(points[t]);
-      if (thinned[thinned.length - 1] !== points[points.length - 1]) thinned.push(points[points.length - 1]);
+      var lastPt = points[points.length - 1];
+      if (thinned.length && (thinned[thinned.length - 1].lat !== lastPt.lat || thinned[thinned.length - 1].lng !== lastPt.lng)) {
+        thinned.push(lastPt);
+      }
       points = thinned;
     }
-    return points;
+
+    return {
+      points: points,
+      streetCount: ways.length,
+      edgeCount: totalEdges,
+      capped: capped
+    };
   }
 
   function showSvEntryHelp(lat, lng, heading) {
@@ -1727,12 +1986,16 @@
     updateHud();
   }
 
-  function startRoute(points, name) {
+  function startRoute(points, name, meta) {
+    meta = meta || {};
     if (!points || !points.length) {
       toast('Sin calles OSM en esta colonia');
       return;
     }
     if (state.autoWalk) setAutoWalk(false);
+    var streetCount = meta.streetCount || 0;
+    var edgeCount = meta.edgeCount || 0;
+    var capped = !!meta.capped;
     state.route = {
       name: name || 'colonia',
       points: points,
@@ -1743,16 +2006,26 @@
       failStreak: 0,
       svFailStreak: 0,
       flechaFailStreak: 0,
+      deadEndFails: 0,
+      hopFails: 0,
+      hopCount: 0,
+      streetCount: streetCount,
+      edgeCount: edgeCount,
+      capped: capped,
       entered: false // first point uses one URL jump to enter colonia SV
     };
     state.routeEntered = false;
+    state.hopCount = 0;
     saveRoute();
     if (state.routeTimer) clearInterval(state.routeTimer);
     var iv = routeIntervalMs();
     state.routeTimer = setInterval(routeTick, iv);
-    toast('🛣 Trayecto: ' + points.length + ' pts · ext · ' + (iv / 1000).toFixed(1) + 's · ' + name);
+    var callesLabel = streetCount ? (streetCount + ' calles') : (edgeCount ? edgeCount + ' tramos' : 'calles');
+    var hudLine = 'Trayecto: ' + points.length + ' pts · ~' + callesLabel + ' · cobertura colonia';
+    if (capped) hudLine += ' · cap ' + MAX_ROUTE_PTS;
+    toast('🛣 ' + hudLine);
+    setRouteStatus(hudLine + ' · ' + name);
     if (!state.extAvailable) toast('⚠ Sin extensión — el trayecto no avanzará hasta instalarla');
-    setRouteStatus('punto 1/' + points.length + ' · ext · ' + name);
     updateHud();
     routeTick();
   }
@@ -1806,13 +2079,47 @@
     return true;
   }
 
+  function routeProgressLabel(r) {
+    if (!r || !r.points || !r.points.length) return '';
+    var i = Math.min(r.i, r.points.length);
+    var n = r.points.length;
+    var pct = Math.round((i / n) * 100);
+    var calles = r.streetCount ? (r.streetCount + ' calles') : 'calles';
+    return (r.name || 'colonia') + ' · ' + i + '/' + n + ' (' + pct + '%) · ' + calles;
+  }
+
+  function routeSteerHeading(r, pt, next) {
+    var heading;
+    if (state.lat != null) {
+      var dist = haversineM(state.lat, state.lng, pt.lat, pt.lng);
+      if (dist < LOOKAHEAD_NEAR_M && next) {
+        heading = bearingDeg(state.lat, state.lng, next.lat, next.lng);
+      } else {
+        heading = bearingDeg(state.lat, state.lng, pt.lat, pt.lng);
+      }
+    } else if (next) {
+      heading = bearingDeg(pt.lat, pt.lng, next.lat, next.lng);
+    } else {
+      heading = state.heading || 0;
+    }
+    return heading;
+  }
+
+  /** U-turn ~180° via extension Left bursts (no ArrowUp). */
+  function doUTurnBurst() {
+    // MAX_TURN_KEYS=8 @ ~15° → 120° per burst; two bursts ≈ 180°
+    return requestExtStep({ turnDeg: -120, forward: false }).then(function () {
+      return requestExtStep({ turnDeg: -60, forward: false });
+    });
+  }
+
   function routeTick() {
     if (!state.route || state.route.paused || state.routeBusy) return;
     if (state.commentOpen) return;
     var r = state.route;
     if (r.i >= r.points.length) {
       stopRoute('✅ Trayecto completo · ' + r.name);
-      setRouteStatus('Completo · ' + r.points.length + ' pts · skip ' + r.skipped + ' · ext');
+      setRouteStatus('Completo · ' + r.points.length + ' pts · skip ' + (r.skipped || 0) + ' · hops ' + (r.hopCount || 0));
       return;
     }
     var pt = r.points[r.i];
@@ -1825,9 +2132,12 @@
       r.failStreak = 0;
       r.svFailStreak = 0;
       r.flechaFailStreak = 0;
+      r.deadEndFails = 0;
+      r.hopFails = 0;
       r.entered = true;
       state.routeEntered = true;
       saveRoute();
+      setRouteStatus(routeProgressLabel(r));
       updateHud();
       return;
     }
@@ -1839,26 +2149,27 @@
       state.routeEntered = true;
       saveRoute();
       state.routeBusy = true;
-      setRouteStatus('entrada URL (1×) · punto 1/' + r.points.length + ' · luego ext · ' + r.name);
+      setRouteStatus('entrada URL (1×) · luego cobertura calles · ' + r.name);
       updateHud();
-      toast('Entrada colonia: 1 salto URL, luego camina con extensión');
+      toast('Entrada colonia: 1 salto URL, luego camina todas las calles');
       navigateToSv(pt.lat, pt.lng, entryHeading, { silentWarn: false });
-      // page likely reloads; resumeRouteFromPersist continues
       setTimeout(function () { state.routeBusy = false; }, 1500);
       return;
     }
 
-    // Soft walk toward current waypoint
-    var heading = (state.lat != null)
-      ? bearingDeg(state.lat, state.lng, pt.lat, pt.lng)
-      : (next ? bearingDeg(pt.lat, pt.lng, next.lat, next.lng) : (state.heading || 0));
+    var heading = routeSteerHeading(r, pt, next);
+    var turnDelta = 0;
+    if (state.heading != null && isFinite(state.heading) && isFinite(heading)) {
+      turnDelta = angleDiffDeg(heading, state.heading);
+    }
+    var distToWp = (state.lat != null) ? haversineM(state.lat, state.lng, pt.lat, pt.lng) : Infinity;
 
     state.routeBusy = true;
-    setRouteStatus('punto ' + (r.i + 1) + '/' + r.points.length + ' · ext · ' + r.name);
+    setRouteStatus(routeProgressLabel(r) + (state.extAvailable ? ' · ext' : ' · SIN EXT'));
     saveRoute();
     updateHud();
 
-    smoothStepForward(heading, true).then(function (moved) {
+    function afterStep(moved) {
       state.routeBusy = false;
       refreshPose();
       if (!state.route || state.route !== r) return;
@@ -1867,28 +2178,77 @@
         r.failStreak = 0;
         r.svFailStreak = 0;
         r.flechaFailStreak = 0;
+        r.deadEndFails = 0;
+        r.hopFails = 0;
         saveRoute();
+        setRouteStatus(routeProgressLabel(r));
         updateHud();
         return;
       }
       if (!moved) {
         r.flechaFailStreak = (r.flechaFailStreak || 0) + 1;
         r.failStreak = (r.failStreak || 0) + 1;
-        // If far and stuck many times, skip waypoint (no URL spam)
-        if (r.flechaFailStreak >= 6) {
+        r.deadEndFails = (r.deadEndFails || 0) + 1;
+        r.hopFails = (r.hopFails || 0) + 1;
+
+        // Dead-end: ArrowUp didn't move → U-turn, stay on covering path (includes reverse)
+        if (r.deadEndFails >= ROUTE_DEAD_END_FAILS && state.extAvailable) {
+          r.deadEndFails = 0;
+          state.routeBusy = true;
+          toast('↩ Calle sin salida — U-turn');
+          doUTurnBurst().then(function () {
+            state.routeBusy = false;
+            saveRoute();
+            updateHud();
+          }).catch(function () { state.routeBusy = false; });
+          return;
+        }
+
+        // Component hop: next WP far + stuck ≥5 → ONE pano jump
+        if (r.hopFails >= ROUTE_HOP_FAILS && distToWp > HOP_DIST_M) {
+          r.hopFails = 0;
+          r.deadEndFails = 0;
+          r.hopCount = (r.hopCount || 0) + 1;
+          state.hopCount = r.hopCount;
+          var hopH = next ? bearingDeg(pt.lat, pt.lng, next.lat, next.lng) : heading;
+          toast('otra calle');
+          setRouteStatus('hop → otra calle · ' + routeProgressLabel(r));
+          saveRoute();
+          navigateToSv(pt.lat, pt.lng, hopH, { silentWarn: true });
+          return;
+        }
+
+        // Soft skip only after many fails when already close-ish (avoid skipping whole streets)
+        if (r.flechaFailStreak >= 10 && distToWp < HOP_DIST_M) {
           r.skipped = (r.skipped || 0) + 1;
           r.i += 1;
           r.flechaFailStreak = 0;
-          setRouteStatus('skip flecha · punto ' + r.i + '/' + r.points.length + ' · ext · ' + r.name);
+          r.deadEndFails = 0;
+          setRouteStatus('skip · ' + routeProgressLabel(r));
           toast('Skip punto (flecha no avanza)');
         }
         saveRoute();
         updateHud();
       } else {
         r.flechaFailStreak = 0;
+        r.deadEndFails = 0;
+        r.hopFails = 0;
         saveRoute();
       }
-    }).catch(function () {
+    }
+
+    // Strong turn: spend turn keys BEFORE ArrowUp (extension supports forward:false)
+    if (Math.abs(turnDelta) > STRONG_TURN_DEG && state.extAvailable) {
+      requestExtStep({ turnDeg: turnDelta, forward: false }).then(function () {
+        // After aligning, one forward step toward waypoint
+        return smoothStepForward(heading, false);
+      }).then(afterStep).catch(function () {
+        state.routeBusy = false;
+      });
+      return;
+    }
+
+    smoothStepForward(heading, true).then(afterStep).catch(function () {
       state.routeBusy = false;
     });
   }
@@ -1945,15 +2305,25 @@
     setRouteStatus('Armando trayecto…');
     toast('Generando trayecto…');
 
-    function finishOk(pts, source) {
+    function finishOk(cover, source) {
       state.trayectoBuilding = false;
       setRetryVisible(false);
-      setRouteStatus(pts.length + ' pts · ' + source + ' · ' + name);
+      var pts = (cover && cover.points) ? cover.points : (cover || []);
+      var meta = {
+        streetCount: (cover && cover.streetCount) || 0,
+        edgeCount: (cover && cover.edgeCount) || 0,
+        capped: !!(cover && cover.capped),
+        source: source
+      };
       if (!pts.length) {
         showTrayectoError('Sin puntos de cobertura en ' + name);
         return;
       }
-      startRoute(pts, name);
+      var calles = meta.streetCount ? ('~' + meta.streetCount + ' calles') : 'cobertura colonia';
+      var line = 'Trayecto: ' + pts.length + ' pts · ' + calles + ' · cobertura colonia';
+      if (meta.capped) line += ' · cap ' + MAX_ROUTE_PTS;
+      setRouteStatus(line + ' · ' + source + ' · ' + name);
+      startRoute(pts, name, meta);
     }
 
     function tryLiveOverpass() {
@@ -1964,9 +2334,9 @@
         22000,
         'overpass-total'
       ).then(function (data) {
-        var pts = waysToCoveragePoints(data.elements || [], geom);
-        if (pts.length >= MIN_ROUTE_PTS) {
-          finishOk(pts, 'Overpass');
+        var cover = waysToCoveragePoints(data.elements || [], geom);
+        if (cover.points.length >= MIN_ROUTE_PTS) {
+          finishOk(cover, 'Overpass');
           return true;
         }
         return false;
@@ -1980,7 +2350,7 @@
       setRouteStatus('Fallback rejilla / borde…');
       var pts = densifyPolygonFallback(geom, GRID_STEP_M);
       if (pts.length >= MIN_ROUTE_PTS) {
-        finishOk(pts, 'rejilla ' + GRID_STEP_M + 'm');
+        finishOk({ points: pts, streetCount: 0, edgeCount: 0, capped: pts.length >= MAX_ROUTE_PTS }, 'rejilla ' + GRID_STEP_M + 'm');
         toast('⚠ Sin calles OSM — usando rejilla (' + reason + ')');
         return;
       }
@@ -1991,9 +2361,9 @@
     // 1) Prebaked roads (preferred — no live Overpass)
     loadPrebakedRoads().then(function (fc) {
       var elements = geojsonRoadsToElements(fc, bbox);
-      var pts = waysToCoveragePoints(elements, geom);
-      if (pts.length >= MIN_ROUTE_PTS) {
-        finishOk(pts, 'prebaked');
+      var cover = waysToCoveragePoints(elements, geom);
+      if (cover.points.length >= MIN_ROUTE_PTS) {
+        finishOk(cover, 'prebaked');
         return null;
       }
       // 2) Live Overpass optional refresh
@@ -2101,19 +2471,19 @@
       '  <div class="row"><kbd>S</kbd><b>Semáforo</b></div>',
       '  <div class="row"><kbd class="sec">Y</kbd>Comp · <kbd class="sec">E</kbd>Express · <kbd class="sec">P</kbd>Iglesia</div>',
       '  <div class="row"><kbd class="sec">I</kbd>Escuela · <kbd class="sec">H</kbd>Hospital · <kbd>C</kbd>Comentario</div>',
-      '  <div class="row"><kbd class="sec">Space</kbd>Auto / pausa trayecto · <kbd class="sec">Z</kbd>Deshacer</div>',
-      '  <div class="row" style="margin-top:6px"><button type="button" class="primary" id="purif-scout-next" style="font-size:14px;padding:10px 14px;width:100%">▶ Siguiente</button></div>',
+      '  <div class="row"><kbd class="sec">Space</kbd>Pausa trayecto / Start · <kbd class="sec">Z</kbd>Deshacer</div>',
       '  <div class="meta" id="purif-scout-meta">—</div>',
       '  <div class="tray">',
       '    <label>Colonia (Escobedo + ZMM)</label>',
       '    <input type="search" id="purif-scout-col-filter" placeholder="Buscar colonia…" autocomplete="off" />',
       '    <select id="purif-scout-colonia"><option value="">— cargando… —</option></select>',
+      '    <button type="button" class="primary" id="purif-scout-start-route" style="font-size:15px;padding:12px 14px;width:100%;margin-top:8px">▶ Start trayecto (todas las calles)</button>',
       '    <label>Velocidad auto / trayecto: <span id="purif-scout-speed-label">0.8s</span></label>',
       '    <input type="range" id="purif-scout-speed" min="700" max="2500" step="100" value="' + state.autoMs + '" />',
       '    <div class="acts">',
-      '      <button type="button" class="primary" id="purif-scout-start-route">Start trayecto</button>',
       '      <button type="button" id="purif-scout-pause-route">Pausa</button>',
       '      <button type="button" class="danger" id="purif-scout-stop-route">Stop</button>',
+      '      <button type="button" id="purif-scout-next">▶ Siguiente</button>',
       '      <button type="button" id="purif-scout-retry-route" style="display:none;background:#b45309;color:#fff">Reintentar</button>',
       '    </div>',
       '    <div class="route-status" id="purif-scout-route-status"></div>',
@@ -2241,9 +2611,8 @@
       }
     }
     if (state.route && state.route.status === 'running') {
-      badge.textContent = state.route.paused
-        ? ('⏸ ' + (state.route.name || 'colonia') + ' · ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length + ' · ' + (state.extAvailable ? 'ext' : 'SIN EXT'))
-        : ('▶ ' + (state.route.name || 'colonia') + ' · ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length + ' · ' + (state.extAvailable ? 'ext' : 'SIN EXT'));
+      var prog = routeProgressLabel(state.route);
+      badge.textContent = (state.route.paused ? '⏸ ' : '▶ ') + prog + (state.extAvailable ? '' : ' · SIN EXT');
       badge.className = 'badge ' + (state.route.paused ? 'warn' : 'on');
     } else if (state.inSV) {
       badge.textContent = state.autoWalk ? 'SV · auto ▶ · ext' : 'Street View · ext';
@@ -2393,6 +2762,13 @@
         ev.preventDefault();
         ev.stopPropagation();
         toggleRoutePause();
+        return;
+      }
+      // Colonia selected, no active route → auto-build + start trayecto
+      if (!state.route && selectedFeatureFromUi()) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        buildTrayectoForSelection();
         return;
       }
       if (!state.inSV) return;

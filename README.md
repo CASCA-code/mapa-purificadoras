@@ -10,7 +10,7 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 |---|---|
 | `index.html` | Mapa Leaflet offline (score_100, capas, Ubicarme) |
 | `scout-sv.html` | Scout SV embebido (requiere Maps billing; preferir userscript) |
-| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.5** ext-first) |
+| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.6** cobertura total calles + ext) |
 | `extension/` + `extension-dist/*.zip` | **REQUERIDA**: ArrowUp/Left/Right vía `chrome.debugger` |
 | `data/roads_zmm.geojson` | Calles OSM prebaked (Escobedo) para trayecto scout |
 | `scripts/prebake_roads_zmm.py` | Regenera `roads_zmm.geojson` vía Overpass |
@@ -45,5 +45,5 @@ Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
 ## Scout (Street View remoto)
 **Primario (sin billing):** userscript Tampermonkey sobre Maps de consumidor — [`docs/SCOUT_USERSCRIPT.md`](docs/SCOUT_USERSCRIPT.md) · instalar desde  
 `https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js`  
-v1.1: elige colonia (Escobedo + ZMM) → **Start trayecto** (OSM Overpass, sin Maps billing) → marca pines con hotkeys.  
-`scout-sv.html` (Maps JS embebido) sigue en Pages pero **requiere Google Cloud billing** — **no usarla**; no pedir key a Nicolás. Camino correcto: userscript **v1.5.0+** + extensión (walk automático por trayecto; Space = pausa) en `google.com/maps`; extensión **requerida** (`extension/` / `extension-dist/*.zip`). Mapillary abandonado. Legacy: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).
+Elige colonia (Escobedo + ZMM) → **Start trayecto** cubre **todas** las calles OSM del polígono (Chinese Postman; sin Maps billing) → marca pines con hotkeys.  
+`scout-sv.html` (Maps JS embebido) sigue en Pages pero **requiere Google Cloud billing** — **no usarla**; no pedir key a Nicolás. Camino correcto: userscript **v1.6.0+** + extensión (extensión = pasito; script = mapa de calles + giros; Space = pausa / Start) en `google.com/maps`; extensión **requerida** (`extension/` / `extension-dist/*.zip`). Mapillary abandonado. Legacy: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).

@@ -1,11 +1,18 @@
 # Scout Userscript (Tampermonkey) — Street View sin billing
 
-Actualizado: 2026-09-21 (**v1.5.0**)
+Actualizado: 2026-09-21 (**v1.6.0**)
 
 > **Camino primario para Nicolás.** Corre **sobre** Google Maps de consumidor (`https://www.google.com/maps` Street View).  
 > **Cero** Google Cloud / Maps Platform API key / hold de facturación.  
 > **Usa siempre `google.com/maps` + peoncito.** No abras `scout-sv.html` (esa página sí pide key/billing).  
 > Mapillary: abandonado.
+
+## División de roles (product truth)
+
+| Pieza | Qué hace |
+|---|---|
+| **Extensión Chrome** | Solo el **pasito** confiable: `ArrowLeft` / `ArrowRight` / `ArrowUp` vía `chrome.debugger` (`step({turnDeg})`). Sin ella Maps ignora teclas sintéticas. |
+| **Userscript** | El **mapa de todas las calles** de la colonia + **giros**: arma un trayecto que cubre cada calle OSM del polígono y dirige la extensión hacia cada waypoint. |
 
 ## Instalación (5 pasos — hazlos en orden)
 
@@ -42,15 +49,21 @@ Abre **[Google Maps](https://www.google.com/maps)** → arrastra el **peoncito**
 
 En el HUD: busca / elige colonia (prioriza **General Escobedo**).
 
-### 5) Start trayecto — camina solo
+### 5) Start trayecto — cubre **todas** las calles
 
-Pulsa **Start trayecto**. El script:
+Pulsa **▶ Start trayecto (todas las calles)** (acción principal). El script:
 
-1. Arma puntos desde calles prebaked (`data/roads_zmm.geojson`) / Overpass / rejilla.
-2. Entra **1 vez** al inicio con URL (puede flash negro).
-3. Luego **loop automático** sin que hagas clic: extensión gira Left/Right hacia el waypoint + ArrowUp.
-4. Avanza el índice cuando haversine está cerca. **Space** = pausa/reanudar.
-5. Progreso visible: `colonia · i/n · ext`.
+1. Carga calles prebaked (`data/roads_zmm.geojson`) recortadas al polígono de la colonia (Overpass / rejilla solo si falta).
+2. Arma un **grafo** de tramos (nodos en intersecciones / extremos).
+3. Calcula un paseo que **cubre cada arista al menos una vez** (aproximación Chinese Postman / Hierholzer; si hay nodos de grado impar, duplica caminos cortos).
+4. Muestrea waypoints cada ~15 m (cap ~2500 pts en colonias muy grandes; el HUD lo anuncia).
+5. HUD antes de caminar: `Trayecto: N pts · ~X calles · cobertura colonia`.
+6. Entra **1 vez** al inicio con URL (puede flash negro).
+7. Luego **loop automático**: extensión gira Left/Right hacia el waypoint (+ look-ahead) y ArrowUp. En esquinas fuertes (|Δ| > 35°) gira **antes** de avanzar.
+8. Callejón sin salida: si ArrowUp no mueve 2–3 veces → U-turn (~180° Left) y sigue el path (ya incluye el regreso).
+9. Componente lejano: solo si el siguiente punto está >90 m **y** falla ≥5 veces → **un** salto `map_action=pano` (“otra calle”), luego vuelve a flecha.
+10. **Space** = pausa/reanuda el trayecto. Si hay colonia elegida y aún no hay ruta → Space arma y arranca el trayecto.
+11. Progreso: `colonia · i/n (p%) · calles`.
 
 Pace default ~800 ms (slider 700–2500).
 
@@ -69,6 +82,7 @@ Extensión de usuarios (Tampermonkey) + **extensión Chrome companion (requerida
 - **v1.3:** walk URL-pano → pantalla negra cada paso.
 - **v1.4:** walk flecha SV in-pano; extensión era fallback opcional (insuficiente: untrusted falla).
 - **v1.5:** extensión = **PRIMARY / requerida**. Cada tick llama extensión primero (`step({turnDeg})`). Trayecto automático de punta a punta. Pace más rápido (~800 ms).
+- **v1.6:** trayecto = **cobertura total de calles** (grafo + Chinese Postman), no “solo ArrowUp en una avenida”. Steering con giros fuertes, U-turn en dead-ends, hop raro entre componentes.
 
 ## Extensión = requerida (no opcional)
 
@@ -93,7 +107,7 @@ API página: `PURIF_SCOUT_EXT.step({turnDeg})`, `stepForward()`, `turnLeft(n)`, 
 | **H** | Hospital / otro |
 | **U** | Alias Modelorama |
 | **C** | Comentario de zona (~60 m) |
-| **Space** | Sin trayecto: Auto-walk ON/OFF. Con trayecto: pausa/reanuda |
+| **Space** | Con trayecto: pausa/reanuda. Con colonia y sin ruta: Start trayecto. Sin ambos: Auto-walk ON/OFF |
 | **Z** / **Backspace** | Deshacer último pin |
 
 ntfy sync sin cambios (`purif-zmm-campo-casca-v1`).
@@ -103,7 +117,8 @@ ntfy sync sin cambios (`purif-zmm-campo-casca-v1`).
 - Hay que estar en **Street View**.
 - Sin extensión el panorama **no avanza** (HUD rojo).
 - Entrada/recovery URL = flash negro (avisado).
-- Colonias grandes se muestrean (máx. ~900 pts).
+- Colonias muy grandes se capan a ~2500 pts (HUD: `cap 2500`); la cobertura sigue siendo por calles, no una sola avenida.
+- Componentes OSM desconectados pueden requerir un hop pano ocasional (“otra calle”).
 
 ## Relacionado
 

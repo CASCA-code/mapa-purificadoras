@@ -2,7 +2,7 @@
 
 Sin esta extensión **el auto-walk no se mueve**. Google Maps Street View ignora clicks/teclas sintéticas (*untrusted*). Solo `chrome.debugger` envía `ArrowUp` / `ArrowLeft` / `ArrowRight` confiables.
 
-Companion del userscript Tampermonkey: **Purificadoras Scout v1.5+**.
+Companion del userscript Tampermonkey: **Purificadoras Scout v1.5+** (v1.6 = cobertura total de calles; la extensión sigue siendo solo el pasito Left/Right/Up).
 
 ---
 
