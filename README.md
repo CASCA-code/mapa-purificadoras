@@ -9,6 +9,7 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 | Archivo | Qué es |
 |---|---|
 | `index.html` | Mapa Leaflet offline (score_100, capas, Ubicarme) |
+| `scout-sv.html` | Scout SV — Street View remoto (pines hotkey) |
 | `docs/` | Notas operativas (anclas, GPS, SADM, bitácora) |
 | `README.md` | Este archivo |
 
@@ -35,3 +36,7 @@ https://casca-code.github.io/mapa-purificadoras/tec/ — deptos + Oxxo/Super7 + 
 
 ## Fórmula del score
 Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
+
+
+## Scout SV (Street View remoto)
+https://casca-code.github.io/mapa-purificadoras/scout-sv.html — camina panoramas y marca competencia/anclas con teclado. Ver [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md). Cache-bust: `?v=<sha7>`.

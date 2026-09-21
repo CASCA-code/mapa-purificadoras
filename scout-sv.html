@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scout SV — Purificadoras ZMM</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --map-void:#e7e2d7; --surface:#fffdf8; --surface-2:#f5efe3;
+  --ink:#2b2620; --ink-muted:#736b5e; --hair:#e4ddcc;
+  --accent:#7a0177; --danger:#c0140f; --ok:#0f766e;
+  --shadow:0 2px 4px rgba(43,38,32,.09), 0 14px 32px -10px rgba(43,38,32,.24);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme: dark;
+    --map-void:#17150f; --surface:#211d17; --surface-2:#2c271f;
+    --ink:#efe9db; --ink-muted:#a89e8b; --hair:#39332a;
+    --accent:#ec86cf; --danger:#f0605a; --ok:#2dd4bf;
+    --shadow:0 2px 4px rgba(0,0,0,.45), 0 16px 36px -10px rgba(0,0,0,.65);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--map-void);color:var(--ink);
+  font:400 14px/1.45 "IBM Plex Sans", system-ui, "Segoe UI", Arial, sans-serif;}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+
+#app{display:grid;grid-template-columns:1fr minmax(280px,360px);grid-template-rows:auto 1fr;height:100%;}
+#topbar{
+  grid-column:1 / -1;
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;
+  padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--hair);
+  z-index:5;
+}
+#topbar h1{margin:0;font:600 17px/1.2 Fraunces, Georgia, serif;}
+#topbar .sub{color:var(--ink-muted);font-size:12px;}
+#topbar .grow{flex:1 1 auto;min-width:8px}
+#stage{position:relative;min-width:0;min-height:0;background:#111}
+#mapMini{position:absolute;left:10px;bottom:10px;width:160px;height:120px;
+  border-radius:10px;overflow:hidden;box-shadow:var(--shadow);border:2px solid var(--surface);z-index:3}
+#pano{position:absolute;inset:0}
+#hud{
+  position:absolute;top:10px;left:10px;right:10px;z-index:4;
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;pointer-events:none;
+}
+#hud > *{pointer-events:auto}
+.chip{
+  background:rgba(33,29,23,.88);color:#efe9db;padding:6px 10px;border-radius:999px;
+  font:500 12px/1.2 "IBM Plex Mono", ui-monospace, monospace;
+  backdrop-filter:blur(6px);
+}
+.chip.warn{background:rgba(192,20,15,.9)}
+.chip.ok{background:rgba(15,118,110,.92)}
+#side{
+  display:flex;flex-direction:column;min-height:0;
+  background:var(--surface);border-left:1px solid var(--hair);overflow:hidden;
+}
+#side header{
+  padding:12px 14px 8px;border-bottom:1px solid var(--hair);
+}
+#side header p{margin:4px 0 0;font-size:12px;color:var(--ink-muted)}
+#side .scroll{flex:1;overflow:auto;padding:12px 14px 18px;overscroll-behavior:contain}
+.sec{margin:0 0 16px}
+.sec h2{
+  margin:0 0 8px;font:600 10px/1 "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
+}
+label.field{display:block;margin:0 0 8px;font-size:12.5px}
+label.field span{display:block;margin-bottom:4px;color:var(--ink-muted);font-size:11.5px}
+input[type=text],input[type=password],select,textarea{
+  width:100%;padding:9px 10px;border:1px solid var(--hair);border-radius:8px;
+  background:var(--surface-2);
+}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+button.btn{
+  appearance:none;border:1px solid var(--hair);background:var(--surface-2);
+  padding:9px 12px;border-radius:9px;cursor:pointer;font-weight:600;font-size:13px;
+}
+button.btn:hover{filter:brightness(1.05)}
+button.btn.primary{background:var(--accent);color:#fff;border-color:transparent}
+button.btn.ok{background:var(--ok);color:#fff;border-color:transparent}
+button.btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+.hint{font-size:12px;color:var(--ink-muted);margin:6px 0 0;line-height:1.4}
+#keymap{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;
+}
+.krow{
+  display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:10px;
+  background:var(--surface-2);border:1px solid var(--hair);font-size:13px;font-weight:600;
+}
+.krow kbd{
+  flex:none;min-width:28px;text-align:center;padding:4px 6px;border-radius:6px;
+  background:var(--ink);color:var(--surface);font:700 13px/1 "IBM Plex Mono", monospace;
+}
+.krow .lab{flex:1;min-width:0;line-height:1.2}
+.krow .lab small{display:block;font-weight:500;color:var(--ink-muted);font-size:10.5px}
+#pinList{list-style:none;margin:0;padding:0}
+#pinList li{
+  display:flex;align-items:flex-start;gap:8px;padding:8px 0;
+  border-bottom:1px solid var(--hair);font-size:12.5px;
+}
+#pinList .dot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:4px}
+#pinList .meta{flex:1;min-width:0}
+#pinList .meta b{display:block;font-size:13px}
+#pinList .meta span{color:var(--ink-muted);font:500 11px/1.3 "IBM Plex Mono", monospace}
+#toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+  background:rgba(33,29,23,.94);color:#efe9db;padding:10px 16px;border-radius:999px;
+  font-weight:600;font-size:13px;z-index:50;opacity:0;pointer-events:none;
+  transition:opacity .2s;
+}
+#toast.show{opacity:1}
+#keyGate{
+  position:fixed;inset:0;z-index:40;background:rgba(23,21,15,.72);
+  display:none;align-items:center;justify-content:center;padding:16px;
+}
+#keyGate.show{display:flex}
+#keyGate .card{
+  width:min(440px,100%);background:var(--surface);border-radius:14px;
+  padding:18px 18px 16px;box-shadow:var(--shadow);
+}
+#keyGate h2{margin:0 0 6px;font:600 18px/1.2 Fraunces, Georgia, serif}
+#overlayStart{
+  position:absolute;inset:0;z-index:6;background:rgba(23,21,15,.55);
+  display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;
+  overflow:auto;
+}
+#overlayStart.hidden{display:none}
+#overlayStart .card{
+  width:min(480px,100%);background:var(--surface);border-radius:14px;
+  padding:18px;box-shadow:var(--shadow);margin-bottom:24px;
+}
+#overlayStart h2{margin:0 0 4px;font:600 20px/1.2 Fraunces, Georgia, serif}
+.speedWrap{display:flex;align-items:center;gap:10px}
+.speedWrap input[type=range]{flex:1}
+@media (max-width:900px){
+  #app{grid-template-columns:1fr;grid-template-rows:auto minmax(42vh,1fr) minmax(38vh,1fr)}
+  #side{border-left:none;border-top:1px solid var(--hair)}
+  #mapMini{width:120px;height:90px}
+  #keymap{grid-template-columns:1fr 1fr}
+}
+@media (max-width:560px){
+  #keymap{grid-template-columns:1fr}
+  .krow{font-size:14px;padding:10px}
+  .krow kbd{min-width:34px;font-size:15px;padding:6px 8px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div>
+      <h1>Scout SV</h1>
+      <div class="sub">Street View remoto · Purificadoras ZMM</div>
+    </div>
+    <div class="grow"></div>
+    <a class="sub" href="index.html">← Mapa principal</a>
+    <a class="sub" href="docs/SCOUT_SV.md" target="_blank" rel="noopener">Docs</a>
+    <button type="button" class="btn" id="btnKey">API key</button>
+  </div>
+
+  <div id="stage">
+    <div id="pano" aria-label="Street View"></div>
+    <div id="mapMini" aria-label="Mapa de contexto"></div>
+    <div id="hud">
+      <span class="chip" id="chipStatus">Listo</span>
+      <span class="chip" id="chipProgress">pasos 0</span>
+      <span class="chip" id="chipCoords">—</span>
+    </div>
+    <div id="overlayStart">
+      <div class="card">
+        <h2>Empezar recorrido</h2>
+        <p class="hint">Pega un centro lat,lng o elige una colonia prioritaria. Scout camina el grafo de Street View (links forward) desde el panorama más cercano.</p>
+        <div class="sec" style="margin-top:12px">
+          <label class="field"><span>Colonia prioritaria</span>
+            <select id="coloniaPick">
+              <option value="">— elegir —</option>
+            </select>
+          </label>
+          <label class="field"><span>O centro lat,lng</span>
+            <input type="text" id="centerInput" placeholder="25.836071, -100.371121" autocomplete="off" spellcheck="false">
+          </label>
+          <div class="btns">
+            <button type="button" class="btn primary" id="btnStart">Iniciar Scout</button>
+          </div>
+          <p class="hint" id="startMsg"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside id="side">
+    <header>
+      <strong id="pinCount">0 pines</strong>
+      <p>Hotkeys sueltan pin en el panorama actual. Space = pausa/reanuda.</p>
+    </header>
+    <div class="scroll">
+      <section class="sec">
+        <h2>Recorrido</h2>
+        <div class="speedWrap">
+          <span class="hint" style="margin:0">vel.</span>
+          <input type="range" id="speedSlider" min="1" max="10" value="6" aria-label="Velocidad">
+          <span id="speedLabel" class="hint" style="margin:0;min-width:3.5em">medio</span>
+        </div>
+        <div class="btns">
+          <button type="button" class="btn primary" id="btnPause">Pausar (Space)</button>
+          <button type="button" class="btn" id="btnRestart">Nuevo centro</button>
+        </div>
+        <p class="hint">Preferimos links “adelante”. Si no hay, tomamos el más alineado. Evitamos panoramas ya visitados.</p>
+      </section>
+
+      <section class="sec">
+        <h2>Teclado</h2>
+        <div id="keymap"></div>
+        <p class="hint" style="margin-top:8px"><kbd style="font:700 12px IBM Plex Mono,monospace;background:var(--ink);color:var(--surface);padding:2px 6px;border-radius:4px">⌫</kbd> / <kbd style="font:700 12px IBM Plex Mono,monospace;background:var(--ink);color:var(--surface);padding:2px 6px;border-radius:4px">Z</kbd> = deshacer último pin (sesión)</p>
+      </section>
+
+      <section class="sec">
+        <h2>Sesión</h2>
+        <ul id="pinList"></ul>
+        <p class="hint" id="emptyPins">Aún no hay pines. Camina y pulsa Y / U / O / P / I / S / H.</p>
+        <div class="btns">
+          <button type="button" class="btn ok" id="btnExport">Exportar JSON</button>
+          <button type="button" class="btn" id="btnSync" title="ntfy upsert (mismo topic que el mapa)">Sync ntfy</button>
+          <button type="button" class="btn danger" id="btnClear">Limpiar sesión</button>
+        </div>
+        <p class="hint">Export usa las mismas keys que el mapa de campo (<code>purificadoras_field_adds_v1</code> / <code>purificadoras_anclas_v1</code>). Sync opcional → bandeja ntfy → merge Pages.</p>
+      </section>
+    </div>
+  </aside>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<div id="keyGate" role="dialog" aria-modal="true" aria-labelledby="keyGateTitle">
+  <div class="card">
+    <h2 id="keyGateTitle">Google Maps API key</h2>
+    <p class="hint">Maps JavaScript API + Street View. No se sube al repo: se guarda en <code>localStorage.purif_gmaps_key</code> o pasa <code>?key=</code>.</p>
+    <label class="field" style="margin-top:10px"><span>API key</span>
+      <input type="password" id="keyInput" placeholder="AIza…" autocomplete="off" spellcheck="false">
+    </label>
+    <div class="btns">
+      <button type="button" class="btn primary" id="btnSaveKey">Guardar y cargar</button>
+      <button type="button" class="btn" id="btnCancelKey">Cerrar</button>
+    </div>
+    <p class="hint">Ver <a href="docs/SCOUT_SV.md" target="_blank" rel="noopener">docs/SCOUT_SV.md</a> · ToS: human-in-the-loop (tú marcas; no scrapeo automático de negocio).</p>
+  </div>
+</div>
+
+<script>
+/* ========== Scout SV config (hotkeys editables) ========== */
+const SCOUT_HOTKEYS = {
+  Y: { kind: 'purificadora', layer: 'competencia', name: 'Purificadora', label: 'Competencia / purificadora', color: '#0f766e' },
+  U: { kind: 'modelorama', layer: 'ancla_campo', name: 'Modelorama', label: 'Modelorama', color: '#ca8a04' },
+  O: { kind: 'express', layer: 'ancla_campo', name: 'Express', label: 'Express', color: '#ea580c' },
+  P: { kind: 'iglesia', layer: 'ancla_campo', name: 'Iglesia', label: 'Iglesia', color: '#7c3aed' },
+  I: { kind: 'escuela', layer: 'ancla_campo', name: 'Escuela', label: 'Escuela', color: '#2563eb' },
+  S: { kind: 'otro', layer: 'ancla_campo', name: 'Semáforo', nota_raw: 'Semáforo', label: 'Semáforo', color: '#64748b' },
+  H: { kind: 'otro', layer: 'ancla_campo', name: 'Hospital / otro', label: 'Hospital / otro', color: '#64748b' }
+};
+
+const PRIORITY_COLONIAS = [
+  { id: 'smr', nombre: 'San Miguel Residencial', municipio: 'Escobedo', lat: 25.836071, lng: -100.371121 },
+  { id: 'vsf', nombre: 'Villas de San Francisco', municipio: 'Escobedo', lat: 25.836567, lng: -100.367444 },
+  { id: 'edp', nombre: 'Estado de Progreso / Alianza Real', municipio: 'Escobedo', lat: 25.847643, lng: -100.391829 },
+  { id: 'gme', nombre: 'Gloria Mendiola (Escobedo)', municipio: 'Escobedo', lat: 25.806252, lng: -100.377505 },
+  { id: 'gmm', nombre: 'Gloria Mendiola (Monterrey)', municipio: 'Monterrey', lat: 25.769067, lng: -100.360427 },
+  { id: 'vsf2', nombre: 'Villas de San Francisco 2°', municipio: 'Escobedo', lat: 25.826233, lng: -100.366567 }
+];
+
+const LS_KEY = 'purif_gmaps_key';
+const LS_COMP = 'purificadoras_field_adds_v1';
+const LS_ANCLAS = 'purificadoras_anclas_v1';
+const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
+const API_PLACEHOLDER = 'YOUR_API_KEY';
+const MAX_STEPS_SOFT = 400;
+
+/* ========== helpers ========== */
+function $(id){ return document.getElementById(id); }
+function toast(msg){
+  var t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._tm);
+  toast._tm = setTimeout(function(){ t.classList.remove('show'); }, 1800);
+}
+function uuid(prefix){
+  return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+function parseLatLng(raw){
+  if (!raw) return null;
+  var m = String(raw).trim().match(/(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  var a = Number(m[1]), b = Number(m[2]);
+  if (!isFinite(a) || !isFinite(b)) return null;
+  // Heuristic: ZMM lat ~25, lng ~-100
+  if (Math.abs(a) <= 90 && Math.abs(b) <= 180) {
+    if (Math.abs(a) > 90) return null;
+    // if first looks like lng for MTY (≈ -100), swap
+    if (a < -50 && b > 15 && b < 35) return { lat: b, lng: a };
+    return { lat: a, lng: b };
+  }
+  return null;
+}
+function resolveApiKey(){
+  try {
+    var q = new URLSearchParams(location.search).get('key');
+    if (q && q.trim() && q.trim() !== API_PLACEHOLDER) return q.trim();
+  } catch (e) {}
+  try {
+    var ls = localStorage.getItem(LS_KEY);
+    if (ls && ls.trim() && ls.trim() !== API_PLACEHOLDER) return ls.trim();
+  } catch (e) {}
+  if (window.__SCOUT_GMAPS_KEY && window.__SCOUT_GMAPS_KEY !== API_PLACEHOLDER) {
+    return window.__SCOUT_GMAPS_KEY;
+  }
+  return null;
+}
+function silentSync(payload){
+  var body = JSON.stringify(payload);
+  var url = 'https://ntfy.sh/' + NTFY_TOPIC;
+  try {
+    if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) {
+      return true;
+    }
+  } catch (e) {}
+  try {
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Title': payload.action || 'scout', 'Tags': 'round_pushpin' },
+      body: body, mode: 'cors', keepalive: true
+    }).catch(function(){});
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/* ========== UI: keymap + colonias ========== */
+(function buildKeymap(){
+  var host = $('keymap');
+  Object.keys(SCOUT_HOTKEYS).forEach(function(k){
+    var h = SCOUT_HOTKEYS[k];
+    var row = document.createElement('div');
+    row.className = 'krow';
+    row.innerHTML = '<kbd>' + k + '</kbd><div class="lab">' + h.label +
+      '<small>' + h.kind + ' · ' + h.layer + '</small></div>';
+    host.appendChild(row);
+  });
+})();
+(function buildColonias(){
+  var sel = $('coloniaPick');
+  PRIORITY_COLONIAS.forEach(function(c){
+    var o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = c.nombre + ' · ' + c.municipio;
+    sel.appendChild(o);
+  });
+})();
+
+/* ========== session pins ========== */
+var sessionPins = []; // GeoJSON Features
+var mapMarkers = [];
+var miniMap = null;
+var panorama = null;
+var svService = null;
+var walking = false;
+var paused = true;
+var walkTimer = null;
+var stepCount = 0;
+var visited = Object.create(null);
+var currentPanoMeta = { lat: null, lng: null, panoId: null, heading: 0 };
+var mapsReady = false;
+
+function pinColor(f){
+  var p = f.properties || {};
+  for (var k in SCOUT_HOTKEYS) {
+    if (SCOUT_HOTKEYS[k].kind === p.kind && SCOUT_HOTKEYS[k].layer === p.layer) {
+      if (p.kind === 'otro' && SCOUT_HOTKEYS[k].nota_raw && p.nota_raw === SCOUT_HOTKEYS[k].nota_raw) {
+        return SCOUT_HOTKEYS[k].color;
+      }
+      if (p.kind !== 'otro') return SCOUT_HOTKEYS[k].color;
+    }
+  }
+  if (p.layer === 'competencia') return '#0f766e';
+  return '#64748b';
+}
+function renderPins(){
+  var ul = $('pinList');
+  ul.innerHTML = '';
+  $('pinCount').textContent = sessionPins.length + (sessionPins.length === 1 ? ' pin' : ' pines');
+  $('emptyPins').style.display = sessionPins.length ? 'none' : 'block';
+  sessionPins.slice().reverse().forEach(function(f){
+    var p = f.properties || {};
+    var c = f.geometry.coordinates;
+    var li = document.createElement('li');
+    li.innerHTML = '<span class="dot" style="background:' + pinColor(f) + '"></span>' +
+      '<div class="meta"><b>' + (p.name || p.kind) + '</b>' +
+      '<span>' + Number(c[1]).toFixed(6) + ', ' + Number(c[0]).toFixed(6) +
+      ' · ' + (p.kind || '') + '</span></div>';
+    ul.appendChild(li);
+  });
+  // mini map markers
+  if (miniMap && window.google) {
+    mapMarkers.forEach(function(m){ m.setMap(null); });
+    mapMarkers = [];
+    sessionPins.forEach(function(f){
+      var c = f.geometry.coordinates;
+      var m = new google.maps.Marker({
+        map: miniMap,
+        position: { lat: c[1], lng: c[0] },
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 5,
+          fillColor: pinColor(f),
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 1
+        },
+        title: (f.properties && f.properties.name) || ''
+      });
+      mapMarkers.push(m);
+    });
+  }
+}
+function makeFeature(def, lat, lng){
+  var isComp = def.layer === 'competencia';
+  return {
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: [lng, lat] },
+    properties: {
+      id: uuid(isComp ? 'fa' : 'ancla'),
+      kind: def.kind,
+      name: def.name || def.label,
+      nota_raw: def.nota_raw || '',
+      accuracy_m: null,
+      ts: new Date().toISOString(),
+      fuente: 'scout_sv',
+      status: 'inbox',
+      layer: def.layer,
+      pano_id: currentPanoMeta.panoId || null
+    }
+  };
+}
+function dropPin(def){
+  if (currentPanoMeta.lat == null || currentPanoMeta.lng == null) {
+    toast('Sin panorama aún');
+    return;
+  }
+  var feat = makeFeature(def, currentPanoMeta.lat, currentPanoMeta.lng);
+  sessionPins.push(feat);
+  renderPins();
+  toast('📍 ' + (def.label || def.name));
+}
+function undoPin(){
+  if (!sessionPins.length) { toast('Nada que deshacer'); return; }
+  var f = sessionPins.pop();
+  renderPins();
+  toast('Deshecho: ' + ((f.properties && f.properties.name) || 'pin'));
+}
+
+function buildExportPayload(){
+  var comp = [];
+  var anclas = [];
+  sessionPins.forEach(function(f){
+    var layer = (f.properties || {}).layer;
+    if (layer === 'competencia') comp.push(f);
+    else anclas.push(f);
+  });
+  return {
+    exported_at: new Date().toISOString(),
+    fuente: 'scout_sv',
+    keys: {
+      purificadoras_field_adds_v1: comp,
+      purificadoras_anclas_v1: anclas
+    }
+  };
+}
+function downloadExport(){
+  var payload = buildExportPayload();
+  var text = JSON.stringify(payload, null, 2);
+  var blob = new Blob([text], { type: 'application/json' });
+  var a = document.createElement('a');
+  var d = new Date();
+  var stamp = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'purif-scout-sv-' + stamp + '.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function(){ toast('JSON descargado + copiado'); }).catch(function(){ toast('JSON descargado'); });
+      return;
+    }
+  } catch (e) {}
+  toast('JSON descargado');
+}
+function syncAllNtfy(){
+  if (!sessionPins.length) { toast('Sin pines'); return; }
+  var n = 0;
+  sessionPins.forEach(function(f){
+    silentSync({ action: 'upsert', feature: f });
+    n++;
+  });
+  toast('Sync ntfy: ' + n + ' upsert(s)');
+}
+
+/* ========== walk engine ========== */
+function speedMs(){
+  var v = Number($('speedSlider').value) || 6;
+  // 1=lento(~2200ms) … 10=rápido(~350ms); 6≈medium-fast ~700ms
+  return Math.round(2400 - (v - 1) * (2050 / 9));
+}
+function speedLabel(){
+  var v = Number($('speedSlider').value) || 6;
+  if (v <= 3) return 'lento';
+  if (v <= 5) return 'medio';
+  if (v <= 7) return 'medio-rápido';
+  return 'rápido';
+}
+function setStatus(txt, kind){
+  var el = $('chipStatus');
+  el.textContent = txt;
+  el.classList.remove('warn', 'ok');
+  if (kind) el.classList.add(kind);
+}
+function setProgress(){
+  $('chipProgress').textContent = 'pasos ' + stepCount + (paused || !walking ? ' · pausa' : '');
+}
+function updateCoordsChip(){
+  if (currentPanoMeta.lat == null) {
+    $('chipCoords').textContent = '—';
+    return;
+  }
+  $('chipCoords').textContent = currentPanoMeta.lat.toFixed(6) + ', ' + currentPanoMeta.lng.toFixed(6);
+}
+function clearWalkTimer(){
+  if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
+}
+function setPaused(p){
+  paused = p;
+  $('btnPause').textContent = paused ? 'Reanudar (Space)' : 'Pausar (Space)';
+  setProgress();
+  if (!paused && walking) scheduleNext();
+  else clearWalkTimer();
+  setStatus(paused ? 'Pausado' : 'Caminando', paused ? 'warn' : 'ok');
+}
+function headingDiff(a, b){
+  var d = Math.abs(((a - b + 540) % 360) - 180);
+  return d;
+}
+function pickForwardLink(pano){
+  var links = pano.getLinks && pano.getLinks();
+  if (!links || !links.length) return null;
+  var heading = (pano.getPov && pano.getPov().heading) || currentPanoMeta.heading || 0;
+  var best = null, bestScore = 1e9;
+  for (var i = 0; i < links.length; i++) {
+    var L = links[i];
+    if (!L || !L.pano) continue;
+    if (visited[L.pano]) continue;
+    var score = headingDiff(heading, L.heading || 0);
+    // slight preference for description "hacia adelante" isn't reliable; heading wins
+    if (score < bestScore) { bestScore = score; best = L; }
+  }
+  if (best) return best;
+  // all visited: allow least-visited / any closest heading
+  best = null; bestScore = 1e9;
+  for (var j = 0; j < links.length; j++) {
+    var L2 = links[j];
+    if (!L2 || !L2.pano) continue;
+    var sc = headingDiff(heading, L2.heading || 0);
+    if (sc < bestScore) { bestScore = sc; best = L2; }
+  }
+  return best;
+}
+function onPanoChanged(){
+  if (!panorama) return;
+  var pos = panorama.getPosition && panorama.getPosition();
+  var pov = panorama.getPov && panorama.getPov();
+  var pid = panorama.getPano && panorama.getPano();
+  if (pos) {
+    currentPanoMeta.lat = pos.lat();
+    currentPanoMeta.lng = pos.lng();
+  }
+  if (pov && pov.heading != null) currentPanoMeta.heading = pov.heading;
+  if (pid) {
+    currentPanoMeta.panoId = pid;
+    visited[pid] = true;
+  }
+  updateCoordsChip();
+  if (miniMap && pos) {
+    miniMap.setCenter(pos);
+    if (window.__scoutPegman) window.__scoutPegman.setPosition(pos);
+  }
+}
+function scheduleNext(){
+  clearWalkTimer();
+  if (paused || !walking) return;
+  walkTimer = setTimeout(stepForward, speedMs());
+}
+function stepForward(){
+  if (paused || !walking || !panorama) return;
+  if (stepCount >= MAX_STEPS_SOFT) {
+    setPaused(true);
+    setStatus('Límite de pasos', 'warn');
+    toast('Límite ' + MAX_STEPS_SOFT + ' pasos — reanuda o nuevo centro');
+    return;
+  }
+  var link = pickForwardLink(panorama);
+  if (!link) {
+    setPaused(true);
+    setStatus('Sin links', 'warn');
+    toast('Fin de grafo SV aquí');
+    return;
+  }
+  // Aim camera toward chosen link, then move
+  var pov = panorama.getPov() || { heading: 0, pitch: 0 };
+  panorama.setPov({ heading: link.heading || pov.heading, pitch: pov.pitch || 0 });
+  panorama.setPano(link.pano);
+  stepCount++;
+  setProgress();
+  scheduleNext();
+}
+function startAtLatLng(lat, lng){
+  if (!svService || !panorama) {
+    toast('Maps aún no listo');
+    return;
+  }
+  setStatus('Buscando panorama…');
+  visited = Object.create(null);
+  stepCount = 0;
+  setProgress();
+  svService.getPanorama({
+    location: { lat: lat, lng: lng },
+    radius: 120,
+    source: google.maps.StreetViewSource.OUTDOOR
+  }, function(data, status){
+    if (status !== google.maps.StreetViewStatus.OK || !data || !data.location) {
+      setStatus('Sin Street View cerca', 'warn');
+      $('startMsg').textContent = 'No hay panorama outdoor cerca (±120 m). Prueba otra colonia o coords.';
+      return;
+    }
+    $('overlayStart').classList.add('hidden');
+    $('startMsg').textContent = '';
+    var loc = data.location.latLng;
+    panorama.setPano(data.location.pano);
+    panorama.setVisible(true);
+    if (miniMap) {
+      miniMap.setCenter(loc);
+      miniMap.setZoom(16);
+      if (!window.__scoutPegman) {
+        window.__scoutPegman = new google.maps.Marker({
+          map: miniMap,
+          position: loc,
+          title: 'Scout',
+          icon: {
+            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            scale: 5,
+            fillColor: '#7a0177',
+            fillOpacity: 1,
+            strokeColor: '#fff',
+            strokeWeight: 1,
+            rotation: 0
+          }
+        });
+      } else {
+        window.__scoutPegman.setPosition(loc);
+      }
+    }
+    walking = true;
+    setPaused(false);
+    setStatus('Caminando', 'ok');
+    toast('Scout iniciado');
+  });
+}
+
+/* ========== Maps bootstrap ========== */
+function initMaps(){
+  var center = { lat: 25.836071, lng: -100.371121 };
+  miniMap = new google.maps.Map($('mapMini'), {
+    center: center,
+    zoom: 14,
+    disableDefaultUI: true,
+    gestureHandling: 'cooperative',
+    mapTypeId: 'roadmap'
+  });
+  panorama = new google.maps.StreetViewPanorama($('pano'), {
+    position: center,
+    pov: { heading: 0, pitch: 0 },
+    zoom: 1,
+    visible: false,
+    addressControl: true,
+    linksControl: true,
+    panControl: true,
+    enableCloseButton: false,
+    fullscreenControl: false,
+    motionTracking: false,
+    motionTrackingControl: false
+  });
+  svService = new google.maps.StreetViewService();
+  panorama.addListener('position_changed', onPanoChanged);
+  panorama.addListener('pano_changed', onPanoChanged);
+  panorama.addListener('pov_changed', function(){
+    var pov = panorama.getPov();
+    if (pov && pov.heading != null) currentPanoMeta.heading = pov.heading;
+  });
+  mapsReady = true;
+  setStatus('Listo — elige centro', 'ok');
+}
+
+function loadGoogleMaps(key){
+  if (window.google && window.google.maps) {
+    initMaps();
+    return;
+  }
+  var cb = '__scoutSvMapsReady';
+  window[cb] = function(){
+    try { initMaps(); } catch (e) {
+      setStatus('Error init Maps', 'warn');
+      console.error(e);
+    }
+  };
+  var s = document.createElement('script');
+  s.async = true;
+  s.defer = true;
+  s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&callback=' + cb + '&v=weekly';
+  s.onerror = function(){
+    setStatus('No cargó Maps JS', 'warn');
+    toast('Error al cargar Google Maps');
+    showKeyGate(true);
+  };
+  document.head.appendChild(s);
+}
+
+function showKeyGate(show){
+  $('keyGate').classList.toggle('show', !!show);
+  if (show) {
+    try { $('keyInput').value = localStorage.getItem(LS_KEY) || ''; } catch (e) {}
+    setTimeout(function(){ try { $('keyInput').focus(); } catch (e) {} }, 50);
+  }
+}
+
+/* ========== events ========== */
+$('speedSlider').addEventListener('input', function(){
+  $('speedLabel').textContent = speedLabel();
+  if (!paused && walking) scheduleNext();
+});
+$('speedLabel').textContent = speedLabel();
+
+$('btnPause').addEventListener('click', function(){
+  if (!walking) { toast('Primero inicia un centro'); return; }
+  setPaused(!paused);
+});
+$('btnRestart').addEventListener('click', function(){
+  clearWalkTimer();
+  walking = false;
+  paused = true;
+  panorama && panorama.setVisible(false);
+  $('overlayStart').classList.remove('hidden');
+  setStatus('Nuevo centro');
+  setProgress();
+});
+$('btnStart').addEventListener('click', function(){
+  if (!mapsReady) { toast('Carga la API key primero'); showKeyGate(true); return; }
+  var pick = $('coloniaPick').value;
+  var ll = null;
+  if (pick) {
+    for (var i = 0; i < PRIORITY_COLONIAS.length; i++) {
+      if (PRIORITY_COLONIAS[i].id === pick) {
+        ll = { lat: PRIORITY_COLONIAS[i].lat, lng: PRIORITY_COLONIAS[i].lng };
+        break;
+      }
+    }
+  }
+  if (!ll) ll = parseLatLng($('centerInput').value);
+  if (!ll) {
+    $('startMsg').textContent = 'Elige colonia o pega lat,lng válidos.';
+    return;
+  }
+  startAtLatLng(ll.lat, ll.lng);
+});
+$('coloniaPick').addEventListener('change', function(){
+  var pick = $('coloniaPick').value;
+  for (var i = 0; i < PRIORITY_COLONIAS.length; i++) {
+    if (PRIORITY_COLONIAS[i].id === pick) {
+      $('centerInput').value = PRIORITY_COLONIAS[i].lat.toFixed(6) + ', ' + PRIORITY_COLONIAS[i].lng.toFixed(6);
+      break;
+    }
+  }
+});
+$('btnExport').addEventListener('click', downloadExport);
+$('btnSync').addEventListener('click', syncAllNtfy);
+$('btnClear').addEventListener('click', function(){
+  if (!sessionPins.length) return;
+  if (!confirm('¿Limpiar pines de esta sesión?')) return;
+  sessionPins = [];
+  renderPins();
+  toast('Sesión limpia');
+});
+$('btnKey').addEventListener('click', function(){ showKeyGate(true); });
+$('btnCancelKey').addEventListener('click', function(){ showKeyGate(false); });
+$('btnSaveKey').addEventListener('click', function(){
+  var k = ($('keyInput').value || '').trim();
+  if (!k || k === API_PLACEHOLDER) { toast('Pega una key válida'); return; }
+  try { localStorage.setItem(LS_KEY, k); } catch (e) {}
+  showKeyGate(false);
+  if (!mapsReady) loadGoogleMaps(k);
+  else toast('Key guardada');
+});
+
+window.addEventListener('keydown', function(ev){
+  var tag = (ev.target && ev.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ev.target && ev.target.isContentEditable)) return;
+  if (ev.code === 'Space' || ev.key === ' ') {
+    ev.preventDefault();
+    if (!walking) { toast('Primero inicia un centro'); return; }
+    setPaused(!paused);
+    return;
+  }
+  if (ev.key === 'Backspace' || ev.key === 'z' || ev.key === 'Z') {
+    if (ev.key === 'Backspace') ev.preventDefault();
+    undoPin();
+    return;
+  }
+  var key = (ev.key || '').toUpperCase();
+  if (SCOUT_HOTKEYS[key]) {
+    ev.preventDefault();
+    dropPin(SCOUT_HOTKEYS[key]);
+  }
+});
+
+renderPins();
+
+(function boot(){
+  var key = resolveApiKey();
+  if (key) loadGoogleMaps(key);
+  else {
+    setStatus('Falta API key', 'warn');
+    showKeyGate(true);
+  }
+})();
+</script>
+</body>
+</html>
