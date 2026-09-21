@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.3.0
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps Platform API key / billing. Auto-walk + trayecto por saltos URL-pano (map_action=pano). NO uses scout-sv.html.
+// @version      1.4.0
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps Platform API key / billing. Auto-walk + trayecto por flecha SV (paso suave in-pano). URL-pano solo entrada/recuperación rara. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -35,7 +35,8 @@
    * v1.1: auto-walk + picker colonia + trayecto OSM.
    * v1.2: prebaked roads + Overpass timeout + grid + fuzzy.
    * v1.2.1: trayecto persiste tras navigate; HUD sin falso “falta key”.
-   * v1.3.0: walk = saltos URL map_action=pano&viewpoint= (ArrowUp/MouseEvent untrusted no sirven).
+   * v1.3.0: walk = saltos URL map_action=pano (causaba pantalla negra).
+   * v1.4.0: walk = flecha SV in-pano (click chevron / pointer / tecla); URL solo 1er punto trayecto o recovery raro.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -46,7 +47,7 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.3.0';
+  var SCRIPT_VERSION = '1.4.0';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -67,15 +68,18 @@
   var MIN_ROUTE_PTS = 4;
   var COMMENT_HALF_M = 30;
   var COMMENT_COLOR = '#db2777';
-  var DEFAULT_AUTO_MS = 3000; // Maps needs settle time after URL-pano jumps
-  var ROUTE_MS_MIN = 2800;
-  var ROUTE_MS_MAX = 3500;
-  var FORWARD_M_MIN = 12;
-  var FORWARD_M_MAX = 18;
+  var DEFAULT_AUTO_MS = 1100; // gentle flecha-SV pace (~0.8–1.5s)
+  var ROUTE_MS_MIN = 800;
+  var ROUTE_MS_MAX = 2500;
+  var FORWARD_M_MIN = 8;
+  var FORWARD_M_MAX = 14;
   var STEP_M = 20;
-  var SV_WAIT_MS = 6500;
-  var DEAD_END_FAILS = 6;
+  var SV_WAIT_MS = 4500;
+  var DEAD_END_FAILS = 10;
   var CONSEC_SV_FAILS = 3;
+  var URL_RECOVERY_EVERY = 8; // rare URL jump after N flecha failures
+  var NEAR_WP_M = 28; // haversine to advance trayecto index
+  var WALK_MODE = "flecha SV";
   var FUENTE = 'scout_userscript';
   var ESCOBEDO = 'General Escobedo';
 
@@ -112,12 +116,17 @@
     roadsFc: null,
     roadsLoading: null,
     trayectoBuilding: false,
-    lastTrayectoError: null
+    lastTrayectoError: null,
+    walkMethod: 'flecha SV',
+    flechaFailStreak: 0,
+    urlRecoveryCount: 0,
+    extAvailable: false,
+    routeEntered: false // first URL jump done for trayecto
   };
 
   try {
     var savedSpeed = Number(GM_getValue && GM_getValue(LS_SPEED, DEFAULT_AUTO_MS));
-    if (isFinite(savedSpeed) && savedSpeed >= 1500 && savedSpeed <= 6000) state.autoMs = savedSpeed;
+    if (isFinite(savedSpeed) && savedSpeed >= 800 && savedSpeed <= 4000) state.autoMs = savedSpeed;
   } catch (e) {}
 
   /* ---------- utils ---------- */
@@ -162,6 +171,8 @@
         skipped: state.route.skipped || 0,
         failStreak: state.route.failStreak || 0,
         svFailStreak: state.route.svFailStreak || 0,
+        flechaFailStreak: state.route.flechaFailStreak || 0,
+        entered: !!state.route.entered,
         attemptCount: state.route.attemptCount || 0,
         lastNavI: state.route.lastNavI != null ? state.route.lastNavI : -1,
         savedAt: Date.now()
@@ -652,17 +663,19 @@
     toast('Sync ntfy: ' + n + ' upsert(s)');
   }
 
-  /* ---------- auto-forward / URL-pano (Space) — v1.3 ---------- */
-  /* Synthetic ArrowUp / MouseEvent are untrusted — Google Maps SV ignores them.
-   * Primary walk = consumer deep link map_action=pano&viewpoint= via location.assign. */
+  /* ---------- flecha SV walk (Space) — v1.4.0 ---------- */
+  /* Goal: soft in-panorama steps (white chevron / road arrow), NEVER location.assign each tick.
+   * Research 2025/2026 Maps SV DOM: forward chevrons are WebGL-only (canvas.widget-scene-canvas /
+   * canvas.H1VXrf). No reliable aria-label="Forward" button. HTML rotate buttons DO exist
+   * ("Rotate the view clockwise/counterclockwise"). Untrusted KeyboardEvent often ignored —
+   * we still try click/pointer/key; Chrome extension/ (debugger ArrowUp) is the trusted fallback.
+   * URL map_action=pano = black flash — only first trayecto point or rare recovery. */
 
   function routeIntervalMs() {
     var ms = Number(state.autoMs) || DEFAULT_AUTO_MS;
     if (ms < ROUTE_MS_MIN) ms = ROUTE_MS_MIN;
-    if (ms > ROUTE_MS_MAX && ms < 4000) ms = Math.min(ms, ROUTE_MS_MAX);
-    // Allow user slider above 3500 for very slow; floor at 2800 for trayecto
-    if (ms < ROUTE_MS_MIN) ms = ROUTE_MS_MIN;
-    return Math.max(ROUTE_MS_MIN, ms);
+    if (ms > ROUTE_MS_MAX) ms = ROUTE_MS_MAX;
+    return ms;
   }
 
   function persistAutoWalkFlag(on) {
@@ -699,87 +712,390 @@
 
   function buildStreetViewUrl(lat, lng, heading) {
     var h = Math.round((heading != null && isFinite(heading)) ? heading : 0);
-    // Soft /@…3a… often does NOT enter SV without panoid — kept only as display/help link.
     return 'https://www.google.com/maps/@' + lat + ',' + lng + ',3a,75y,' + h + 'h,90t';
   }
 
   function buildStreetViewUrlPanoAction(lat, lng, heading) {
     var h = Math.round((heading != null && isFinite(heading)) ? heading : 0);
-    // Official Maps URLs scheme (map_action=pano). Consumer session — NOT a Platform key.
     return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' +
       encodeURIComponent(lat + ',' + lng) +
       '&heading=' + encodeURIComponent(String(h)) +
       '&pitch=0&fov=75';
   }
 
+  /** URL teleport — CAUSES black flash. Only for first trayecto entry or rare recovery. */
   function navigateToSv(lat, lng, heading, opt) {
     opt = opt || {};
-    // Persist trayecto BEFORE any navigation — location.assign reloads the page and would kill state.
     saveRoute();
-    // v1.3 primary: always map_action=pano&viewpoint= (soft /@…3a… often fails without panoid)
     var url = buildStreetViewUrlPanoAction(lat, lng, heading);
-    if (opt.softOnly) {
-      url = buildStreetViewUrl(lat, lng, heading);
-    }
+    if (opt.softOnly) url = buildStreetViewUrl(lat, lng, heading);
+    state.walkMethod = 'URL-pano ⚠';
     state._lastWalkMethod = 'URL-pano';
-    try {
-      location.assign(url);
-    } catch (e) {
-      location.href = url;
+    if (!opt.silentWarn) {
+      toast('⚠ Teletransporte URL (flash negro) — solo recuperación / entrada');
     }
+    try { location.assign(url); }
+    catch (e) { location.href = url; }
   }
 
   function forwardMeters() {
     return FORWARD_M_MIN + Math.random() * (FORWARD_M_MAX - FORWARD_M_MIN);
   }
 
-  function jumpForwardPano(headingOverride) {
-    refreshPose();
-    if (state.lat == null || state.lng == null) {
-      toast('Sin coords — entra a Street View (peoncito)');
-      return false;
+  function angleDiffDeg(a, b) {
+    var d = ((a - b + 540) % 360) - 180;
+    return d;
+  }
+
+  function getSvCanvas() {
+    var c = document.querySelector('canvas.widget-scene-canvas') ||
+      document.querySelector('canvas.widget-scene-canvas, canvas[class*="scene"]') ||
+      document.querySelector('[aria-label="Street View"] canvas, [aria-label="Vista de calle"] canvas') ||
+      document.querySelector('[role="application"] canvas') ||
+      document.querySelector('canvas');
+    return c;
+  }
+
+  function focusSvSurface() {
+    var app = document.querySelector('[aria-label="Street View"], [aria-label="Vista de calle"], [aria-label*="Street View"], [role="application"]');
+    var canvas = getSvCanvas();
+    try {
+      if (app && app.focus) app.focus();
+      if (canvas) {
+        if (canvas.tabIndex < 0) canvas.tabIndex = 0;
+        canvas.focus();
+      }
+    } catch (e) {}
+    return canvas || app;
+  }
+
+  /** Find HTML overlays that might be navigation links / forward controls. */
+  function findSvNavArrowEls(preferredHeading) {
+    var hits = [];
+    var nodes = document.querySelectorAll('button, a, [role="button"], [jsaction], [aria-label], div[tabindex]');
+    var re = /forward|adelante|navigate|avanzar|move forward|go forward|siguiente|next pano|link arrow|flecha/i;
+    var reBad = /zoom|rotate|clockwise|counter|back|atrás|close|search|menu|pegman|browse|expand|collapse|share/i;
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var aria = (el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '');
+      var js = el.getAttribute('jsaction') || '';
+      var cls = String(el.className || '');
+      if (reBad.test(aria)) continue;
+      var score = 0;
+      if (re.test(aria)) score += 50;
+      if (/pano|forward|navigate|streetview\.link|scene\.link/i.test(js)) score += 30;
+      if (/link|chevron|arrow|nav/i.test(cls)) score += 10;
+      // Prefer elements in lower-center of viewport (where road chevrons sit)
+      try {
+        var r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2 || r.width > 400 || r.height > 400) continue;
+        var cx = r.left + r.width / 2;
+        var cy = r.top + r.height / 2;
+        var vw = window.innerWidth || 1200;
+        var vh = window.innerHeight || 800;
+        if (cy < vh * 0.35 || cy > vh * 0.92) continue;
+        if (cx < vw * 0.15 || cx > vw * 0.85) continue;
+        // Prefer near horizontal center
+        score += Math.max(0, 20 - Math.abs(cx - vw / 2) / 20);
+        if (score > 0) hits.push({ el: el, score: score, cx: cx, cy: cy });
+      } catch (e2) {}
     }
-    var h = (headingOverride != null && isFinite(headingOverride))
-      ? headingOverride
-      : (state.heading != null && isFinite(state.heading) ? state.heading : 0);
-    var meters = forwardMeters();
-    var next = offsetLatLng(state.lat, state.lng, h, meters);
-    var meta = {
-      fromLat: state.lat,
-      fromLng: state.lng,
-      toLat: next.lat,
-      toLng: next.lng,
-      heading: h,
-      failStreak: state.autoFailStreak || 0,
-      rotateDir: state._autoRotateDir || 1,
-      ts: Date.now()
+    hits.sort(function (a, b) { return b.score - a.score; });
+    return hits;
+  }
+
+  function clickEl(el) {
+    if (!el) return false;
+    try {
+      el.click();
+      return true;
+    } catch (e) {}
+    try {
+      var opts = { bubbles: true, cancelable: true, view: window };
+      el.dispatchEvent(new MouseEvent('pointerdown', opts));
+      el.dispatchEvent(new MouseEvent('mousedown', opts));
+      el.dispatchEvent(new MouseEvent('pointerup', opts));
+      el.dispatchEvent(new MouseEvent('mouseup', opts));
+      el.dispatchEvent(new MouseEvent('click', opts));
+      return true;
+    } catch (e2) { return false; }
+  }
+
+  function pointerClickAt(x, y) {
+    var el = document.elementFromPoint(x, y) || getSvCanvas() || document.body;
+    var opts = {
+      bubbles: true, cancelable: true, view: window,
+      clientX: x, clientY: y, screenX: x, screenY: y,
+      button: 0, buttons: 1, pointerId: 1, isPrimary: true, pointerType: 'mouse'
     };
-    saveAutoWalkMeta(meta);
-    persistAutoWalkFlag(true);
-    try { if (typeof GM_setValue === 'function') GM_setValue(LS_SPEED, state.autoMs); } catch (e0) {}
-    state._lastWalkMethod = 'URL-pano';
-    navigateToSv(next.lat, next.lng, h);
-    return true;
+    try {
+      el.dispatchEvent(new PointerEvent('pointerdown', opts));
+      el.dispatchEvent(new MouseEvent('mousedown', opts));
+      el.dispatchEvent(new PointerEvent('pointerup', opts));
+      el.dispatchEvent(new MouseEvent('mouseup', opts));
+      el.dispatchEvent(new MouseEvent('click', opts));
+      return true;
+    } catch (e) {
+      try {
+        el.dispatchEvent(new MouseEvent('click', opts));
+        return true;
+      } catch (e2) { return false; }
+    }
+  }
+
+  /** Click typical chevron screen zones (lower-center of SV canvas). */
+  function clickChevronZones() {
+    var canvas = getSvCanvas();
+    var rect;
+    if (canvas) rect = canvas.getBoundingClientRect();
+    else rect = { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+    var cx = rect.left + rect.width * 0.5;
+    var points = [
+      [cx, rect.top + rect.height * 0.62],
+      [cx, rect.top + rect.height * 0.55],
+      [cx, rect.top + rect.height * 0.68],
+      [cx - 40, rect.top + rect.height * 0.60],
+      [cx + 40, rect.top + rect.height * 0.60],
+      [cx, rect.top + rect.height * 0.48]
+    ];
+    var ok = false;
+    for (var i = 0; i < points.length; i++) {
+      if (pointerClickAt(points[i][0], points[i][1])) ok = true;
+    }
+    return ok;
+  }
+
+  function dispatchArrowUp() {
+    var target = focusSvSurface() || document.activeElement || document.body;
+    var codes = [
+      { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38, which: 38 },
+      { key: 'Up', code: 'ArrowUp', keyCode: 38, which: 38 }
+    ];
+    var ok = false;
+    for (var i = 0; i < codes.length; i++) {
+      var c = codes[i];
+      try {
+        var down = new KeyboardEvent('keydown', {
+          key: c.key, code: c.code, keyCode: c.keyCode, which: c.which,
+          bubbles: true, cancelable: true, view: window
+        });
+        var up = new KeyboardEvent('keyup', {
+          key: c.key, code: c.code, keyCode: c.keyCode, which: c.which,
+          bubbles: true, cancelable: true, view: window
+        });
+        target.dispatchEvent(down);
+        document.dispatchEvent(down);
+        window.dispatchEvent(down);
+        target.dispatchEvent(up);
+        document.dispatchEvent(up);
+        ok = true;
+      } catch (e) {}
+    }
+    return ok;
+  }
+
+  /** Ask companion Chrome extension (if installed) for trusted ArrowUp via debugger. */
+  function requestExtArrowUp() {
+    try {
+      window.postMessage({ source: 'purif-scout', type: 'PURIF_SCOUT_FORWARD', ts: Date.now() }, '*');
+      document.dispatchEvent(new CustomEvent('purif-scout-forward', { detail: { ts: Date.now() } }));
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function listenExtPing() {
+    window.addEventListener('message', function (ev) {
+      var d = ev && ev.data;
+      if (!d || d.source !== 'purif-scout-ext') return;
+      if (d.type === 'PURIF_SCOUT_EXT_READY') {
+        state.extAvailable = true;
+        updateHud();
+      }
+      if (d.type === 'PURIF_SCOUT_STEP_DONE') {
+        state.flechaFailStreak = 0;
+        state.walkMethod = 'flecha SV+ext';
+        updateHud();
+      }
+    });
+  }
+
+  /** Rotate view using real HTML buttons (trusted .click works). */
+  function rotateTowardHeading(targetHeading) {
+    refreshPose();
+    var cur = state.heading;
+    if (cur == null || !isFinite(cur) || targetHeading == null || !isFinite(targetHeading)) return false;
+    var diff = angleDiffDeg(targetHeading, cur);
+    if (Math.abs(diff) < 25) return false;
+    var wantClockwise = diff > 0;
+    var labels = wantClockwise
+      ? [/clockwise|horario|Rotate the view clockwise|Girar.*horario/i]
+      : [/counterclockwise|antihorario|counter-clockwise|Rotate the view counterclockwise|Girar.*anti/i];
+    var btns = document.querySelectorAll('button[aria-label]');
+    var clicked = false;
+    for (var i = 0; i < btns.length; i++) {
+      var a = btns[i].getAttribute('aria-label') || '';
+      for (var j = 0; j < labels.length; j++) {
+        if (labels[j].test(a)) {
+          clickEl(btns[i]);
+          clicked = true;
+          break;
+        }
+      }
+      if (clicked) break;
+    }
+    return clicked;
+  }
+
+  function poseSnapshot() {
+    refreshPose();
+    return {
+      lat: state.lat,
+      lng: state.lng,
+      heading: state.heading,
+      href: location.href,
+      key: poseKey()
+    };
+  }
+
+  function poseChanged(before, minM) {
+    refreshPose();
+    if (!before) return false;
+    if (before.href && location.href !== before.href) {
+      // URL changed without full reload (SPA) — good
+      if (state.lat != null && before.lat != null) {
+        var d = haversineM(before.lat, before.lng, state.lat, state.lng);
+        if (d >= (minM || 3)) return true;
+      }
+      // panoid token change
+      if (/!1s([^!]+)/.test(location.href) && /!1s([^!]+)/.test(before.href)) {
+        var a = (location.href.match(/!1s([^!]+)/) || [])[1];
+        var b = (before.href.match(/!1s([^!]+)/) || [])[1];
+        if (a && b && a !== b) return true;
+      }
+    }
+    if (state.lat != null && before.lat != null) {
+      if (haversineM(before.lat, before.lng, state.lat, state.lng) >= (minM || 3)) return true;
+    }
+    if (before.key && poseKey() && before.key !== poseKey()) return true;
+    return false;
+  }
+
+  /**
+   * One soft forward step. Returns Promise<boolean> moved.
+   * preferredHeading: optional bearing to face before stepping (trayecto).
+   * allowUrlRecovery: if true, after URL_RECOVERY_EVERY flecha fails, do one URL jump.
+   */
+  function smoothStepForward(preferredHeading, allowUrlRecovery) {
+    return new Promise(function (resolve) {
+      refreshPose();
+      if (!state.inSV && state.lat == null) {
+        toast('Entra a Street View (peoncito)');
+        resolve(false);
+        return;
+      }
+
+      if (preferredHeading != null && isFinite(preferredHeading)) {
+        rotateTowardHeading(preferredHeading);
+      }
+
+      var before = poseSnapshot();
+      var method = null;
+
+      // 1) Real DOM arrow / link overlays
+      var arrows = findSvNavArrowEls(preferredHeading);
+      if (arrows.length) {
+        if (clickEl(arrows[0].el)) method = 'DOM-flecha';
+      }
+
+      // 2) Pointer clicks on typical chevron zones
+      if (!method) {
+        if (clickChevronZones()) method = 'canvas-click';
+      }
+
+      // 3) Focus + ArrowUp (often ignored if untrusted)
+      dispatchArrowUp();
+      if (!method) method = 'ArrowUp';
+
+      // 4) Ask extension for trusted key
+      requestExtArrowUp();
+
+      state.walkMethod = 'flecha SV';
+      state._lastWalkMethod = method || 'flecha SV';
+      updateHud();
+
+      // Wait for pose change (soft transition — no reload)
+      var checks = 0;
+      var maxChecks = 10;
+      var timer = setInterval(function () {
+        checks++;
+        if (poseChanged(before, 2.5)) {
+          clearInterval(timer);
+          state.flechaFailStreak = 0;
+          state.autoFailStreak = 0;
+          state.walkMethod = 'flecha SV';
+          updateHud();
+          resolve(true);
+          return;
+        }
+        if (checks >= maxChecks) {
+          clearInterval(timer);
+          state.flechaFailStreak = (state.flechaFailStreak || 0) + 1;
+          // Dead-end / facing wrong way — try rotate ±45 and one more click burst
+          if (state.flechaFailStreak % 2 === 1) {
+            var dir = (state._autoRotateDir || 1) * -1;
+            state._autoRotateDir = dir;
+            var base = (preferredHeading != null && isFinite(preferredHeading))
+              ? preferredHeading
+              : (state.heading || 0);
+            rotateTowardHeading((base + dir * 45 + 360) % 360);
+            clickChevronZones();
+            dispatchArrowUp();
+            requestExtArrowUp();
+          }
+
+          if (allowUrlRecovery && state.flechaFailStreak > 0 &&
+              state.flechaFailStreak % URL_RECOVERY_EVERY === 0 &&
+              state.lat != null) {
+            state.urlRecoveryCount = (state.urlRecoveryCount || 0) + 1;
+            var h = (preferredHeading != null && isFinite(preferredHeading))
+              ? preferredHeading
+              : (state.heading || 0);
+            var next = offsetLatLng(state.lat, state.lng, h, forwardMeters());
+            toast('⚠ Recovery URL #' + state.urlRecoveryCount + ' (flash) tras ' + state.flechaFailStreak + ' fallos flecha');
+            navigateToSv(next.lat, next.lng, h);
+            resolve(false);
+            return;
+          }
+
+          if (state.flechaFailStreak >= DEAD_END_FAILS) {
+            if (state.autoWalk) setAutoWalk(false);
+            toast('⏹ Sin avance flecha tras ' + DEAD_END_FAILS + ' intentos — gira la vista o usa extensión');
+          }
+          updateHud();
+          resolve(false);
+        }
+      }, 120);
+    });
   }
 
   function advanceOneStep() {
-    // HUD ▶ Siguiente — one URL-pano jump (or one trayecto waypoint)
+    // HUD ▶ Siguiente — one flecha SV step (or trayecto soft step)
     if (state.route && state.route.status === 'running') {
       if (state.route.paused) {
         state.route.paused = false;
         saveRoute();
       }
-      // Force advance current waypoint via URL even if auto-tick stalled
       var r = state.route;
       if (r.i >= r.points.length) {
         stopRoute('✅ Trayecto completo · ' + r.name);
         return;
       }
+      refreshPose();
       var pt = r.points[r.i];
       var nxt = r.points[r.i + 1];
-      var heading = nxt ? bearingDeg(pt.lat, pt.lng, nxt.lat, nxt.lng) : (state.heading || 0);
-      refreshPose();
-      if (state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 45) {
+      var heading = nxt ? bearingDeg(pt.lat, pt.lng, nxt.lat, nxt.lng)
+        : bearingDeg(state.lat || pt.lat, state.lng || pt.lng, pt.lat, pt.lng);
+      if (state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < NEAR_WP_M) {
         r.i += 1;
         r.failStreak = 0;
         saveRoute();
@@ -792,61 +1108,30 @@
         nxt = r.points[r.i + 1];
         heading = nxt ? bearingDeg(pt.lat, pt.lng, nxt.lat, nxt.lng) : heading;
       }
-      state.routeBusy = false;
-      setRouteStatus('manual ▶ punto ' + (r.i + 1) + '/' + r.points.length + ' · URL-pano');
+      // Prefer heading toward current waypoint
+      if (state.lat != null) {
+        heading = bearingDeg(state.lat, state.lng, pt.lat, pt.lng);
+      }
+      state.routeBusy = true;
+      setRouteStatus('manual ▶ punto ' + (r.i + 1) + '/' + r.points.length + ' · flecha SV');
       saveRoute();
-      navigateToSv(pt.lat, pt.lng, heading);
+      smoothStepForward(heading, true).then(function () {
+        state.routeBusy = false;
+        refreshPose();
+        if (state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < NEAR_WP_M) {
+          r.i += 1;
+          r.failStreak = 0;
+          saveRoute();
+        }
+        updateHud();
+      });
       return;
     }
-    // No trayecto: one forward jump
     if (!state.inSV && state.lat == null) {
       toast('Entra a Street View (arrastra el peoncito)');
       return;
     }
-    jumpForwardPano();
-  }
-
-  function evaluateAutoWalkAfterLoad() {
-    var meta = loadAutoWalkMeta();
-    refreshPose();
-    if (!meta || meta.fromLat == null) {
-      state.autoFailStreak = 0;
-      return true; // first jump after flag set
-    }
-    var moved = false;
-    if (state.lat != null && state.lng != null) {
-      var dFrom = haversineM(state.lat, state.lng, meta.fromLat, meta.fromLng);
-      var dTo = meta.toLat != null ? haversineM(state.lat, state.lng, meta.toLat, meta.toLng) : 999;
-      // Moved away from origin OR landed near target
-      if (dFrom > 8 || dTo < 25) moved = true;
-    }
-    if (moved) {
-      state.autoFailStreak = 0;
-      state._autoRotateDir = meta.rotateDir || 1;
-      clearAutoWalkMeta();
-      return true;
-    }
-    // Pose stuck — rotate ±45° and retry
-    state.autoFailStreak = (meta.failStreak || 0) + 1;
-    var dir = (meta.rotateDir || 1) * -1; // alternate
-    state._autoRotateDir = dir;
-    var baseH = (meta.heading != null && isFinite(meta.heading)) ? meta.heading : (state.heading || 0);
-    var newH = (baseH + dir * 45 + 360) % 360;
-    state.heading = newH;
-    updateHud();
-    if (state.autoFailStreak >= DEAD_END_FAILS) {
-      setAutoWalk(false);
-      toast('⏹ Auto-walk: sin avance tras ' + DEAD_END_FAILS + ' saltos URL-pano (callejón / sin pano)');
-      clearAutoWalkMeta();
-      return false;
-    }
-    toast('↻ Sin avance — giro ' + (dir > 0 ? '+' : '') + (dir * 45) + '° · intento ' + state.autoFailStreak);
-    // Immediate retry with rotated heading (will assign again)
-    setTimeout(function () {
-      if (!state.autoWalk) return;
-      jumpForwardPano(newH);
-    }, 400);
-    return false;
+    smoothStepForward(state.heading, false);
   }
 
   function autoWalkTick() {
@@ -854,18 +1139,20 @@
     if (state.route && !state.route.paused) return;
     if (state._autoBusy) return;
     state._autoBusy = true;
-    try {
-      jumpForwardPano();
-      // page will unload; if assign is blocked somehow, clear busy
-    } finally {
-      // assign usually navigates away; if still here, clear busy after a beat
-      setTimeout(function () { state._autoBusy = false; }, 800);
-    }
+    smoothStepForward(state.heading, true).then(function () {
+      state._autoBusy = false;
+      updateHud();
+    }).catch(function () {
+      state._autoBusy = false;
+    });
   }
 
   function setAutoWalk(on) {
     state.autoWalk = !!on;
-    if (!on) state.autoFailStreak = 0;
+    if (!on) {
+      state.autoFailStreak = 0;
+      state.flechaFailStreak = 0;
+    }
     if (state.autoTimer) {
       clearInterval(state.autoTimer);
       state.autoTimer = null;
@@ -874,63 +1161,49 @@
       clearTimeout(state._autoResumeTimer);
       state._autoResumeTimer = null;
     }
-    persistAutoWalkFlag(state.autoWalk);
+    // v1.4: do NOT persist auto-walk across reloads for URL chaining — Space walk stays in-page
+    persistAutoWalkFlag(false);
+    clearAutoWalkMeta();
     if (state.autoWalk) {
       if (state.commentOpen) {
         state.autoWalk = false;
-        persistAutoWalkFlag(false);
         toast('Cierra el comentario antes de auto-walk');
         updateHud();
         return;
       }
       if (state.route && !state.route.paused) {
         state.autoWalk = false;
-        persistAutoWalkFlag(false);
         toast('Pausa el trayecto antes de auto-walk (Space)');
         updateHud();
         return;
       }
-      // Interval is a backup if assign somehow stays on same document; primary is assign→reload→resume
+      if (!state.inSV) {
+        state.autoWalk = false;
+        toast('Entra a Street View (peoncito) para flecha SV');
+        updateHud();
+        return;
+      }
+      state.walkMethod = 'flecha SV';
       state.autoTimer = setInterval(autoWalkTick, state.autoMs);
-      setTimeout(autoWalkTick, 200);
-      toast('▶ Auto-walk ON · URL-pano (' + (state.autoMs / 1000).toFixed(1) + 's)');
+      setTimeout(autoWalkTick, 250);
+      toast('▶ Auto-walk ON · flecha SV (' + (state.autoMs / 1000).toFixed(1) + 's) — sin flash URL');
     } else {
-      clearAutoWalkMeta();
       toast('⏸ Auto-walk OFF');
     }
     updateHud();
   }
 
   function resumeAutoWalkFromPersist() {
-    if (!readAutoWalkFlag()) return false;
-    if (state.route && state.route.status === 'running' && !state.route.paused) {
-      // Trayecto owns the walk
+    // v1.4: Space walk no longer survives URL reloads (by design). Clear stale v1.3 flags.
+    if (readAutoWalkFlag()) {
       persistAutoWalkFlag(false);
       clearAutoWalkMeta();
-      return false;
     }
-    state.autoWalk = true;
-    state._lastWalkMethod = 'URL-pano';
-    updateHud();
-    state._autoResumeTimer = setTimeout(function () {
-      state._autoResumeTimer = null;
-      if (!readAutoWalkFlag()) return;
-      refreshPose();
-      var cont = evaluateAutoWalkAfterLoad();
-      if (!cont) return; // retry already scheduled or stopped
-      if (!state.autoWalk) return;
-      // Schedule next forward jump after settle
-      if (state.autoTimer) clearInterval(state.autoTimer);
-      state.autoTimer = setInterval(autoWalkTick, state.autoMs);
-      setTimeout(autoWalkTick, Math.max(400, state.autoMs * 0.35));
-      toast('▶ Auto-walk reanudado · URL-pano');
-      updateHud();
-    }, 1500);
-    return true;
+    return false;
   }
 
   function setAutoMs(ms) {
-    ms = Math.max(1500, Math.min(6000, Number(ms) || DEFAULT_AUTO_MS));
+    ms = Math.max(800, Math.min(4000, Number(ms) || DEFAULT_AUTO_MS));
     state.autoMs = ms;
     try { if (typeof GM_setValue === 'function') GM_setValue(LS_SPEED, ms); } catch (e) {}
     if (state.autoWalk) {
@@ -1333,7 +1606,6 @@
       toast('Sin calles OSM en esta colonia');
       return;
     }
-    // Pause local auto-walk — trayecto drives via URL-pano
     if (state.autoWalk) setAutoWalk(false);
     state.route = {
       name: name || 'colonia',
@@ -1344,17 +1616,17 @@
       skipped: 0,
       failStreak: 0,
       svFailStreak: 0,
-      attemptCount: 0,
-      lastNavI: -1
+      flechaFailStreak: 0,
+      entered: false // first point uses one URL jump to enter colonia SV
     };
+    state.routeEntered = false;
     saveRoute();
     if (state.routeTimer) clearInterval(state.routeTimer);
     var iv = routeIntervalMs();
     state.routeTimer = setInterval(routeTick, iv);
-    toast('🛣 Trayecto: ' + points.length + ' pts · URL-pano · ' + (iv / 1000).toFixed(1) + 's · ' + name);
-    setRouteStatus('punto 1/' + points.length + ' · URL-pano · ' + name);
+    toast('🛣 Trayecto: ' + points.length + ' pts · flecha SV · ' + (iv / 1000).toFixed(1) + 's · ' + name);
+    setRouteStatus('punto 1/' + points.length + ' · flecha SV · ' + name);
     updateHud();
-    // kick immediately
     routeTick();
   }
 
@@ -1363,54 +1635,43 @@
     if (!r || r.status !== 'running') return false;
     state.route = r;
     if (r.svFailStreak == null) r.svFailStreak = 0;
+    if (r.flechaFailStreak == null) r.flechaFailStreak = 0;
     state.routeBusy = false;
+    state.routeEntered = !!r.entered;
     if (state.routeTimer) clearInterval(state.routeTimer);
     if (!r.paused) {
       var iv = routeIntervalMs();
       state.routeTimer = setInterval(routeTick, iv);
-      setRouteStatus('reanudado · punto ' + Math.min(r.i + 1, r.points.length) + '/' + r.points.length + ' · URL-pano · ' + r.name);
-      // Wait for Maps + URL pose to settle after location.assign reload
+      setRouteStatus('reanudado · punto ' + Math.min(r.i + 1, r.points.length) + '/' + r.points.length + ' · flecha SV · ' + r.name);
+      // If we just landed from the one-time URL entry, settle then continue with flecha
       setTimeout(function () {
         refreshPose();
         var rt = state.route;
-        if (rt && !rt.paused && rt.i < rt.points.length) {
+        if (!rt || rt.paused) return;
+        if (rt.i < rt.points.length) {
           var pt0 = rt.points[rt.i];
-          var near = state.lat != null && haversineM(state.lat, state.lng, pt0.lat, pt0.lng) < 55;
-          var urlSv = /map_action=pano|,\d+(?:\.\d+)?a,/.test(location.href);
+          var near = state.lat != null && haversineM(state.lat, state.lng, pt0.lat, pt0.lng) < NEAR_WP_M * 1.6;
           if (near) {
-            // Landed on/near waypoint — advance; do NOT re-assign same URL
+            rt.entered = true;
+            state.routeEntered = true;
             rt.i += 1;
             rt.failStreak = 0;
             rt.svFailStreak = 0;
-            rt.attemptCount = 0;
-            rt.lastNavI = -1;
+            rt.flechaFailStreak = 0;
             saveRoute();
-            setRouteStatus('punto ' + Math.min(rt.i + 1, rt.points.length) + '/' + rt.points.length + ' · URL-pano · ' + rt.name);
+            setRouteStatus('punto ' + Math.min(rt.i + 1, rt.points.length) + '/' + rt.points.length + ' · flecha SV · ' + rt.name);
             updateHud();
-          } else if (rt.lastNavI === rt.i && (rt.attemptCount || 0) >= 1) {
-            // Already tried this index via URL jump and still not near → skip dead point
-            rt.skipped = (rt.skipped || 0) + 1;
-            rt.failStreak = (rt.failStreak || 0) + 1;
-            if (!urlSv && !state.inSV) rt.svFailStreak = (rt.svFailStreak || 0) + 1;
-            else rt.svFailStreak = 0;
-            rt.i += 1;
-            rt.attemptCount = 0;
-            rt.lastNavI = -1;
-            saveRoute();
-            if ((rt.svFailStreak || 0) >= CONSEC_SV_FAILS) {
-              showSvEntryHelp(pt0.lat, pt0.lng, state.heading || 0);
-              rt.paused = true;
-              saveRoute();
-              toast('⏸ Trayecto pausado — ' + CONSEC_SV_FAILS + ' fallos SV seguidos (peoncito)');
-              updateHud();
-              return;
-            }
-            setRouteStatus('skip · punto ' + rt.i + '/' + rt.points.length + ' · URL-pano · ' + rt.name);
-            updateHud();
+          } else if (rt.entered) {
+            // Soft resume mid-route — keep walking flecha toward current WP
+            state.routeEntered = true;
+          } else {
+            // Entry URL may have failed — mark and let routeTick retry entry once
+            state.routeEntered = false;
+            rt.entered = false;
           }
         }
         routeTick();
-      }, 1600);
+      }, 1200);
     } else {
       setRouteStatus('PAUSA · punto ' + Math.min(r.i + 1, r.points.length) + '/' + r.points.length);
     }
@@ -1424,89 +1685,91 @@
     var r = state.route;
     if (r.i >= r.points.length) {
       stopRoute('✅ Trayecto completo · ' + r.name);
-      setRouteStatus('Completo · ' + r.points.length + ' pts · skip ' + r.skipped + ' · URL-pano');
+      setRouteStatus('Completo · ' + r.points.length + ' pts · skip ' + r.skipped + ' · flecha SV');
       return;
     }
     var pt = r.points[r.i];
     var next = r.points[r.i + 1];
-    var heading = next ? bearingDeg(pt.lat, pt.lng, next.lat, next.lng) : (state.heading || 0);
-    state.routeBusy = true;
-    setRouteStatus('punto ' + (r.i + 1) + '/' + r.points.length + ' · URL-pano · ' + r.name);
-    saveRoute();
-    updateHud();
     refreshPose();
 
-    // Already near this waypoint → count it and schedule next (NO re-assign of same URL)
-    if (state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 50) {
+    // Already near waypoint → advance index (no teleport)
+    if (state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < NEAR_WP_M) {
       r.i += 1;
       r.failStreak = 0;
       r.svFailStreak = 0;
+      r.flechaFailStreak = 0;
+      r.entered = true;
+      state.routeEntered = true;
       saveRoute();
-      state.routeBusy = false;
       updateHud();
       return;
     }
 
-    // Primary drive: map_action=pano&viewpoint= (never ArrowUp / bare /@…3a… first)
-    if (r.lastNavI === r.i) r.attemptCount = (r.attemptCount || 0) + 1;
-    else { r.lastNavI = r.i; r.attemptCount = 1; }
+    // ONE-TIME URL entry to first colonia point (only way we intentionally flash)
+    if (!r.entered && !state.routeEntered) {
+      var entryHeading = next ? bearingDeg(pt.lat, pt.lng, next.lat, next.lng) : (state.heading || 0);
+      r.entered = true;
+      state.routeEntered = true;
+      saveRoute();
+      state.routeBusy = true;
+      setRouteStatus('entrada URL (1×) · punto 1/' + r.points.length + ' · luego flecha SV · ' + r.name);
+      updateHud();
+      toast('Entrada colonia: 1 salto URL, luego camina con flecha SV');
+      navigateToSv(pt.lat, pt.lng, entryHeading, { silentWarn: false });
+      // page likely reloads; resumeRouteFromPersist continues
+      setTimeout(function () { state.routeBusy = false; }, 1500);
+      return;
+    }
+
+    // Soft walk toward current waypoint
+    var heading = (state.lat != null)
+      ? bearingDeg(state.lat, state.lng, pt.lat, pt.lng)
+      : (next ? bearingDeg(pt.lat, pt.lng, next.lat, next.lng) : (state.heading || 0));
+
+    state.routeBusy = true;
+    setRouteStatus('punto ' + (r.i + 1) + '/' + r.points.length + ' · flecha SV · ' + r.name);
     saveRoute();
-    navigateToSv(pt.lat, pt.lng, heading);
-    // waitArrive is best-effort if assign does not unload; resume handles the common reload path
-    waitArrive(pt, r, heading);
+    updateHud();
+
+    smoothStepForward(heading, true).then(function (moved) {
+      state.routeBusy = false;
+      refreshPose();
+      if (!state.route || state.route !== r) return;
+      if (state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < NEAR_WP_M) {
+        r.i += 1;
+        r.failStreak = 0;
+        r.svFailStreak = 0;
+        r.flechaFailStreak = 0;
+        saveRoute();
+        updateHud();
+        return;
+      }
+      if (!moved) {
+        r.flechaFailStreak = (r.flechaFailStreak || 0) + 1;
+        r.failStreak = (r.failStreak || 0) + 1;
+        // If far and stuck many times, skip waypoint (no URL spam)
+        if (r.flechaFailStreak >= 6) {
+          r.skipped = (r.skipped || 0) + 1;
+          r.i += 1;
+          r.flechaFailStreak = 0;
+          setRouteStatus('skip flecha · punto ' + r.i + '/' + r.points.length + ' · flecha SV · ' + r.name);
+          toast('Skip punto (flecha no avanza)');
+        }
+        saveRoute();
+        updateHud();
+      } else {
+        r.flechaFailStreak = 0;
+        saveRoute();
+      }
+    }).catch(function () {
+      state.routeBusy = false;
+    });
   }
 
   function waitArrive(pt, r, heading) {
-    var start = Date.now();
-    var check = setInterval(function () {
-      if (!state.route || state.route !== r) { clearInterval(check); return; }
-      refreshPose();
-      var okSv = state.inSV;
-      var near = state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 60;
-      var urlSv = /map_action=pano|,\d+(?:\.\d+)?a,/.test(location.href);
-      if ((okSv || urlSv) && near) {
-        clearInterval(check);
-        state.routeBusy = false;
-        r.i += 1;
-        r.failStreak = 0;
-        r.svFailStreak = 0;
-        saveRoute();
-        updateHud();
-        return;
-      }
-      // Soft success: URL shows pano + coords parsed near-ish after settle
-      if ((okSv || urlSv) && state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 120 && (Date.now() - start) > 2200) {
-        clearInterval(check);
-        state.routeBusy = false;
-        r.i += 1;
-        r.failStreak = 0;
-        r.svFailStreak = 0;
-        saveRoute();
-        updateHud();
-        return;
-      }
-      if (Date.now() - start > SV_WAIT_MS) {
-        clearInterval(check);
-        r.skipped += 1;
-        r.failStreak = (r.failStreak || 0) + 1;
-        var completeSvFail = !okSv && !urlSv;
-        if (completeSvFail) r.svFailStreak = (r.svFailStreak || 0) + 1;
-        else r.svFailStreak = 0;
-        r.i += 1;
-        state.routeBusy = false;
-        saveRoute();
-        // Don't pause whole route on first miss — only after N consecutive complete SV failures
-        if (completeSvFail && r.svFailStreak >= CONSEC_SV_FAILS) {
-          showSvEntryHelp(pt.lat, pt.lng, heading);
-          r.paused = true;
-          saveRoute();
-          toast('⏸ Trayecto pausado — ' + CONSEC_SV_FAILS + ' fallos SV seguidos (peoncito)');
-        } else {
-          setRouteStatus('skip · punto ' + r.i + '/' + r.points.length + ' · URL-pano · ' + r.name);
-        }
-        updateHud();
-      }
-    }, 280);
+    // Kept as no-op stub — v1.4 trayecto no longer waits on URL reload per tick.
+    // Soft flecha steps resolve via smoothStepForward promise in routeTick.
+    return;
   }
 
   function toggleRoutePause() {
@@ -1516,7 +1779,7 @@
       toast('⏸ Trayecto pausado');
       setRouteStatus('PAUSA · punto ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length);
     } else {
-      toast('▶ Trayecto reanudado · URL-pano');
+      toast('▶ Trayecto reanudado · flecha SV');
       if (!state.routeTimer) state.routeTimer = setInterval(routeTick, routeIntervalMs());
       setTimeout(routeTick, 200);
     }
@@ -1699,7 +1962,7 @@
     root.innerHTML = [
       '<div id="purif-scout-hud">',
       '  <div class="badge off" id="purif-scout-badge">Mapa</div>',
-      '  <div class="meta" id="purif-scout-nokey" style="margin:0 0 6px;color:#86efac;font-weight:600">v' + SCRIPT_VERSION + ' · walk=URL-pano · google.com/maps (NO scout-sv)</div>',
+      '  <div class="meta" id="purif-scout-nokey" style="margin:0 0 6px;color:#86efac;font-weight:600">v' + SCRIPT_VERSION + ' · walk=flecha SV · google.com/maps (NO scout-sv)</div>',
       '  <div class="row"><kbd>M</kbd><b>Modelorama</b></div>',
       '  <div class="row"><kbd>S</kbd><b>Semáforo</b></div>',
       '  <div class="row"><kbd class="sec">Y</kbd>Comp · <kbd class="sec">E</kbd>Express · <kbd class="sec">P</kbd>Iglesia</div>',
@@ -1711,8 +1974,8 @@
       '    <label>Colonia (Escobedo + ZMM)</label>',
       '    <input type="search" id="purif-scout-col-filter" placeholder="Buscar colonia…" autocomplete="off" />',
       '    <select id="purif-scout-colonia"><option value="">— cargando… —</option></select>',
-      '    <label>Velocidad auto / trayecto: <span id="purif-scout-speed-label">3.0s</span></label>',
-      '    <input type="range" id="purif-scout-speed" min="1500" max="6000" step="100" value="' + state.autoMs + '" />',
+      '    <label>Velocidad auto / trayecto: <span id="purif-scout-speed-label">1.1s</span></label>',
+      '    <input type="range" id="purif-scout-speed" min="800" max="2500" step="100" value="' + state.autoMs + '" />',
       '    <div class="acts">',
       '      <button type="button" class="primary" id="purif-scout-start-route">Start trayecto</button>',
       '      <button type="button" id="purif-scout-pause-route">Pausa</button>',
@@ -1823,7 +2086,8 @@
     var nokey = document.getElementById('purif-scout-nokey');
     if (!badge || !meta) return;
     if (nokey) {
-      nokey.textContent = 'v' + SCRIPT_VERSION + ' · método URL-pano · google.com/maps (NO scout-sv)';
+      var meth = (state.extAvailable ? 'flecha SV+ext' : (state.walkMethod || WALK_MODE || 'flecha SV'));
+      nokey.textContent = 'v' + SCRIPT_VERSION + ' · ' + meth + ' · google.com/maps (NO scout-sv)';
       if (/scout-sv\.html/i.test(location.href)) {
         nokey.style.color = '#fca5a5';
         nokey.textContent = '⚠ Estás en scout-sv.html. Abre google.com/maps + peoncito (este script no corre ahí).';
@@ -1833,11 +2097,11 @@
     }
     if (state.route && state.route.status === 'running') {
       badge.textContent = state.route.paused
-        ? ('Trayecto ⏸ ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length + ' · URL-pano')
-        : ('Trayecto ▶ ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length + ' · URL-pano');
+        ? ('Trayecto ⏸ ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length + ' · flecha SV')
+        : ('Trayecto ▶ ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length + ' · flecha SV');
       badge.className = 'badge ' + (state.route.paused ? 'warn' : 'on');
     } else if (state.inSV) {
-      badge.textContent = state.autoWalk ? 'SV · auto ▶ · URL-pano' : 'Street View · URL-pano';
+      badge.textContent = state.autoWalk ? 'SV · auto ▶ · flecha SV' : 'Street View · flecha SV';
       badge.className = 'badge on';
     } else {
       badge.textContent = 'No SV — peoncito / ▶ Siguiente';
@@ -2018,6 +2282,7 @@
     loadSession();
     buildUi();
     hookHistory();
+    listenExtPing();
     refreshPose();
     document.addEventListener('keydown', onKeyDown, true);
     loadColonias().catch(function () {});
@@ -2027,11 +2292,11 @@
       resumedWalk = resumeAutoWalkFromPersist();
     }
     if (resumed) {
-      toast('Scout v' + SCRIPT_VERSION + ' · reanudando trayecto · URL-pano');
+      toast('Scout v' + SCRIPT_VERSION + ' · reanudando trayecto · flecha SV');
     } else if (resumedWalk) {
-      toast('Scout v' + SCRIPT_VERSION + ' · reanudando auto-walk · URL-pano');
+      toast('Scout v' + SCRIPT_VERSION + ' · reanudando auto-walk · flecha SV');
     } else {
-      toast('Scout v' + SCRIPT_VERSION + ' · URL-pano · google.com/maps');
+      toast('Scout v' + SCRIPT_VERSION + ' · flecha SV · google.com/maps');
     }
     updateHud();
   }

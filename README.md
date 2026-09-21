@@ -10,7 +10,8 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 |---|---|
 | `index.html` | Mapa Leaflet offline (score_100, capas, Ubicarme) |
 | `scout-sv.html` | Scout SV embebido (requiere Maps billing; preferir userscript) |
-| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; v1.3.0+) |
+| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; v1.4.0 flecha SV) |
+| `extension/` | Fallback Chrome: ArrowUp confiable si Maps ignora eventos untrusted |
 | `data/roads_zmm.geojson` | Calles OSM prebaked (Escobedo) para trayecto scout |
 | `scripts/prebake_roads_zmm.py` | Regenera `roads_zmm.geojson` vía Overpass |
 | `docs/` | Notas operativas (anclas, GPS, SADM, bitácora) |
@@ -45,4 +46,4 @@ Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
 **Primario (sin billing):** userscript Tampermonkey sobre Maps de consumidor — [`docs/SCOUT_USERSCRIPT.md`](docs/SCOUT_USERSCRIPT.md) · instalar desde  
 `https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js`  
 v1.1: elige colonia (Escobedo + ZMM) → **Start trayecto** (OSM Overpass, sin Maps billing) → marca pines con hotkeys.  
-`scout-sv.html` (Maps JS embebido) sigue en Pages pero **requiere Google Cloud billing** — **no usarla**; no pedir key a Nicolás. Camino correcto: userscript v1.3.0+ en `google.com/maps`. Mapillary abandonado. Legacy: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).
+`scout-sv.html` (Maps JS embebido) sigue en Pages pero **requiere Google Cloud billing** — **no usarla**; no pedir key a Nicolás. Camino correcto: userscript **v1.4.0+** (walk = **flecha SV**, sin flash negro en Space) en `google.com/maps`; extensión opcional en `extension/`. Mapillary abandonado. Legacy: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).

@@ -1,3 +1,11 @@
+## 2026-09-21 (scout userscript v1.4.0 — flecha SV)
+
+- Feedback Nicolás: `map_action=pano` saltaba demasiado lejos → pantalla negra cada paso.
+- Fix: Space / auto-walk / trayecto usan **flecha SV** (paso suave in-panorama: click chevron / pointer / ArrowUp). URL-pano solo 1× entrada a colonia o recovery raro.
+- HUD: `flecha SV`. ▶ Siguiente = un paso flecha (no teletransporte).
+- Extensión Chrome opcional `extension/` (debugger ArrowUp) si Maps ignora eventos untrusted.
+- Docs: `docs/SCOUT_USERSCRIPT.md` explica flecha vs teletransporte.
+
 ## 2026-09-21 (scout userscript v1.2.1)
 
 - Falso positivo “sin API key” + trayecto que moría al primer waypoint (`location.assign` sin persistir ruta).
