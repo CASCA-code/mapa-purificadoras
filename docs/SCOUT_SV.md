@@ -4,18 +4,17 @@ Actualizado: 2026-09-21 — **estado operativo**
 
 > **Billing Google Cloud:** Nicolás rechazó el hold ~$500 MXN de Maps Platform.  
 > **Mapillary:** pivot abortado (también rechazado). Hay un `scout.html` experimental Mapillary en el árbol de trabajo / opcional — **no es el camino primario** y no se promociona en Pages.  
-> **Próximo (planned):** userscript Tampermonkey / extensión Chrome que corre **sobre** `google.com/maps` Street View (Maps de consumidor, **sin** Cloud billing / API key). Hotkeys → mismos `localStorage` + ntfy que campo; auto-forward opcional vía flechas UI de SV; mini-mapa overlay. Build aparte.
+> **Camino primario (sin billing):** userscript Tampermonkey sobre Street View de consumidor → [`docs/SCOUT_USERSCRIPT.md`](SCOUT_USERSCRIPT.md) · raw: `userscripts/purificadoras-scout.user.js`.
 
-Polish v2 ya en Pages (`scout-sv.html`): colores normales, mini-mapa Leaflet, sync LS+ntfy al soltar pin, hotkeys primarios M/S, comentario de zona (LineString). Esa página **sigue requiriendo** API key de Maps JS (billing) — útil solo si algún día se habilita Cloud; no pedir billing a Nicolás.
+Polish v2 en Pages (`scout-sv.html`): colores normales, mini-mapa Leaflet, sync LS+ntfy al soltar pin, hotkeys primarios M/S, comentario de zona (LineString). Esa página **sigue requiriendo** API key de Maps JS (billing) — útil solo si algún día se habilita Cloud; **no pedir billing a Nicolás**. Preferir el userscript.
 
+## Qué es (esta página)
 
-## Qué es
-
-Herramienta para que **Nicolás** recorra colonias prioritarias de la ZMM desde la laptop/tablet con **Google Street View**: el Scout camina solo el grafo de panoramas (links forward) a velocidad media-rápida; tú sueltas pines / comentarios con hotkeys en el lat/lng (y heading) del panorama actual.
+Herramienta legacy/prototipo para recorrer colonias prioritarias de la ZMM con **Google Street View embebido** (Maps JavaScript API): Scout camina el grafo de panoramas; tú sueltas pines / comentarios con hotkeys.
 
 No inventa scores. No métricas/control (diferido). No sustituye el flujo de campo en `index.html` (Ubicarme / Comp / ＋ / ★).
 
-## API key (Google Maps)
+## API key (Google Maps) — solo si usas `scout-sv.html`
 
 1. En [Google Cloud Console](https://console.cloud.google.com/) crea un proyecto (o usa uno de Purificadoras).
 2. Habilita **Maps JavaScript API** (incluye Street View Panorama / Street View Service).
@@ -27,6 +26,8 @@ No inventa scores. No métricas/control (diferido). No sustituye el flujo de cam
    - `localStorage.purif_gmaps_key`
 5. **No commits** de keys reales. El placeholder en código es `YOUR_API_KEY`.
 
+**Sin billing:** no uses esta página; instala el userscript ([`SCOUT_USERSCRIPT.md`](SCOUT_USERSCRIPT.md)).
+
 ## ToS / uso permitido
 
 - **Human-in-the-loop:** una persona mira el panorama y decide qué marcar. Scout solo mueve la cámara entre panoramas públicos de Street View.
@@ -36,7 +37,7 @@ No inventa scores. No métricas/control (diferido). No sustituye el flujo de cam
 
 ## Hotkeys
 
-Configurables en `SCOUT_HOTKEYS` al inicio de `scout-sv.html`.  
+Configurables en `SCOUT_HOTKEYS` al inicio de `scout-sv.html` (mismas teclas en el userscript).  
 **Primarios (arriba en leyenda):** **M** Modelorama · **S** Semáforo.
 
 | Tecla | Qué marca | `kind` | `layer` |
@@ -66,7 +67,7 @@ Configurables en `SCOUT_HOTKEYS` al inicio de `scout-sv.html`.
 Misma pila que campo en `index.html` (no schema paralelo):
 
 1. **Al soltar pin / guardar comentario**  
-   - Append a `localStorage`:
+   - Append a `localStorage` (solo mismo origen Pages):
      - competencia → `purificadoras_field_adds_v1`
      - anclas + comentarios → `purificadoras_anclas_v1`
    - `silentSync({ action: 'upsert', feature })` al topic `purif-zmm-campo-casca-v1` (mismo que campo).
@@ -77,9 +78,11 @@ Misma pila que campo en `index.html` (no schema paralelo):
 
 4. Workflow / `scripts/merge_field_add_issues.py` mergea a `data/field_adds.geojson` → Pages. Ver `docs/FIELD_ADDS.md`.
 
+En el **userscript**, el sync primario es ntfy (LS de `google.com` no llega a Pages). Ver `SCOUT_USERSCRIPT.md`.
+
 ## Mini-mapa (abajo-izquierda)
 
-- Leaflet + tiles **Carto Voyager** (igual que calles en `index.html`).
+- Leaflet + tiles **Carto Voyager** (igual que calles en `index.html`) — solo en `scout-sv.html`.
 - Capas best-effort: `data/compet.geojson`, `anclas.geojson`, `field_adds.geojson`, `liked_zones.geojson` + pines de localStorage + sesión.
 - Sigue el panorama (pegman rota con heading). Zoom cercano (~17).
 - Solo coords/GeoJSON; **no** cachea tiles de Street View.
@@ -102,5 +105,6 @@ Scout fuerza `color-scheme: only light` en página y `#pano` para que Chrome **n
 
 ## Relacionado
 
+- **Userscript (recomendado):** [`docs/SCOUT_USERSCRIPT.md`](SCOUT_USERSCRIPT.md)
 - Mapa campo: `index.html` · sync: `docs/FIELD_ADDS.md`
 - Ruta de colonia: `docs/RUTA_CAMPO.md`

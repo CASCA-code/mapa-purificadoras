@@ -9,7 +9,8 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 | Archivo | Qué es |
 |---|---|
 | `index.html` | Mapa Leaflet offline (score_100, capas, Ubicarme) |
-| `scout-sv.html` | Scout SV — Street View remoto (pines hotkey) |
+| `scout-sv.html` | Scout SV embebido (requiere Maps billing; preferir userscript) |
+| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (sin API key) |
 | `docs/` | Notas operativas (anclas, GPS, SADM, bitácora) |
 | `README.md` | Este archivo |
 
@@ -38,5 +39,7 @@ https://casca-code.github.io/mapa-purificadoras/tec/ — deptos + Oxxo/Super7 + 
 Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
 
 
-## Scout SV (Street View remoto)
-`scout-sv.html` en Pages sigue existiendo pero **requiere Google Maps billing** (hold ~$500 MXN — rechazado). Mapillary abortado. **Próximo:** userscript Tampermonkey sobre Street View de consumidor (`google.com/maps`, sin Cloud key). Detalle: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).
+## Scout (Street View remoto)
+**Primario (sin billing):** userscript Tampermonkey sobre Maps de consumidor — [`docs/SCOUT_USERSCRIPT.md`](docs/SCOUT_USERSCRIPT.md) · instalar desde  
+`https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js`  
+`scout-sv.html` (Maps JS embebido) sigue en Pages pero **requiere Google Cloud billing** — no pedir key a Nicolás. Mapillary abandonado. Detalle legacy: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).

@@ -163,7 +163,7 @@ button.btn:disabled{opacity:.45;cursor:not-allowed}
   <div id="topbar">
     <div>
       <h1>Scout SV</h1>
-      <div class="sub">Street View remoto · Purificadoras ZMM</div>
+      <div class="sub">Street View remoto · pines hotkey · sync campo · <b style="color:var(--danger)">requiere billing Maps</b> — preferir userscript Tampermonkey (<a href="docs/SCOUT_USERSCRIPT.md" target="_blank" rel="noopener">docs</a>)</div>
     </div>
     <div class="grow"></div>
     <a class="sub" href="index.html">← Mapa principal</a>
@@ -248,7 +248,7 @@ button.btn:disabled{opacity:.45;cursor:not-allowed}
 <div id="keyGate" role="dialog" aria-modal="true" aria-labelledby="keyGateTitle">
   <div class="card">
     <h2 id="keyGateTitle">Google Maps API key</h2>
-    <p class="hint">Maps JavaScript API + Street View. No se sube al repo: se guarda en <code>localStorage.purif_gmaps_key</code> o pasa <code>?key=</code>.</p>
+    <p class="hint"><b>Google Cloud billing requerido</b> (hold ~$500 MXN). Para scout <b>sin</b> API key usa el userscript Tampermonkey — <a href="docs/SCOUT_USERSCRIPT.md" target="_blank" rel="noopener">docs/SCOUT_USERSCRIPT.md</a>. Si igual usas esta página: Maps JavaScript API + Street View; key en <code>localStorage.purif_gmaps_key</code> o <code>?key=</code>.</p>
     <label class="field" style="margin-top:10px"><span>API key</span>
       <input type="password" id="keyInput" placeholder="AIza…" autocomplete="off" spellcheck="false">
     </label>
