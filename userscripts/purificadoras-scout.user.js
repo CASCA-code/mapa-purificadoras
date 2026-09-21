@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.0.0
-// @description  Scout de campo sobre Google Maps Street View (sin Maps Platform / sin billing). Hotkeys → ntfy + export. Para Nicolás / Purificadoras ZMM.
+// @version      1.1.0
+// @description  Scout de campo sobre Google Maps Street View (sin Maps Platform / sin billing). Hotkeys + trayecto por colonia (OSM Overpass). Para Nicolás / Purificadoras ZMM.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -14,6 +14,10 @@
 // @grant        GM_download
 // @connect      ntfy.sh
 // @connect      casca-code.github.io
+// @connect      raw.githubusercontent.com
+// @connect      overpass-api.de
+// @connect      overpass.kumi.systems
+// @connect      router.project-osrm.org
 // @run-at       document-idle
 // @noframes
 // ==/UserScript==
@@ -25,18 +29,31 @@
   /*
    * Purificadoras Scout — Tampermonkey sobre Street View de consumidor.
    * Sin API key de Maps Platform. Sync primario: ntfy (mismo topic que index.html).
-   * localStorage en google.com NO se comparte con casca-code.github.io.
+   * v1.1: auto-walk robusto + picker de colonia + trayecto OSM (Overpass) sin billing.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
   var LS_COMP = 'purificadoras_field_adds_v1';
   var LS_ANCLAS = 'purificadoras_anclas_v1';
   var LS_SESSION = 'purificadoras_scout_tm_session_v1';
+  var LS_SPEED = 'purificadoras_scout_tm_speed_ms';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
+  var COLONIAS_URLS = [
+    MAP_BASE + 'data/colonias.geojson',
+    'https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/data/colonias.geojson'
+  ];
+  var OVERPASS_URLS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter'
+  ];
   var COMMENT_HALF_M = 30;
   var COMMENT_COLOR = '#db2777';
-  var AUTO_MS = 1400;
+  var DEFAULT_AUTO_MS = 1400;
+  var STEP_M = 20;
+  var SV_WAIT_MS = 5500;
+  var DEAD_END_FAILS = 4;
   var FUENTE = 'scout_userscript';
+  var ESCOBEDO = 'General Escobedo';
 
   var SCOUT_HOTKEYS = {
     M: { kind: 'modelorama', layer: 'ancla_campo', name: 'Modelorama', label: 'Modelorama', color: '#ca8a04', primary: true },
@@ -56,9 +73,24 @@
     heading: 0,
     autoWalk: false,
     autoTimer: null,
+    autoMs: DEFAULT_AUTO_MS,
+    autoFailStreak: 0,
+    autoLastPose: null,
     sessionPins: [],
-    commentOpen: false
+    commentOpen: false,
+    colonias: [],
+    coloniasLoaded: false,
+    coloniasLoading: false,
+    selectedColonia: null,
+    route: null, // { name, points:[{lat,lng}], i, paused, status, skipped }
+    routeTimer: null,
+    routeBusy: false
   };
+
+  try {
+    var savedSpeed = Number(GM_getValue && GM_getValue(LS_SPEED, DEFAULT_AUTO_MS));
+    if (isFinite(savedSpeed) && savedSpeed >= 600 && savedSpeed <= 5000) state.autoMs = savedSpeed;
+  } catch (e) {}
 
   /* ---------- utils ---------- */
   function uuid(prefix) {
@@ -92,7 +124,7 @@
     el.textContent = msg;
     el.classList.add('show');
     clearTimeout(toast._tm);
-    toast._tm = setTimeout(function () { el.classList.remove('show'); }, 2000);
+    toast._tm = setTimeout(function () { el.classList.remove('show'); }, 2200);
   }
 
   function offsetLatLng(lat, lng, headingDeg, meters) {
@@ -103,12 +135,109 @@
     return { lat: lat + dLat * 180 / Math.PI, lng: lng + dLng * 180 / Math.PI };
   }
 
+  function haversineM(aLat, aLng, bLat, bLng) {
+    var R = 6371000;
+    var toR = Math.PI / 180;
+    var dLat = (bLat - aLat) * toR;
+    var dLng = (bLng - aLng) * toR;
+    var s = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(aLat * toR) * Math.cos(bLat * toR) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+  }
+
+  function bearingDeg(aLat, aLng, bLat, bLng) {
+    var toR = Math.PI / 180;
+    var y = Math.sin((bLng - aLng) * toR) * Math.cos(bLat * toR);
+    var x = Math.cos(aLat * toR) * Math.sin(bLat * toR) -
+      Math.sin(aLat * toR) * Math.cos(bLat * toR) * Math.cos((bLng - aLng) * toR);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+
+  function pointInRing(lng, lat, ring) {
+    var inside = false;
+    for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      var xi = ring[i][0], yi = ring[i][1];
+      var xj = ring[j][0], yj = ring[j][1];
+      var intersect = ((yi > lat) !== (yj > lat)) &&
+        (lng < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  function pointInPolygon(lng, lat, geom) {
+    if (!geom) return false;
+    var polys = geom.type === 'Polygon' ? [geom.coordinates]
+      : geom.type === 'MultiPolygon' ? geom.coordinates : null;
+    if (!polys) return false;
+    for (var p = 0; p < polys.length; p++) {
+      var rings = polys[p];
+      if (!rings || !rings.length) continue;
+      if (!pointInRing(lng, lat, rings[0])) continue;
+      var hole = false;
+      for (var h = 1; h < rings.length; h++) {
+        if (pointInRing(lng, lat, rings[h])) { hole = true; break; }
+      }
+      if (!hole) return true;
+    }
+    return false;
+  }
+
+  function geomBbox(geom) {
+    var minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+    function walk(c) {
+      if (!c) return;
+      if (typeof c[0] === 'number') {
+        minLng = Math.min(minLng, c[0]); maxLng = Math.max(maxLng, c[0]);
+        minLat = Math.min(minLat, c[1]); maxLat = Math.max(maxLat, c[1]);
+        return;
+      }
+      for (var i = 0; i < c.length; i++) walk(c[i]);
+    }
+    walk(geom && geom.coordinates);
+    return { south: minLat, west: minLng, north: maxLat, east: maxLng };
+  }
+
+  function gmRequest(opts) {
+    return new Promise(function (resolve, reject) {
+      if (typeof GM_xmlhttpRequest !== 'function') {
+        reject(new Error('GM_xmlhttpRequest unavailable'));
+        return;
+      }
+      GM_xmlhttpRequest({
+        method: opts.method || 'GET',
+        url: opts.url,
+        headers: opts.headers || {},
+        data: opts.data || null,
+        timeout: opts.timeout || 60000,
+        onload: function (res) {
+          if (res.status >= 200 && res.status < 300) resolve(res);
+          else reject(new Error('HTTP ' + res.status + ' ' + opts.url));
+        },
+        onerror: function () { reject(new Error('network ' + opts.url)); },
+        ontimeout: function () { reject(new Error('timeout ' + opts.url)); }
+      });
+    });
+  }
+
+  function fetchTextFirst(urls) {
+    var i = 0;
+    function next() {
+      if (i >= urls.length) return Promise.reject(new Error('all urls failed'));
+      var url = urls[i++];
+      return gmRequest({ url: url, method: 'GET', timeout: 45000 })
+        .then(function (res) { return res.responseText; })
+        .catch(function () { return next(); });
+    }
+    return next();
+  }
+
   /* ---------- URL / Street View parse ---------- */
   function parseFromUrl(href) {
     var url = href || location.href;
     var out = { inSV: false, lat: null, lng: null, heading: null };
 
-    // Classic SV: /@lat,lng,3a,Yy,Hh,Tt
     var mSv = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*),(\d+(?:\.\d+)?)a,([\d.]+)y,([\d.]+)h,([\d.]+)t/i);
     if (mSv) {
       out.inSV = true;
@@ -118,44 +247,48 @@
       return out;
     }
 
-    // Map center /@lat,lng,zoomz — not SV by itself
     var mMap = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*),([\d.]+)z/i);
     if (mMap) {
       out.lat = Number(mMap[1]);
       out.lng = Number(mMap[2]);
     }
 
-    // data=!3dLAT!4dLNG (common in SV / place URLs)
     var m34 = url.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
     if (m34) {
       out.lat = Number(m34[1]);
       out.lng = Number(m34[2]);
     }
 
-    // Street View markers in path
-    if (/!1e1/.test(url) || /\/data=!3m\d+!1e1/.test(url) || /3a,[\d.]+y,/.test(url)) {
+    if (/!1e1/.test(url) || /\/data=!3m\d+!1e1/.test(url) || /3a,[\d.]+y,/.test(url) || /map_action=pano/i.test(url)) {
       out.inSV = true;
     }
-    // Heading elsewhere: Nh before t, or !5d / !6d rarely
     var mH = url.match(/,([\d.]+)h,([\d.]+)t/i);
     if (mH && out.heading == null) out.heading = Number(mH[1]);
+    var mHead = url.match(/[?&]heading=(-?[\d.]+)/i);
+    if (mHead && out.heading == null) out.heading = Number(mHead[1]);
+    var mVp = url.match(/[?&]viewpoint=(-?\d+\.?\d*),(-?\d+\.?\d*)/i);
+    if (mVp) {
+      out.lat = Number(mVp[1]);
+      out.lng = Number(mVp[2]);
+      out.inSV = true;
+    }
 
-    // DOM heuristic: SV canvas / pegman active
     if (!out.inSV) {
       try {
         if (document.querySelector('canvas.widget-scene-canvas, button[jsaction*="streetview"], [aria-label*="Street View"], [aria-label*="Pegman"]')) {
-          // weak signal — only if we already have coords looking like ZMM-ish or any
           if (out.lat != null) out.inSV = true;
         }
       } catch (e) {}
     }
-
-    // Title / hash with streetview
     if (!out.inSV && /street.?view|vista\s+de\s+calle/i.test(document.title || '')) {
       out.inSV = true;
     }
-
     return out;
+  }
+
+  function poseKey() {
+    if (state.lat == null || state.lng == null) return '';
+    return state.lat.toFixed(5) + ',' + state.lng.toFixed(5);
   }
 
   function refreshPose() {
@@ -174,9 +307,9 @@
       state.inSV = p.inSV;
       changed = true;
     }
-    // Extra: if URL has 3a pattern we're definitely in SV
-    if (/@[^/]+,\d+(?:\.\d+)?a,/.test(location.href)) state.inSV = true;
-
+    if (/@[^/]+,\d+(?:\.\d+)?a,/.test(location.href) || /map_action=pano/i.test(location.href)) {
+      state.inSV = true;
+    }
     if (changed) updateHud();
     return p;
   }
@@ -195,7 +328,6 @@
       history.replaceState = wrap('replaceState');
     } catch (e) {}
     window.addEventListener('popstate', function () { setTimeout(refreshPose, 30); });
-    // Google often mutates URL without events — poll lightly
     setInterval(refreshPose, 800);
   }
 
@@ -203,8 +335,6 @@
   function silentSync(payload) {
     var body = JSON.stringify(payload);
     var url = 'https://ntfy.sh/' + NTFY_TOPIC;
-
-    // GM_xmlhttpRequest bypasses page CSP (preferred)
     if (typeof GM_xmlhttpRequest === 'function') {
       try {
         GM_xmlhttpRequest({
@@ -217,13 +347,11 @@
           },
           data: body,
           onload: function () {},
-          onerror: function () { /* silent */ }
+          onerror: function () {}
         });
         return true;
       } catch (e) {}
     }
-
-    // Fallback fetch (may fail under Maps CSP)
     try {
       if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) {
         return true;
@@ -250,14 +378,12 @@
   }
 
   function persistFeature(feat) {
-    // Best-effort LS on google.com (NOT shared with Pages — backup only)
     var key = destKeyForFeature(feat);
     var arr = loadLS(key);
     var id = (feat.properties || {}).id;
     arr = arr.filter(function (x) { return (x.properties || {}).id !== id; });
     arr.push(feat);
     saveLS(key, arr);
-    // PRIMARY sync path
     silentSync({ action: 'upsert', feature: feat });
   }
 
@@ -405,73 +531,581 @@
     toast('Sync ntfy: ' + n + ' upsert(s)');
   }
 
-  /* ---------- auto-forward (Space) ---------- */
+  /* ---------- auto-forward (Space) — improved ---------- */
   function fireKey(code, key, keyCode) {
-    var opts = { key: key, code: code, keyCode: keyCode, which: keyCode, bubbles: true, cancelable: true, view: window };
+    var targets = [];
     try {
-      document.dispatchEvent(new KeyboardEvent('keydown', opts));
-      document.dispatchEvent(new KeyboardEvent('keyup', opts));
+      var canvas = document.querySelector('canvas.widget-scene-canvas, canvas[class*="scene"], canvas');
+      if (canvas) targets.push(canvas);
     } catch (e) {}
-    try {
-      window.dispatchEvent(new KeyboardEvent('keydown', opts));
-    } catch (e2) {}
+    targets.push(document.activeElement || document.body);
+    targets.push(document.body);
+    targets.push(document.documentElement);
+    targets.push(window);
+
+    var seen = [];
+    targets.forEach(function (t) {
+      if (!t || seen.indexOf(t) >= 0) return;
+      seen.push(t);
+      try {
+        if (t.focus && t !== window) t.focus({ preventScroll: true });
+      } catch (e0) {}
+      ['keydown', 'keypress', 'keyup'].forEach(function (type) {
+        try {
+          var ev = new KeyboardEvent(type, {
+            key: key, code: code, keyCode: keyCode, which: keyCode,
+            bubbles: true, cancelable: true, view: window
+          });
+          try { Object.defineProperty(ev, 'keyCode', { get: function () { return keyCode; } }); } catch (e1) {}
+          try { Object.defineProperty(ev, 'which', { get: function () { return keyCode; } }); } catch (e2) {}
+          t.dispatchEvent(ev);
+        } catch (e3) {}
+      });
+    });
   }
 
   function clickForwardUi() {
-    // Best-effort: click visible forward / next arrow in SV chrome
     var sels = [
       'button[aria-label*="Forward" i]',
       'button[aria-label*="Adelante" i]',
       'button[aria-label*="forward" i]',
+      'button[aria-label*="Siguiente" i]',
+      'button[aria-label*="Next" i]',
       'button[jsaction*="forward"]',
-      '[data-tooltip*="Forward" i]',
-      '.widget-minimap-shim' // don't click this
+      '[role="button"][aria-label*="Forward" i]',
+      '[role="button"][aria-label*="Adelante" i]',
+      'button[data-tooltip*="Forward" i]',
+      'button[data-tooltip*="Adelante" i]'
     ];
     for (var i = 0; i < sels.length; i++) {
-      if (sels[i].indexOf('minimap') >= 0) continue;
-      var el = document.querySelector(sels[i]);
+      var el = null;
+      try { el = document.querySelector(sels[i]); } catch (e) {}
       if (el && typeof el.click === 'function') {
-        try { el.click(); return true; } catch (e) {}
+        try { el.click(); return 'btn:' + sels[i]; } catch (e2) {}
       }
     }
-    // Click center-top of canvas (often the link arrow hotspot)
+    // SVG / path chevrons near bottom of SV chrome
+    try {
+      var candidates = document.querySelectorAll('[jsaction*="pane.streetview"], [jsaction*="streetview"], button');
+      for (var j = 0; j < candidates.length; j++) {
+        var c = candidates[j];
+        var al = ((c.getAttribute('aria-label') || '') + ' ' + (c.getAttribute('data-tooltip') || '')).toLowerCase();
+        if (/forward|adelante|siguiente|next|avancer/.test(al)) {
+          c.click();
+          return 'aria-scan';
+        }
+      }
+    } catch (e3) {}
+
     try {
       var canvas = document.querySelector('canvas.widget-scene-canvas, canvas[class*="scene"]');
       if (canvas) {
         var r = canvas.getBoundingClientRect();
-        var x = r.left + r.width / 2;
-        var y = r.top + r.height * 0.42;
-        ['mousedown', 'mouseup', 'click'].forEach(function (type) {
-          canvas.dispatchEvent(new MouseEvent(type, {
-            bubbles: true, cancelable: true, view: window,
-            clientX: x, clientY: y, button: 0
-          }));
-        });
-        return true;
+        var spots = [
+          [0.5, 0.42],
+          [0.5, 0.38],
+          [0.5, 0.55],
+          [0.5, 0.62]
+        ];
+        for (var s = 0; s < spots.length; s++) {
+          var x = r.left + r.width * spots[s][0];
+          var y = r.top + r.height * spots[s][1];
+          ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(function (type) {
+            try {
+              canvas.dispatchEvent(new MouseEvent(type, {
+                bubbles: true, cancelable: true, view: window,
+                clientX: x, clientY: y, button: 0
+              }));
+            } catch (e4) {}
+          });
+        }
+        return 'canvas-hotspot';
       }
-    } catch (e) {}
-    return false;
+    } catch (e5) {}
+    return null;
   }
 
-  function stepForward() {
-    if (!state.inSV) return;
+  function waitPoseChange(prevKey, timeoutMs) {
+    return new Promise(function (resolve) {
+      var start = Date.now();
+      var iv = setInterval(function () {
+        refreshPose();
+        var now = poseKey();
+        if (now && now !== prevKey) {
+          clearInterval(iv);
+          resolve(true);
+          return;
+        }
+        if (Date.now() - start >= timeoutMs) {
+          clearInterval(iv);
+          resolve(false);
+        }
+      }, 180);
+    });
+  }
+
+  function stepForwardAsync() {
+    if (state.commentOpen) return Promise.resolve(false);
+    if (state.route && !state.route.paused) return Promise.resolve(false);
+    if (!state.inSV) return Promise.resolve(false);
+
+    var prev = poseKey();
+    // Method A: ArrowUp on canvas/document (works when SV has keyboard focus)
     fireKey('ArrowUp', 'ArrowUp', 38);
-    clickForwardUi();
+    return waitPoseChange(prev, Math.min(900, state.autoMs * 0.55)).then(function (ok) {
+      if (ok) { state._lastWalkMethod = 'ArrowUp'; return true; }
+      // Method B: click forward UI / canvas link arrow
+      prev = poseKey();
+      var how = clickForwardUi();
+      return waitPoseChange(prev, Math.min(1100, state.autoMs * 0.7)).then(function (ok2) {
+        if (ok2) { state._lastWalkMethod = how || 'click'; return true; }
+        // Method C: retry ArrowUp once more after brief pause
+        prev = poseKey();
+        fireKey('ArrowUp', 'ArrowUp', 38);
+        return waitPoseChange(prev, 700).then(function (ok3) {
+          if (ok3) state._lastWalkMethod = 'ArrowUp-retry';
+          return ok3;
+        });
+      });
+    });
+  }
+
+  function autoWalkTick() {
+    if (!state.autoWalk || state.commentOpen) return;
+    if (state.route && !state.route.paused) return;
+    if (state._autoBusy) return;
+    state._autoBusy = true;
+    stepForwardAsync().then(function (moved) {
+      state._autoBusy = false;
+      if (moved) {
+        state.autoFailStreak = 0;
+        updateHud();
+      } else {
+        state.autoFailStreak = (state.autoFailStreak || 0) + 1;
+        updateHud();
+        if (state.autoFailStreak >= DEAD_END_FAILS) {
+          setAutoWalk(false);
+          toast('⏹ Auto-walk: callejón sin salida / sin avance');
+        }
+      }
+    }).catch(function () { state._autoBusy = false; });
   }
 
   function setAutoWalk(on) {
     state.autoWalk = !!on;
+    state.autoFailStreak = 0;
     if (state.autoTimer) {
       clearInterval(state.autoTimer);
       state.autoTimer = null;
     }
     if (state.autoWalk) {
-      state.autoTimer = setInterval(stepForward, AUTO_MS);
-      toast('▶ Auto-walk ON');
+      // Don't steal focus from comment / HUD inputs
+      if (state.commentOpen) {
+        state.autoWalk = false;
+        toast('Cierra el comentario antes de auto-walk');
+        updateHud();
+        return;
+      }
+      state.autoTimer = setInterval(autoWalkTick, state.autoMs);
+      setTimeout(autoWalkTick, 120);
+      toast('▶ Auto-walk ON (' + (state.autoMs / 1000).toFixed(1) + 's)');
     } else {
       toast('⏸ Auto-walk OFF');
     }
     updateHud();
+  }
+
+  function setAutoMs(ms) {
+    ms = Math.max(600, Math.min(5000, Number(ms) || DEFAULT_AUTO_MS));
+    state.autoMs = ms;
+    try { if (typeof GM_setValue === 'function') GM_setValue(LS_SPEED, ms); } catch (e) {}
+    if (state.autoWalk) {
+      setAutoWalk(false);
+      setAutoWalk(true);
+    }
+    if (state.route && !state.route.paused && state.routeTimer) {
+      // restart route interval with new speed
+      clearInterval(state.routeTimer);
+      state.routeTimer = setInterval(routeTick, state.autoMs);
+    }
+    updateHud();
+  }
+
+  /* ---------- colonias + route builder ---------- */
+  function coloniaLabel(ft) {
+    var p = ft.properties || {};
+    var mun = p.municipio || '';
+    var col = p.colonia || p.colonia_raw || '?';
+    var rank = p.rank != null ? '#' + p.rank + ' · ' : '';
+    return rank + col + ' (' + mun + ')';
+  }
+
+  function sortColonias(list) {
+    return list.slice().sort(function (a, b) {
+      var am = (a.properties || {}).municipio || '';
+      var bm = (b.properties || {}).municipio || '';
+      var ae = am === ESCOBEDO ? 0 : 1;
+      var be = bm === ESCOBEDO ? 0 : 1;
+      if (ae !== be) return ae - be;
+      var ar = Number((a.properties || {}).rank) || 9999;
+      var br = Number((b.properties || {}).rank) || 9999;
+      if (ar !== br) return ar - br;
+      return String((a.properties || {}).colonia || '').localeCompare(String((b.properties || {}).colonia || ''), 'es');
+    });
+  }
+
+  function loadColonias() {
+    if (state.coloniasLoaded || state.coloniasLoading) {
+      return Promise.resolve(state.colonias);
+    }
+    state.coloniasLoading = true;
+    setRouteStatus('Cargando colonias…');
+    return fetchTextFirst(COLONIAS_URLS).then(function (txt) {
+      var geo = JSON.parse(txt);
+      var feats = (geo && geo.features) || [];
+      state.colonias = sortColonias(feats);
+      state.coloniasLoaded = true;
+      state.coloniasLoading = false;
+      fillColoniaSelect('');
+      setRouteStatus(state.colonias.length + ' colonias listas');
+      return state.colonias;
+    }).catch(function (err) {
+      state.coloniasLoading = false;
+      setRouteStatus('Error colonias: ' + (err && err.message || err));
+      toast('No se pudieron cargar colonias');
+      throw err;
+    });
+  }
+
+  function fillColoniaSelect(filter) {
+    var sel = document.getElementById('purif-scout-colonia');
+    if (!sel) return;
+    var q = String(filter || '').trim().toLowerCase();
+    var list = state.colonias;
+    if (q) {
+      list = list.filter(function (ft) {
+        var p = ft.properties || {};
+        var blob = [p.colonia, p.colonia_raw, p.municipio, p.cve_col, String(p.rank || '')].join(' ').toLowerCase();
+        return blob.indexOf(q) >= 0;
+      });
+    }
+    list = sortColonias(list).slice(0, 120);
+    var prev = sel.value;
+    sel.innerHTML = '';
+    var opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = list.length ? ('— elegir colonia (' + list.length + ') —') : '— sin resultados —';
+    sel.appendChild(opt0);
+    list.forEach(function (ft, idx) {
+      var p = ft.properties || {};
+      var opt = document.createElement('option');
+      opt.value = String(p.cve_col || idx);
+      opt.textContent = coloniaLabel(ft);
+      opt._feat = ft;
+      sel.appendChild(opt);
+    });
+    // restore if still present
+    if (prev) {
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === prev) { sel.selectedIndex = i; break; }
+      }
+    }
+  }
+
+  function selectedFeatureFromUi() {
+    var sel = document.getElementById('purif-scout-colonia');
+    if (!sel || !sel.value) return null;
+    var opt = sel.options[sel.selectedIndex];
+    if (opt && opt._feat) return opt._feat;
+    var cve = sel.value;
+    for (var i = 0; i < state.colonias.length; i++) {
+      if (String((state.colonias[i].properties || {}).cve_col) === cve) return state.colonias[i];
+    }
+    return null;
+  }
+
+  function samplePolyline(coords, stepM) {
+    // coords: [[lng,lat], ...]
+    var out = [];
+    if (!coords || coords.length < 2) return out;
+    var carry = 0;
+    out.push({ lat: coords[0][1], lng: coords[0][0] });
+    for (var i = 1; i < coords.length; i++) {
+      var a = coords[i - 1];
+      var b = coords[i];
+      var seg = haversineM(a[1], a[0], b[1], b[0]);
+      if (seg < 1e-3) continue;
+      var dist = carry;
+      while (dist + stepM <= seg) {
+        dist += stepM;
+        var t = dist / seg;
+        out.push({
+          lat: a[1] + (b[1] - a[1]) * t,
+          lng: a[0] + (b[0] - a[0]) * t
+        });
+      }
+      carry = seg - dist;
+      if (carry < 0) carry = 0;
+    }
+    var last = coords[coords.length - 1];
+    var prev = out[out.length - 1];
+    if (!prev || haversineM(prev.lat, prev.lng, last[1], last[0]) > stepM * 0.4) {
+      out.push({ lat: last[1], lng: last[0] });
+    }
+    return out;
+  }
+
+  function overpassHighways(bbox) {
+    var q = '[out:json][timeout:60];\n' +
+      'way["highway"~"^(primary|secondary|tertiary|residential|unclassified|living_street|service|pedestrian)$"](' +
+      bbox.south + ',' + bbox.west + ',' + bbox.north + ',' + bbox.east + ');\n' +
+      'out geom;';
+    var body = 'data=' + encodeURIComponent(q);
+    var i = 0;
+    function next() {
+      if (i >= OVERPASS_URLS.length) return Promise.reject(new Error('Overpass falló'));
+      var url = OVERPASS_URLS[i++];
+      return gmRequest({
+        method: 'POST',
+        url: url,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'PurificadorasScout/1.1 (CASCA-code; field scout)'
+        },
+        data: body,
+        timeout: 70000
+      }).then(function (res) {
+        return JSON.parse(res.responseText);
+      }).catch(function () { return next(); });
+    }
+    return next();
+  }
+
+  function waysToCoveragePoints(elements, geom) {
+    var ways = [];
+    (elements || []).forEach(function (el) {
+      if (!el || el.type !== 'way' || !el.geometry || el.geometry.length < 2) return;
+      var hw = (el.tags && el.tags.highway) || '';
+      // skip parking aisles / driveways-heavy if service+parking
+      if (hw === 'service' && el.tags && /parking|driveway/i.test(el.tags.service || '')) return;
+      var coords = [];
+      for (var i = 0; i < el.geometry.length; i++) {
+        var g = el.geometry[i];
+        if (pointInPolygon(g.lon, g.lat, geom)) coords.push([g.lon, g.lat]);
+        else if (coords.length >= 2) {
+          ways.push({ coords: coords, len: 0 });
+          coords = [];
+        } else coords = [];
+      }
+      if (coords.length >= 2) ways.push({ coords: coords, len: 0 });
+    });
+    ways.forEach(function (w) {
+      var len = 0;
+      for (var i = 1; i < w.coords.length; i++) {
+        len += haversineM(w.coords[i - 1][1], w.coords[i - 1][0], w.coords[i][1], w.coords[i][0]);
+      }
+      w.len = len;
+    });
+    ways.sort(function (a, b) { return b.len - a.len; });
+
+    // Order ways into a walkable sequence (greedy endpoint chaining)
+    var remaining = ways.slice();
+    var ordered = [];
+    if (!remaining.length) return [];
+    ordered.push(remaining.shift());
+    while (remaining.length) {
+      var cur = ordered[ordered.length - 1];
+      var end = cur.coords[cur.coords.length - 1];
+      var bestI = 0, bestD = Infinity, bestRev = false;
+      for (var i = 0; i < remaining.length; i++) {
+        var w = remaining[i];
+        var d0 = haversineM(end[1], end[0], w.coords[0][1], w.coords[0][0]);
+        var d1 = haversineM(end[1], end[0], w.coords[w.coords.length - 1][1], w.coords[w.coords.length - 1][0]);
+        if (d0 < bestD) { bestD = d0; bestI = i; bestRev = false; }
+        if (d1 < bestD) { bestD = d1; bestI = i; bestRev = true; }
+      }
+      var pick = remaining.splice(bestI, 1)[0];
+      if (bestRev) pick.coords = pick.coords.slice().reverse();
+      ordered.push(pick);
+    }
+
+    var points = [];
+    var last = null;
+    ordered.forEach(function (w) {
+      var samples = samplePolyline(w.coords, STEP_M);
+      samples.forEach(function (pt) {
+        if (!pointInPolygon(pt.lng, pt.lat, geom)) return;
+        if (last && haversineM(last.lat, last.lng, pt.lat, pt.lng) < STEP_M * 0.45) return;
+        points.push(pt);
+        last = pt;
+      });
+    });
+    // Cap very large colonias so trayecto stays usable
+    var MAX_PTS = 900;
+    if (points.length > MAX_PTS) {
+      var stride = Math.ceil(points.length / MAX_PTS);
+      var thinned = [];
+      for (var t = 0; t < points.length; t += stride) thinned.push(points[t]);
+      if (thinned[thinned.length - 1] !== points[points.length - 1]) thinned.push(points[points.length - 1]);
+      points = thinned;
+    }
+    return points;
+  }
+
+  function buildStreetViewUrl(lat, lng, heading) {
+    var h = (heading != null && isFinite(heading)) ? heading : 0;
+    // Official Maps URLs (no API key / no billing) — preferred 2026
+    return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' +
+      encodeURIComponent(lat + ',' + lng) +
+      '&heading=' + encodeURIComponent(String(Math.round(h))) +
+      '&pitch=0&fov=75';
+  }
+
+  function navigateToSv(lat, lng, heading) {
+    var url = buildStreetViewUrl(lat, lng, heading);
+    // Same-tab navigation keeps Tampermonkey running
+    try {
+      location.assign(url);
+    } catch (e) {
+      location.href = url;
+    }
+  }
+
+  function setRouteStatus(msg) {
+    var el = document.getElementById('purif-scout-route-status');
+    if (el) el.textContent = msg || '';
+  }
+
+  function stopRoute(msg) {
+    if (state.routeTimer) {
+      clearInterval(state.routeTimer);
+      state.routeTimer = null;
+    }
+    state.routeBusy = false;
+    if (state.route) {
+      state.route.paused = true;
+      state.route.status = 'stopped';
+    }
+    if (msg) toast(msg);
+    updateHud();
+  }
+
+  function startRoute(points, name) {
+    if (!points || !points.length) {
+      toast('Sin calles OSM en esta colonia');
+      return;
+    }
+    // Pause local auto-walk — trayecto drives via URL
+    if (state.autoWalk) setAutoWalk(false);
+    state.route = {
+      name: name || 'colonia',
+      points: points,
+      i: 0,
+      paused: false,
+      status: 'running',
+      skipped: 0
+    };
+    if (state.routeTimer) clearInterval(state.routeTimer);
+    state.routeTimer = setInterval(routeTick, state.autoMs);
+    toast('🛣 Trayecto: ' + points.length + ' pts · ' + name);
+    setRouteStatus('punto 1/' + points.length + ' · ' + name);
+    updateHud();
+    // kick immediately
+    routeTick();
+  }
+
+  function routeTick() {
+    if (!state.route || state.route.paused || state.routeBusy) return;
+    if (state.commentOpen) return;
+    var r = state.route;
+    if (r.i >= r.points.length) {
+      stopRoute('✅ Trayecto completo · ' + r.name);
+      setRouteStatus('Completo · ' + r.points.length + ' pts · skip ' + r.skipped);
+      return;
+    }
+    var pt = r.points[r.i];
+    var next = r.points[r.i + 1];
+    var heading = next ? bearingDeg(pt.lat, pt.lng, next.lat, next.lng) : (state.heading || 0);
+    var targetKey = pt.lat.toFixed(5) + ',' + pt.lng.toFixed(5);
+    state.routeBusy = true;
+    setRouteStatus('punto ' + (r.i + 1) + '/' + r.points.length + ' · ' + r.name);
+    updateHud();
+    navigateToSv(pt.lat, pt.lng, heading);
+
+    var start = Date.now();
+    var check = setInterval(function () {
+      refreshPose();
+      var okSv = state.inSV;
+      var near = state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < 55;
+      var urlSv = /map_action=pano|,\d+(?:\.\d+)?a,/.test(location.href);
+      if ((okSv || urlSv) && (near || poseKey())) {
+        // Accept snap even if slightly offset (SV nearest pano)
+        clearInterval(check);
+        state.routeBusy = false;
+        r.i += 1;
+        updateHud();
+        return;
+      }
+      if (Date.now() - start > SV_WAIT_MS) {
+        clearInterval(check);
+        r.skipped += 1;
+        r.i += 1;
+        state.routeBusy = false;
+        setRouteStatus('skip SV · punto ' + r.i + '/' + r.points.length + ' · ' + r.name);
+        updateHud();
+      }
+    }, 250);
+  }
+
+  function toggleRoutePause() {
+    if (!state.route) return false;
+    state.route.paused = !state.route.paused;
+    if (state.route.paused) {
+      toast('⏸ Trayecto pausado');
+      setRouteStatus('PAUSA · punto ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length);
+    } else {
+      toast('▶ Trayecto reanudado');
+      if (!state.routeTimer) state.routeTimer = setInterval(routeTick, state.autoMs);
+      setTimeout(routeTick, 100);
+    }
+    updateHud();
+    return true;
+  }
+
+  function buildTrayectoForSelection() {
+    var ft = selectedFeatureFromUi();
+    if (!ft) {
+      toast('Elige una colonia');
+      return;
+    }
+    state.selectedColonia = ft;
+    var p = ft.properties || {};
+    var name = (p.colonia || '?') + ' · ' + (p.municipio || '');
+    var geom = ft.geometry;
+    if (!geom) { toast('Colonia sin geometría'); return; }
+    var bbox = geomBbox(geom);
+    // pad bbox slightly
+    var pad = 0.0003;
+    bbox = {
+      south: bbox.south - pad,
+      west: bbox.west - pad,
+      north: bbox.north + pad,
+      east: bbox.east + pad
+    };
+    setRouteStatus('Consultando OSM Overpass…');
+    toast('Generando trayecto…');
+    overpassHighways(bbox).then(function (data) {
+      var pts = waysToCoveragePoints(data.elements || [], geom);
+      setRouteStatus(pts.length + ' puntos · ' + name);
+      if (!pts.length) {
+        toast('Sin vías OSM dentro del polígono');
+        return;
+      }
+      startRoute(pts, name);
+    }).catch(function (err) {
+      setRouteStatus('Overpass error');
+      toast('Overpass falló: ' + (err && err.message || err));
+    });
   }
 
   /* ---------- UI ---------- */
@@ -485,7 +1119,7 @@
       '#purif-scout-root *{box-sizing:border-box;font-family:inherit}',
       '#purif-scout-hud{position:fixed;top:72px;left:12px;pointer-events:auto;',
       'background:rgba(33,29,23,.92);color:#efe9db;padding:10px 12px;border-radius:12px;',
-      'font-size:12px;line-height:1.35;max-width:260px;box-shadow:0 8px 24px rgba(0,0,0,.35);',
+      'font-size:12px;line-height:1.35;max-width:300px;box-shadow:0 8px 24px rgba(0,0,0,.35);',
       'backdrop-filter:blur(6px)}',
       '#purif-scout-hud b{color:#fff}',
       '#purif-scout-hud .row{margin:2px 0}',
@@ -503,6 +1137,15 @@
       '#purif-scout-hud button{pointer-events:auto;cursor:pointer;border:0;border-radius:8px;',
       'padding:6px 8px;font:600 11px/1 system-ui;background:#f5efe3;color:#1f1a14}',
       '#purif-scout-hud button:hover{filter:brightness(1.06)}',
+      '#purif-scout-hud button.primary{background:#7a0177;color:#fff}',
+      '#purif-scout-hud button.danger{background:#9f1239;color:#fff}',
+      '#purif-scout-hud .tray{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12)}',
+      '#purif-scout-hud .tray label{display:block;font-size:10px;opacity:.8;margin:4px 0 2px}',
+      '#purif-scout-hud input[type="search"],#purif-scout-hud select,#purif-scout-hud input[type="range"]{',
+      'width:100%;border-radius:8px;border:1px solid #57534e;background:#1c1917;color:#efe9db;',
+      'padding:6px 8px;font:12px/1.2 system-ui}',
+      '#purif-scout-hud input[type="range"]{padding:0;height:22px}',
+      '#purif-scout-hud .route-status{font-size:11px;margin-top:6px;color:#f9a8d4;min-height:1.2em}',
       '#purif-scout-mini{position:fixed;left:12px;bottom:12px;width:200px;height:168px;',
       'pointer-events:auto;border-radius:12px;overflow:hidden;',
       'box-shadow:0 8px 28px rgba(0,0,0,.4);border:2px solid #fffdf8;background:#e7e2d7}',
@@ -547,8 +1190,21 @@
       '  <div class="row"><kbd>S</kbd><b>Semáforo</b></div>',
       '  <div class="row"><kbd class="sec">Y</kbd>Comp · <kbd class="sec">E</kbd>Express · <kbd class="sec">P</kbd>Iglesia</div>',
       '  <div class="row"><kbd class="sec">I</kbd>Escuela · <kbd class="sec">H</kbd>Hospital · <kbd>C</kbd>Comentario</div>',
-      '  <div class="row"><kbd class="sec">Space</kbd>Auto-walk · <kbd class="sec">Z</kbd>Deshacer</div>',
+      '  <div class="row"><kbd class="sec">Space</kbd>Auto / pausa trayecto · <kbd class="sec">Z</kbd>Deshacer</div>',
       '  <div class="meta" id="purif-scout-meta">—</div>',
+      '  <div class="tray">',
+      '    <label>Colonia (Escobedo + ZMM)</label>',
+      '    <input type="search" id="purif-scout-col-filter" placeholder="Buscar colonia…" autocomplete="off" />',
+      '    <select id="purif-scout-colonia"><option value="">— cargando… —</option></select>',
+      '    <label>Velocidad auto / trayecto: <span id="purif-scout-speed-label">1.4s</span></label>',
+      '    <input type="range" id="purif-scout-speed" min="600" max="4000" step="100" value="' + state.autoMs + '" />',
+      '    <div class="acts">',
+      '      <button type="button" class="primary" id="purif-scout-start-route">Start trayecto</button>',
+      '      <button type="button" id="purif-scout-pause-route">Pausa</button>',
+      '      <button type="button" class="danger" id="purif-scout-stop-route">Stop</button>',
+      '    </div>',
+      '    <div class="route-status" id="purif-scout-route-status"></div>',
+      '  </div>',
       '  <div class="acts">',
       '    <button type="button" id="purif-scout-export" title="Descargar JSON sesión">Export</button>',
       '    <button type="button" id="purif-scout-sync" title="Reenviar upserts ntfy">Sync ntfy</button>',
@@ -591,9 +1247,38 @@
       dropComment(t);
     });
     document.getElementById('purif-scout-comment-cancel').addEventListener('click', closeComment);
+
+    document.getElementById('purif-scout-col-filter').addEventListener('input', function (e) {
+      fillColoniaSelect(e.target.value);
+    });
+    document.getElementById('purif-scout-start-route').addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      buildTrayectoForSelection();
+    });
+    document.getElementById('purif-scout-pause-route').addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (!state.route) { toast('No hay trayecto'); return; }
+      toggleRoutePause();
+    });
+    document.getElementById('purif-scout-stop-route').addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      stopRoute('Trayecto detenido');
+      setRouteStatus('Detenido');
+    });
+    document.getElementById('purif-scout-speed').addEventListener('input', function (e) {
+      var ms = Number(e.target.value);
+      var lab = document.getElementById('purif-scout-speed-label');
+      if (lab) lab.textContent = (ms / 1000).toFixed(1) + 's';
+      setAutoMs(ms);
+    });
+    var lab0 = document.getElementById('purif-scout-speed-label');
+    if (lab0) lab0.textContent = (state.autoMs / 1000).toFixed(1) + 's';
   }
 
   function openComment() {
+    // Pause motions so we don't steal focus from the textarea
+    if (state.autoWalk) setAutoWalk(false);
+    if (state.route && !state.route.paused) toggleRoutePause();
     state.commentOpen = true;
     var gate = document.getElementById('purif-scout-comment');
     var ta = document.getElementById('purif-scout-comment-text');
@@ -611,9 +1296,14 @@
     var meta = document.getElementById('purif-scout-meta');
     var link = document.getElementById('purif-scout-openmap');
     if (!badge || !meta) return;
-    if (state.inSV) {
-      badge.textContent = state.autoWalk ? 'SV · auto ▶' : 'Street View';
-      badge.className = 'badge ' + (state.autoWalk ? 'on' : 'on');
+    if (state.route && state.route.status === 'running') {
+      badge.textContent = state.route.paused
+        ? ('Trayecto ⏸ ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length)
+        : ('Trayecto ▶ ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length);
+      badge.className = 'badge ' + (state.route.paused ? 'warn' : 'on');
+    } else if (state.inSV) {
+      badge.textContent = state.autoWalk ? ('SV · auto ▶' + (state._lastWalkMethod ? ' · ' + state._lastWalkMethod : '')) : 'Street View';
+      badge.className = 'badge on';
     } else {
       badge.textContent = 'No SV — arrastra peoncito';
       badge.className = 'badge warn';
@@ -621,7 +1311,12 @@
     var lat = state.lat != null ? state.lat.toFixed(6) : '—';
     var lng = state.lng != null ? state.lng.toFixed(6) : '—';
     var h = (state.heading != null && isFinite(state.heading)) ? Math.round(state.heading) + '°' : '—';
-    meta.textContent = lat + ', ' + lng + ' · h ' + h + ' · ' + state.sessionPins.length + ' pin(es)';
+    var extra = '';
+    if (state.route) {
+      extra = ' · ' + state.route.name + ' ' + Math.min(state.route.i, state.route.points.length) + '/' + state.route.points.length;
+      if (state.route.skipped) extra += ' skip' + state.route.skipped;
+    }
+    meta.textContent = lat + ', ' + lng + ' · h ' + h + ' · ' + state.sessionPins.length + ' pin(es)' + extra;
     if (link && state.lat != null && state.lng != null) {
       link.href = MAP_BASE + '#map=' + Math.max(16, 17) + '/' + state.lat.toFixed(5) + '/' + state.lng.toFixed(5);
     }
@@ -637,17 +1332,15 @@
     ctx.fillStyle = '#d6d0c2';
     ctx.fillRect(0, 0, w, h);
 
-    // Simple local mercator around current pose
     var clat = state.lat != null ? state.lat : 25.836;
     var clng = state.lng != null ? state.lng : -100.371;
-    var span = 0.004; // ~400 m
+    var span = 0.004;
     function xy(lat, lng) {
       var x = ((lng - (clng - span)) / (2 * span)) * w;
       var y = ((clat + span - lat) / (2 * span)) * h;
       return { x: x, y: y };
     }
 
-    // grid
     ctx.strokeStyle = 'rgba(0,0,0,.08)';
     ctx.lineWidth = 1;
     for (var g = 1; g < 4; g++) {
@@ -655,6 +1348,26 @@
       ctx.moveTo((w / 4) * g, 0); ctx.lineTo((w / 4) * g, h); ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(0, (h / 4) * g); ctx.lineTo(w, (h / 4) * g); ctx.stroke();
+    }
+
+    // route preview
+    if (state.route && state.route.points && state.route.points.length) {
+      ctx.beginPath();
+      state.route.points.forEach(function (pt, i) {
+        var pxy = xy(pt.lat, pt.lng);
+        if (i === 0) ctx.moveTo(pxy.x, pxy.y); else ctx.lineTo(pxy.x, pxy.y);
+      });
+      ctx.strokeStyle = 'rgba(122,1,119,.45)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      var cur = state.route.points[Math.min(state.route.i, state.route.points.length - 1)];
+      if (cur) {
+        var cxy = xy(cur.lat, cur.lng);
+        ctx.beginPath();
+        ctx.arc(cxy.x, cxy.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#f472b6';
+        ctx.fill();
+      }
     }
 
     state.sessionPins.forEach(function (f) {
@@ -695,7 +1408,6 @@
       }
     });
 
-    // peg + heading
     var peg = xy(clat, clng);
     var rad = ((state.heading || 0) - 90) * Math.PI / 180;
     ctx.save();
@@ -716,16 +1428,29 @@
   }
 
   /* ---------- hotkeys ---------- */
+  function isTypingTarget(el) {
+    if (!el) return false;
+    var tag = (el.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (el.isContentEditable) return true;
+    return false;
+  }
+
   function onKeyDown(ev) {
-    var tag = (ev.target && ev.target.tagName) || '';
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ev.target && ev.target.isContentEditable)) return;
+    if (isTypingTarget(ev.target)) return;
     if (state.commentOpen) {
       if (ev.key === 'Escape') { closeComment(); ev.preventDefault(); }
+      // Never steal keys (incl. Space) while comment dialog is open
       return;
     }
 
     if (ev.code === 'Space' || ev.key === ' ') {
-      // Only hijack Space while in SV so Maps search isn't broken on map view
+      if (state.route && state.route.status === 'running') {
+        ev.preventDefault();
+        ev.stopPropagation();
+        toggleRoutePause();
+        return;
+      }
       if (!state.inSV) return;
       ev.preventDefault();
       ev.stopPropagation();
@@ -760,7 +1485,8 @@
     hookHistory();
     refreshPose();
     document.addEventListener('keydown', onKeyDown, true);
-    toast('Scout Purificadoras listo · sin API key');
+    loadColonias().catch(function () {});
+    toast('Scout Purificadoras v1.1 · sin API key');
   }
 
   if (document.readyState === 'loading') {

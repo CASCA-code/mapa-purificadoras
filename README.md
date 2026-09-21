@@ -42,4 +42,5 @@ Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
 ## Scout (Street View remoto)
 **Primario (sin billing):** userscript Tampermonkey sobre Maps de consumidor — [`docs/SCOUT_USERSCRIPT.md`](docs/SCOUT_USERSCRIPT.md) · instalar desde  
 `https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js`  
+v1.1: elige colonia (Escobedo + ZMM) → **Start trayecto** (OSM Overpass, sin Maps billing) → marca pines con hotkeys.  
 `scout-sv.html` (Maps JS embebido) sigue en Pages pero **requiere Google Cloud billing** — no pedir key a Nicolás. Mapillary abandonado. Detalle legacy: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).
