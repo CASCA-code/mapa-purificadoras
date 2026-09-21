@@ -1,6 +1,6 @@
 # Scout SV (Street View remoto)
 
-Actualizado: 2026-09-21 — prototipo v1 en `scout-sv.html`.
+Actualizado: 2026-09-21 — polish v2 (`scout-sv.html`): colores normales, mini-mapa Leaflet, sync LS+ntfy al soltar pin, hotkeys primarios M/S, comentario de zona (LineString).
 
 **Abrir:** https://casca-code.github.io/mapa-purificadoras/scout-sv.html  
 
@@ -9,9 +9,9 @@ Cache-bust: añade `?v=<sha7>` (o cualquier query) si el navegador sirve HTML vi
 
 ## Qué es
 
-Herramienta para que **Nicolás** recorra colonias prioritarias de la ZMM desde la laptop/tablet con **Google Street View**: el Scout camina solo el grafo de panoramas (links forward) a velocidad media-rápida; tú sueltas pines con hotkeys en el lat/lng del panorama actual.
+Herramienta para que **Nicolás** recorra colonias prioritarias de la ZMM desde la laptop/tablet con **Google Street View**: el Scout camina solo el grafo de panoramas (links forward) a velocidad media-rápida; tú sueltas pines / comentarios con hotkeys en el lat/lng (y heading) del panorama actual.
 
-No inventa scores. No sustituye el flujo de campo en `index.html` (Ubicarme / Comp / ＋ / ★).
+No inventa scores. No métricas/control (diferido). No sustituye el flujo de campo en `index.html` (Ubicarme / Comp / ＋ / ★).
 
 ## API key (Google Maps)
 
@@ -29,58 +29,74 @@ No inventa scores. No sustituye el flujo de campo en `index.html` (Ubicarme / Co
 
 - **Human-in-the-loop:** una persona mira el panorama y decide qué marcar. Scout solo mueve la cámara entre panoramas públicos de Street View.
 - No scrapear ni automatizar lectura de nombres de negocio, OCR masivo, ni dumps de tiles.
-- Cumple las [Google Maps Platform Terms](https://cloud.google.com/maps-platform/terms) y políticas de Street View. Uso operativo interno de site selection; no redistribuir imagery.
+- **No se cachea imagery de Street View** — solo se persisten pines / líneas GeoJSON (coords + props).
+- Cumple las [Google Maps Platform Terms](https://cloud.google.com/maps-platform/terms) y políticas de Street View.
 
-## Hotkeys (sesión)
+## Hotkeys
 
-Configurables en el objeto `SCOUT_HOTKEYS` al inicio de `scout-sv.html`.
+Configurables en `SCOUT_HOTKEYS` al inicio de `scout-sv.html`.  
+**Primarios (arriba en leyenda):** **M** Modelorama · **S** Semáforo.
 
 | Tecla | Qué marca | `kind` | `layer` |
 |---|---|---|---|
+| **M** | Modelorama *(primario)* | `modelorama` | `ancla_campo` |
+| **S** | Semáforo *(primario)* | `otro` (nota `Semáforo`) | `ancla_campo` |
 | **Y** | Competencia / purificadora | `purificadora` | `competencia` |
-| **U** | Modelorama | `modelorama` | `ancla_campo` |
-| **O** | Express | `express` | `ancla_campo` |
+| **E** | Express | `express` | `ancla_campo` |
 | **P** | Iglesia | `iglesia` | `ancla_campo` |
 | **I** | Escuela | `escuela` | `ancla_campo` |
-| **S** | Semáforo | `otro` (name/nota `Semáforo`) | `ancla_campo` |
 | **H** | Hospital / otro | `otro` | `ancla_campo` |
+| **U** | Alias Modelorama (legacy) | `modelorama` | `ancla_campo` |
+| **C** | Comentario de zona (línea) | `comentario_zona` | `comentario_zona` |
 | **Space** | Pausar / reanudar caminata | — | — |
-| **Backspace** / **Z** | Deshacer último pin (sesión) | — | — |
+| **Backspace** / **Z** | Deshacer último pin/comentario (sesión + LS + ntfy delete) | — | — |
+
+## Comentario de zona (LineString)
+
+1. Hotkey **C** o botón **Comentar zona**.
+2. Escribes el texto en el diálogo.
+3. Scout guarda un **GeoJSON LineString** ~60 m centrado en el panorama, orientado al **heading** actual (±30 m).
+4. Props típicas: `kind: "comentario_zona"`, `layer: "comentario_zona"`, `nota_raw` / `comentario`, `fuente: "scout_sv"`, `status: "inbox"`, `pano_id`, `heading`.
+5. Se pinta en el **mini-mapa** (polyline rosa) y, tras sync/merge, en el **mapa principal** (`index.html` dibuja la línea + popup).
 
 ## Cómo llegan los pines al mapa principal
 
-1. **Export JSON (v1 recomendado)**  
-   Botón **Exportar JSON** → archivo + portapapeles con la misma forma de keys que el export de campo:
-   ```json
-   {
-     "exported_at": "…",
-     "fuente": "scout_sv",
-     "keys": {
-       "purificadoras_field_adds_v1": [ /* Features competencia */ ],
-       "purificadoras_anclas_v1": [ /* Features ancla_campo */ ]
-     }
-   }
-   ```
-   Cada Feature es GeoJSON Point con `properties` alineadas a campo (`id`, `kind`, `name`, `nota_raw`, `ts`, `fuente: "scout_sv"`, `status: "inbox"`, `layer`, …).
+Misma pila que campo en `index.html` (no schema paralelo):
 
-2. **Sync ntfy (opcional)**  
-   Botón **Sync ntfy** hace `upsert` al mismo topic que `index.html` (`purif-zmm-campo-casca-v1`). El workflow / `scripts/merge_field_add_issues.py` mergea a `data/field_adds.geojson` → Pages. Ver `docs/FIELD_ADDS.md`.
+1. **Al soltar pin / guardar comentario**  
+   - Append a `localStorage`:
+     - competencia → `purificadoras_field_adds_v1`
+     - anclas + comentarios → `purificadoras_anclas_v1`
+   - `silentSync({ action: 'upsert', feature })` al topic `purif-zmm-campo-casca-v1` (mismo que campo).
 
-3. Tras merge + push, abre el mapa principal (cache-bust `?v=`) y verás los pines en capas competencia / anclas campo.
+2. **Export JSON** (respaldo) — mismas keys en el payload.
 
-## Recorrido (v1)
+3. **Sync ntfy** (botón) — re-envía upserts de la sesión.
 
-- Centro: dropdown de colonias prioritarias (centroides de `data/colonias.geojson`) o paste `lat,lng`.
+4. Workflow / `scripts/merge_field_add_issues.py` mergea a `data/field_adds.geojson` → Pages. Ver `docs/FIELD_ADDS.md`.
+
+## Mini-mapa (abajo-izquierda)
+
+- Leaflet + tiles **Carto Voyager** (igual que calles en `index.html`).
+- Capas best-effort: `data/compet.geojson`, `anclas.geojson`, `field_adds.geojson`, `liked_zones.geojson` + pines de localStorage + sesión.
+- Sigue el panorama (pegman rota con heading). Zoom cercano (~17).
+- Solo coords/GeoJSON; **no** cachea tiles de Street View.
+
+## Recorrido
+
+- Centro: dropdown de colonias prioritarias o paste `lat,lng`.
 - `StreetViewService.getPanorama` (±120 m, outdoor) → `StreetViewPanorama`.
-- Auto-walk: elige el link cuyo heading está más alineado al POV actual; evita `pano` ya visitados; slider de velocidad + Space.
-- Contador de pasos; tope suave ~400 (pausar y seguir o nuevo centro).
+- Auto-walk medio-rápido (slider; default ~6): link más alineado al POV; evita `pano` visitados; Space pausa.
+- Contador de pasos; tope suave ~400.
 
-## Límites / siguiente
+## Colores / dark mode
 
-- No hay routing de red vial completa (OSRM etc.): solo grafo Street View.
-- Colonia picker = lista corta hardcodeada (ampliar leyendo geojson si hace falta).
-- ntfy es best-effort (CORS/beacon); export-first sigue siendo el path fiable.
-- Pegman del mini-mapa no rota con heading (v1).
+Scout fuerza `color-scheme: only light` en página y `#pano` para que Chrome **no invierta** Street View ni el mini-mapa. UI en tema claro fijo.
+
+## Diferido
+
+- Métricas / panel de control: **no** en esta versión.
+- Routing OSRM / grafo vial completo: no; solo grafo Street View.
 
 ## Relacionado
 

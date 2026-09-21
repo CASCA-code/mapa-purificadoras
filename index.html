@@ -2523,6 +2523,7 @@ window.__purifReady && window.__purifReady.then(function(){
 
   let kind = 'purificadora';
   let anchorKind = null;
+  const COMMENT_ZONA_COLOR = '#db2777';
   const ANCHOR_COLORS = {
     escuela: '#2563eb',
     iglesia: '#7c3aed',
@@ -3130,6 +3131,74 @@ window.__purifReady && window.__purifReady.then(function(){
       }
     };
   }
+
+  function isCommentZonaFeature(f){
+    if (!f || !f.geometry) return false;
+    var p = f.properties || {};
+    return p.kind === 'comentario_zona' || p.layer === 'comentario_zona' || f.geometry.type === 'LineString';
+  }
+  function markerFromCommentLine(f){
+    ensureLayers();
+    var p = f.properties || {};
+    var id = p.id;
+    if (!id) return;
+    removeMarker(markersAnclas, layerAnclas, id);
+    var coords = f.geometry && f.geometry.coordinates;
+    if (!coords || coords.length < 2) return;
+    var latlngs = coords.map(function(xy){ return [xy[1], xy[0]]; });
+    var txt = p.nota_raw || p.comentario || p.name || 'Comentario zona';
+    var pl = L.polyline(latlngs, {
+      color: (typeof COMMENT_ZONA_COLOR !== 'undefined' ? COMMENT_ZONA_COLOR : '#db2777'),
+      weight: 5,
+      opacity: 0.92,
+      lineCap: 'round'
+    });
+    var mid = latlngs[Math.floor(latlngs.length / 2)];
+    var wrap = document.createElement('div');
+    wrap.className = 'field-popup';
+    wrap.style.minWidth = '180px';
+    var b = document.createElement('b');
+    b.style.color = '#fff';
+    b.textContent = '💬 ' + (p.name || 'Comentario zona');
+    wrap.appendChild(b);
+    var d = document.createElement('div');
+    d.style.cssText = 'margin:6px 0;font-size:12px;color:#fff;white-space:pre-wrap';
+    d.textContent = txt;
+    wrap.appendChild(d);
+    var rm = document.createElement('button');
+    rm.type = 'button';
+    rm.textContent = 'Quitar';
+    rm.style.cssText = 'margin-top:8px;width:100%;padding:10px;border:none;border-radius:8px;background:#ef4444;color:#fff;font:700 14px system-ui;cursor:pointer';
+    wrap.appendChild(rm);
+    pl.bindPopup(wrap, { maxWidth: 280, className: 'field-pop', autoPan: false });
+    pl.addTo(layerAnclas);
+    markersAnclas[id] = pl;
+    rm.addEventListener('click', function(ev){
+      try { ev.preventDefault(); ev.stopPropagation(); } catch (e) {}
+      var feat = null;
+      var prev = loadLS(LS_ANCLAS);
+      for (var i = 0; i < prev.length; i++) {
+        if ((prev[i].properties || {}).id === id) { feat = prev[i]; break; }
+      }
+      if (!feat) feat = f;
+      var arr = prev.filter(function(x){ return (x.properties || {}).id !== id; });
+      saveLS(LS_ANCLAS, arr);
+      removeMarker(markersAnclas, layerAnclas, id);
+      showFieldUndoToast({
+        name: (p.name || 'Comentario'),
+        commitDelete: function(){ silentSync({ action: 'delete', id: id, layer: 'comentario_zona' }); },
+        onUndo: function(){
+          var a = loadLS(LS_ANCLAS).filter(function(x){ return (x.properties || {}).id !== id; });
+          a.push(feat);
+          saveLS(LS_ANCLAS, a);
+          markerFromCommentLine(feat);
+          silentSync({ action: 'upsert', feature: feat });
+        }
+      });
+      try { pl.closePopup(); } catch (e2) {}
+    });
+  }
+
   function markerFromAnchor(f){
     const p = f.properties || {};
     const c = f.geometry.coordinates;
@@ -3439,7 +3508,11 @@ window.__purifReady && window.__purifReady.then(function(){
       if (cc) window.__purifSharedFavKeys['xy:' + Number(cc[0]).toFixed(5) + ',' + Number(cc[1]).toFixed(5)] = 1;
     } catch (e) {}
   });
-  loadLS(LS_ANCLAS).forEach(function(f){ try { markerFromAnchor(f); markSeen(f); } catch (e) {} });
+  loadLS(LS_ANCLAS).forEach(function(f){ try {
+    if (isCommentZonaFeature(f)) markerFromCommentLine(f);
+    else markerFromAnchor(f);
+    markSeen(f);
+  } catch (e) {} });
 
   // Capa compartida (todos los celulares → ntfy → merge → este geojson)
   function renderSharedFeature(f){
@@ -3449,7 +3522,8 @@ window.__purifReady && window.__purifReady.then(function(){
     if (id && seenIds[id]) return;
     const layer = p.layer || '';
     try {
-      if (layer === 'competencia' || p.kind === 'purificadora') markerFromComp(f);
+      if (isCommentZonaFeature(f)) markerFromCommentLine(f);
+      else if (layer === 'competencia' || p.kind === 'purificadora') markerFromComp(f);
       else if (layer === 'nosotros' || layer === 'favoritos' || p.kind === 'nuestra' || p.kind === 'favorito') markerFromOurs(f);
       else if (layer === 'ancla_campo' || ANCHOR_LABELS[p.kind]) markerFromAnchor(f);
       else if (p.kind === 'otra') markerFromComp(f);

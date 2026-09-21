@@ -8,29 +8,25 @@
 <title>Scout SV — Purificadoras ZMM</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="vendor/leaflet.css">
 <style>
+/* Force light chrome so Google SV / map tiles are NOT auto-inverted by dark color-scheme */
 :root{
-  color-scheme: light;
+  color-scheme: only light;
   --map-void:#e7e2d7; --surface:#fffdf8; --surface-2:#f5efe3;
   --ink:#2b2620; --ink-muted:#736b5e; --hair:#e4ddcc;
   --accent:#7a0177; --danger:#c0140f; --ok:#0f766e;
   --shadow:0 2px 4px rgba(43,38,32,.09), 0 14px 32px -10px rgba(43,38,32,.24);
 }
-@media (prefers-color-scheme: dark){
-  :root{
-    color-scheme: dark;
-    --map-void:#17150f; --surface:#211d17; --surface-2:#2c271f;
-    --ink:#efe9db; --ink-muted:#a89e8b; --hair:#39332a;
-    --accent:#ec86cf; --danger:#f0605a; --ok:#2dd4bf;
-    --shadow:0 2px 4px rgba(0,0,0,.45), 0 16px 36px -10px rgba(0,0,0,.65);
-  }
-}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden}
+html,body{margin:0;height:100%;overflow:hidden;color-scheme:only light}
 body{background:var(--map-void);color:var(--ink);
   font:400 14px/1.45 "IBM Plex Sans", system-ui, "Segoe UI", Arial, sans-serif;}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--accent)}
+/* Never invert Street View / Leaflet tiles */
+#pano, #pano *, #mapMini, #mapMini *{filter:none !important}
+#pano{color-scheme:only light;background:#111}
 
 #app{display:grid;grid-template-columns:1fr minmax(280px,360px);grid-template-rows:auto 1fr;height:100%;}
 #topbar{
@@ -43,8 +39,10 @@ a{color:var(--accent)}
 #topbar .sub{color:var(--ink-muted);font-size:12px;}
 #topbar .grow{flex:1 1 auto;min-width:8px}
 #stage{position:relative;min-width:0;min-height:0;background:#111}
-#mapMini{position:absolute;left:10px;bottom:10px;width:160px;height:120px;
-  border-radius:10px;overflow:hidden;box-shadow:var(--shadow);border:2px solid var(--surface);z-index:3}
+#mapMini{position:absolute;left:10px;bottom:10px;width:200px;height:160px;
+  border-radius:10px;overflow:hidden;box-shadow:var(--shadow);border:2px solid var(--surface);z-index:3;
+  background:#e7e2d7}
+#mapMini .leaflet-control-attribution{font-size:9px;max-width:70%;}
 #pano{position:absolute;inset:0}
 #hud{
   position:absolute;top:10px;left:10px;right:10px;z-index:4;
@@ -62,9 +60,7 @@ a{color:var(--accent)}
   display:flex;flex-direction:column;min-height:0;
   background:var(--surface);border-left:1px solid var(--hair);overflow:hidden;
 }
-#side header{
-  padding:12px 14px 8px;border-bottom:1px solid var(--hair);
-}
+#side header{padding:12px 14px 8px;border-bottom:1px solid var(--hair);}
 #side header p{margin:4px 0 0;font-size:12px;color:var(--ink-muted)}
 #side .scroll{flex:1;overflow:auto;padding:12px 14px 18px;overscroll-behavior:contain}
 .sec{margin:0 0 16px}
@@ -90,17 +86,17 @@ button.btn.ok{background:var(--ok);color:#fff;border-color:transparent}
 button.btn.danger{background:var(--danger);color:#fff;border-color:transparent}
 button.btn:disabled{opacity:.45;cursor:not-allowed}
 .hint{font-size:12px;color:var(--ink-muted);margin:6px 0 0;line-height:1.4}
-#keymap{
-  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;
-}
+#keymap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
 .krow{
   display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:10px;
   background:var(--surface-2);border:1px solid var(--hair);font-size:13px;font-weight:600;
 }
+.krow.primary{border-color:var(--accent);background:#f8eef7;box-shadow:inset 0 0 0 1px rgba(122,1,119,.12)}
 .krow kbd{
   flex:none;min-width:28px;text-align:center;padding:4px 6px;border-radius:6px;
   background:var(--ink);color:var(--surface);font:700 13px/1 "IBM Plex Mono", monospace;
 }
+.krow.primary kbd{background:var(--accent);color:#fff}
 .krow .lab{flex:1;min-width:0;line-height:1.2}
 .krow .lab small{display:block;font-weight:500;color:var(--ink-muted);font-size:10.5px}
 #pinList{list-style:none;margin:0;padding:0}
@@ -109,6 +105,7 @@ button.btn:disabled{opacity:.45;cursor:not-allowed}
   border-bottom:1px solid var(--hair);font-size:12.5px;
 }
 #pinList .dot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:4px}
+#pinList .dot.line{border-radius:2px;width:14px;height:4px;margin-top:7px}
 #pinList .meta{flex:1;min-width:0}
 #pinList .meta b{display:block;font-size:13px}
 #pinList .meta span{color:var(--ink-muted);font:500 11px/1.3 "IBM Plex Mono", monospace}
@@ -119,16 +116,17 @@ button.btn:disabled{opacity:.45;cursor:not-allowed}
   transition:opacity .2s;
 }
 #toast.show{opacity:1}
-#keyGate{
+#keyGate,#commentGate{
   position:fixed;inset:0;z-index:40;background:rgba(23,21,15,.72);
   display:none;align-items:center;justify-content:center;padding:16px;
+  color-scheme:only light;
 }
-#keyGate.show{display:flex}
-#keyGate .card{
+#keyGate.show,#commentGate.show{display:flex}
+#keyGate .card,#commentGate .card{
   width:min(440px,100%);background:var(--surface);border-radius:14px;
   padding:18px 18px 16px;box-shadow:var(--shadow);
 }
-#keyGate h2{margin:0 0 6px;font:600 18px/1.2 Fraunces, Georgia, serif}
+#keyGate h2,#commentGate h2{margin:0 0 6px;font:600 18px/1.2 Fraunces, Georgia, serif}
 #overlayStart{
   position:absolute;inset:0;z-index:6;background:rgba(23,21,15,.55);
   display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;
@@ -142,10 +140,15 @@ button.btn:disabled{opacity:.45;cursor:not-allowed}
 #overlayStart h2{margin:0 0 4px;font:600 20px/1.2 Fraunces, Georgia, serif}
 .speedWrap{display:flex;align-items:center;gap:10px}
 .speedWrap input[type=range]{flex:1}
+.scout-peg{
+  width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;
+  border-bottom:14px solid #7a0177;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));
+  transform-origin:50% 70%;
+}
 @media (max-width:900px){
   #app{grid-template-columns:1fr;grid-template-rows:auto minmax(42vh,1fr) minmax(38vh,1fr)}
   #side{border-left:none;border-top:1px solid var(--hair)}
-  #mapMini{width:120px;height:90px}
+  #mapMini{width:140px;height:110px}
   #keymap{grid-template-columns:1fr 1fr}
 }
 @media (max-width:560px){
@@ -179,7 +182,7 @@ button.btn:disabled{opacity:.45;cursor:not-allowed}
     <div id="overlayStart">
       <div class="card">
         <h2>Empezar recorrido</h2>
-        <p class="hint">Pega un centro lat,lng o elige una colonia prioritaria. Scout camina el grafo de Street View (links forward) desde el panorama más cercano.</p>
+        <p class="hint">Pega un centro lat,lng o elige una colonia prioritaria. Scout camina el grafo de Street View (links forward) a velocidad medio-rápida; tú solo sueltas pines / comentarios.</p>
         <div class="sec" style="margin-top:12px">
           <label class="field"><span>Colonia prioritaria</span>
             <select id="coloniaPick">
@@ -201,7 +204,7 @@ button.btn:disabled{opacity:.45;cursor:not-allowed}
   <aside id="side">
     <header>
       <strong id="pinCount">0 pines</strong>
-      <p>Hotkeys sueltan pin en el panorama actual. Space = pausa/reanuda.</p>
+      <p>Hotkeys → pin en panorama. <b>M</b>/<b>S</b> primarios. <b>C</b> = comentario de zona (línea). Space = pausa.</p>
     </header>
     <div class="scroll">
       <section class="sec">
@@ -209,31 +212,32 @@ button.btn:disabled{opacity:.45;cursor:not-allowed}
         <div class="speedWrap">
           <span class="hint" style="margin:0">vel.</span>
           <input type="range" id="speedSlider" min="1" max="10" value="6" aria-label="Velocidad">
-          <span id="speedLabel" class="hint" style="margin:0;min-width:3.5em">medio</span>
+          <span id="speedLabel" class="hint" style="margin:0;min-width:3.5em">medio-rápido</span>
         </div>
         <div class="btns">
           <button type="button" class="btn primary" id="btnPause">Pausar (Space)</button>
           <button type="button" class="btn" id="btnRestart">Nuevo centro</button>
+          <button type="button" class="btn ok" id="btnComment">Comentar zona (C)</button>
         </div>
-        <p class="hint">Preferimos links “adelante”. Si no hay, tomamos el más alineado. Evitamos panoramas ya visitados.</p>
+        <p class="hint">Preferimos links “adelante”. Evitamos panoramas ya visitados. Sin caché de imagery SV — solo pines/líneas GeoJSON.</p>
       </section>
 
       <section class="sec">
         <h2>Teclado</h2>
         <div id="keymap"></div>
-        <p class="hint" style="margin-top:8px"><kbd style="font:700 12px IBM Plex Mono,monospace;background:var(--ink);color:var(--surface);padding:2px 6px;border-radius:4px">⌫</kbd> / <kbd style="font:700 12px IBM Plex Mono,monospace;background:var(--ink);color:var(--surface);padding:2px 6px;border-radius:4px">Z</kbd> = deshacer último pin (sesión)</p>
+        <p class="hint" style="margin-top:8px"><kbd style="font:700 12px IBM Plex Mono,monospace;background:var(--ink);color:var(--surface);padding:2px 6px;border-radius:4px">⌫</kbd> / <kbd style="font:700 12px IBM Plex Mono,monospace;background:var(--ink);color:var(--surface);padding:2px 6px;border-radius:4px">Z</kbd> = deshacer · <kbd style="font:700 12px IBM Plex Mono,monospace;background:var(--accent);color:#fff;padding:2px 6px;border-radius:4px">C</kbd> = comentario zona</p>
       </section>
 
       <section class="sec">
         <h2>Sesión</h2>
         <ul id="pinList"></ul>
-        <p class="hint" id="emptyPins">Aún no hay pines. Camina y pulsa Y / U / O / P / I / S / H.</p>
+        <p class="hint" id="emptyPins">Aún no hay pines. Camina y pulsa M / S (primarios) u otras teclas.</p>
         <div class="btns">
           <button type="button" class="btn ok" id="btnExport">Exportar JSON</button>
           <button type="button" class="btn" id="btnSync" title="ntfy upsert (mismo topic que el mapa)">Sync ntfy</button>
           <button type="button" class="btn danger" id="btnClear">Limpiar sesión</button>
         </div>
-        <p class="hint">Export usa las mismas keys que el mapa de campo (<code>purificadoras_field_adds_v1</code> / <code>purificadoras_anclas_v1</code>). Sync opcional → bandeja ntfy → merge Pages.</p>
+        <p class="hint">Cada pin/comentario se guarda al momento en las mismas keys que el mapa (<code>purificadoras_field_adds_v1</code> / <code>purificadoras_anclas_v1</code>) + upsert ntfy. Export es respaldo.</p>
       </section>
     </div>
   </aside>
@@ -252,21 +256,41 @@ button.btn:disabled{opacity:.45;cursor:not-allowed}
       <button type="button" class="btn primary" id="btnSaveKey">Guardar y cargar</button>
       <button type="button" class="btn" id="btnCancelKey">Cerrar</button>
     </div>
-    <p class="hint">Ver <a href="docs/SCOUT_SV.md" target="_blank" rel="noopener">docs/SCOUT_SV.md</a> · ToS: human-in-the-loop (tú marcas; no scrapeo automático de negocio).</p>
+    <p class="hint">Ver <a href="docs/SCOUT_SV.md" target="_blank" rel="noopener">docs/SCOUT_SV.md</a> · ToS: human-in-the-loop.</p>
   </div>
 </div>
 
+<div id="commentGate" role="dialog" aria-modal="true" aria-labelledby="commentGateTitle">
+  <div class="card">
+    <h2 id="commentGateTitle">Comentario de zona</h2>
+    <p class="hint">Se dibuja un tramo corto (~60 m) a lo largo de la calle (heading del panorama) y se sincroniza como field add (LineString).</p>
+    <label class="field" style="margin-top:10px"><span>Comentario</span>
+      <textarea id="commentInput" rows="3" placeholder="ej. buen flujo peatonal / semáforo lento / fachada viable…" maxlength="500"></textarea>
+    </label>
+    <div class="btns">
+      <button type="button" class="btn primary" id="btnSaveComment">Guardar línea</button>
+      <button type="button" class="btn" id="btnCancelComment">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/leaflet.js"></script>
 <script>
-/* ========== Scout SV config (hotkeys editables) ========== */
+/* ========== Scout SV config ==========
+ * Primarios: M Modelorama, S Semáforo (arriba en leyenda).
+ * C = comentario de zona (LineString). Space = pausa.
+ */
 const SCOUT_HOTKEYS = {
+  M: { kind: 'modelorama', layer: 'ancla_campo', name: 'Modelorama', label: 'Modelorama', color: '#ca8a04', primary: true },
+  S: { kind: 'otro', layer: 'ancla_campo', name: 'Semáforo', nota_raw: 'Semáforo', label: 'Semáforo', color: '#64748b', primary: true },
   Y: { kind: 'purificadora', layer: 'competencia', name: 'Purificadora', label: 'Competencia / purificadora', color: '#0f766e' },
-  U: { kind: 'modelorama', layer: 'ancla_campo', name: 'Modelorama', label: 'Modelorama', color: '#ca8a04' },
-  O: { kind: 'express', layer: 'ancla_campo', name: 'Express', label: 'Express', color: '#ea580c' },
+  E: { kind: 'express', layer: 'ancla_campo', name: 'Express', label: 'Express', color: '#ea580c' },
   P: { kind: 'iglesia', layer: 'ancla_campo', name: 'Iglesia', label: 'Iglesia', color: '#7c3aed' },
   I: { kind: 'escuela', layer: 'ancla_campo', name: 'Escuela', label: 'Escuela', color: '#2563eb' },
-  S: { kind: 'otro', layer: 'ancla_campo', name: 'Semáforo', nota_raw: 'Semáforo', label: 'Semáforo', color: '#64748b' },
   H: { kind: 'otro', layer: 'ancla_campo', name: 'Hospital / otro', label: 'Hospital / otro', color: '#64748b' }
 };
+/* Alias legacy U → Modelorama */
+SCOUT_HOTKEYS.U = Object.assign({}, SCOUT_HOTKEYS.M, { label: 'Modelorama (alias U)' });
 
 const PRIORITY_COLONIAS = [
   { id: 'smr', nombre: 'San Miguel Residencial', municipio: 'Escobedo', lat: 25.836071, lng: -100.371121 },
@@ -283,8 +307,9 @@ const LS_ANCLAS = 'purificadoras_anclas_v1';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
 const MAX_STEPS_SOFT = 400;
+const COMMENT_HALF_M = 30; /* ~60 m total segment */
+const COMMENT_COLOR = '#db2777';
 
-/* ========== helpers ========== */
 function $(id){ return document.getElementById(id); }
 function toast(msg){
   var t = $('toast');
@@ -296,16 +321,23 @@ function toast(msg){
 function uuid(prefix){
   return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
 }
+function loadLS(key){
+  try { return JSON.parse(localStorage.getItem(key) || '[]'); }
+  catch (e) { return []; }
+}
+function saveLS(key, arr){
+  try { localStorage.setItem(key, JSON.stringify(arr)); }
+  catch (e) {
+    try { alert('No se pudo guardar en localStorage (¿lleno?).'); } catch (e2) {}
+  }
+}
 function parseLatLng(raw){
   if (!raw) return null;
   var m = String(raw).trim().match(/(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/);
   if (!m) return null;
   var a = Number(m[1]), b = Number(m[2]);
   if (!isFinite(a) || !isFinite(b)) return null;
-  // Heuristic: ZMM lat ~25, lng ~-100
   if (Math.abs(a) <= 90 && Math.abs(b) <= 180) {
-    if (Math.abs(a) > 90) return null;
-    // if first looks like lng for MTY (≈ -100), swap
     if (a < -50 && b > 15 && b < 35) return { lat: b, lng: a };
     return { lat: a, lng: b };
   }
@@ -344,16 +376,49 @@ function silentSync(payload){
     return false;
   }
 }
+function destKeyForFeature(f){
+  var p = f.properties || {};
+  if (p.layer === 'competencia' || p.kind === 'purificadora') return LS_COMP;
+  return LS_ANCLAS;
+}
+function persistFeature(feat){
+  var key = destKeyForFeature(feat);
+  var arr = loadLS(key);
+  var id = (feat.properties || {}).id;
+  arr = arr.filter(function(x){ return (x.properties || {}).id !== id; });
+  arr.push(feat);
+  saveLS(key, arr);
+  silentSync({ action: 'upsert', feature: feat });
+}
+function unpersistFeature(feat){
+  if (!feat) return;
+  var key = destKeyForFeature(feat);
+  var id = (feat.properties || {}).id;
+  var arr = loadLS(key).filter(function(x){ return (x.properties || {}).id !== id; });
+  saveLS(key, arr);
+  if (id) silentSync({ action: 'delete', id: id, layer: (feat.properties || {}).layer || '' });
+}
+
+/* offset meters along heading (deg) */
+function offsetLatLng(lat, lng, headingDeg, meters){
+  var R = 6378137;
+  var rad = headingDeg * Math.PI / 180;
+  var dLat = (meters * Math.cos(rad)) / R;
+  var dLng = (meters * Math.sin(rad)) / (R * Math.cos(lat * Math.PI / 180));
+  return { lat: lat + dLat * 180 / Math.PI, lng: lng + dLng * 180 / Math.PI };
+}
 
 /* ========== UI: keymap + colonias ========== */
 (function buildKeymap(){
   var host = $('keymap');
-  Object.keys(SCOUT_HOTKEYS).forEach(function(k){
+  var order = ['M', 'S', 'Y', 'E', 'P', 'I', 'H'];
+  order.forEach(function(k){
     var h = SCOUT_HOTKEYS[k];
+    if (!h) return;
     var row = document.createElement('div');
-    row.className = 'krow';
+    row.className = 'krow' + (h.primary ? ' primary' : '');
     row.innerHTML = '<kbd>' + k + '</kbd><div class="lab">' + h.label +
-      '<small>' + h.kind + ' · ' + h.layer + '</small></div>';
+      '<small>' + h.kind + ' · ' + h.layer + (h.primary ? ' · primario' : '') + '</small></div>';
     host.appendChild(row);
   });
 })();
@@ -367,10 +432,11 @@ function silentSync(payload){
   });
 })();
 
-/* ========== session pins ========== */
-var sessionPins = []; // GeoJSON Features
-var mapMarkers = [];
+/* ========== session + leaflet mini-map ========== */
+var sessionPins = [];
 var miniMap = null;
+var layerCompet = null, layerAnclas = null, layerField = null, layerLiked = null, layerSession = null;
+var pegMarker = null;
 var panorama = null;
 var svService = null;
 var walking = false;
@@ -380,10 +446,13 @@ var stepCount = 0;
 var visited = Object.create(null);
 var currentPanoMeta = { lat: null, lng: null, panoId: null, heading: 0 };
 var mapsReady = false;
+var leafletReady = false;
 
 function pinColor(f){
   var p = f.properties || {};
+  if (p.kind === 'comentario_zona') return COMMENT_COLOR;
   for (var k in SCOUT_HOTKEYS) {
+    if (k === 'U') continue;
     if (SCOUT_HOTKEYS[k].kind === p.kind && SCOUT_HOTKEYS[k].layer === p.layer) {
       if (p.kind === 'otro' && SCOUT_HOTKEYS[k].nota_raw && p.nota_raw === SCOUT_HOTKEYS[k].nota_raw) {
         return SCOUT_HOTKEYS[k].color;
@@ -394,6 +463,11 @@ function pinColor(f){
   if (p.layer === 'competencia') return '#0f766e';
   return '#64748b';
 }
+function isCommentLine(f){
+  var g = f && f.geometry;
+  var p = (f && f.properties) || {};
+  return p.kind === 'comentario_zona' || (g && g.type === 'LineString');
+}
 function renderPins(){
   var ul = $('pinList');
   ul.innerHTML = '';
@@ -401,36 +475,44 @@ function renderPins(){
   $('emptyPins').style.display = sessionPins.length ? 'none' : 'block';
   sessionPins.slice().reverse().forEach(function(f){
     var p = f.properties || {};
-    var c = f.geometry.coordinates;
     var li = document.createElement('li');
-    li.innerHTML = '<span class="dot" style="background:' + pinColor(f) + '"></span>' +
-      '<div class="meta"><b>' + (p.name || p.kind) + '</b>' +
-      '<span>' + Number(c[1]).toFixed(6) + ', ' + Number(c[0]).toFixed(6) +
-      ' · ' + (p.kind || '') + '</span></div>';
+    var meta;
+    if (isCommentLine(f)) {
+      var coords = f.geometry.coordinates || [];
+      var mid = coords[Math.floor(coords.length / 2)] || coords[0] || [0, 0];
+      meta = Number(mid[1]).toFixed(5) + ', ' + Number(mid[0]).toFixed(5) + ' · línea';
+      li.innerHTML = '<span class="dot line" style="background:' + pinColor(f) + '"></span>' +
+        '<div class="meta"><b>💬 ' + (p.name || p.nota_raw || 'Comentario') + '</b>' +
+        '<span>' + meta + '</span></div>';
+    } else {
+      var c = f.geometry.coordinates;
+      meta = Number(c[1]).toFixed(6) + ', ' + Number(c[0]).toFixed(6) + ' · ' + (p.kind || '');
+      li.innerHTML = '<span class="dot" style="background:' + pinColor(f) + '"></span>' +
+        '<div class="meta"><b>' + (p.name || p.kind) + '</b>' +
+        '<span>' + meta + '</span></div>';
+    }
     ul.appendChild(li);
   });
-  // mini map markers
-  if (miniMap && window.google) {
-    mapMarkers.forEach(function(m){ m.setMap(null); });
-    mapMarkers = [];
-    sessionPins.forEach(function(f){
+  refreshSessionLayer();
+}
+function refreshSessionLayer(){
+  if (!layerSession) return;
+  layerSession.clearLayers();
+  sessionPins.forEach(function(f){
+    if (isCommentLine(f)) {
+      var latlngs = (f.geometry.coordinates || []).map(function(xy){ return [xy[1], xy[0]]; });
+      if (latlngs.length < 2) return;
+      var pl = L.polyline(latlngs, { color: COMMENT_COLOR, weight: 5, opacity: 0.9 });
+      pl.bindTooltip('💬 ' + ((f.properties && (f.properties.nota_raw || f.properties.name)) || 'Comentario'), { sticky: true });
+      pl.addTo(layerSession);
+    } else {
       var c = f.geometry.coordinates;
-      var m = new google.maps.Marker({
-        map: miniMap,
-        position: { lat: c[1], lng: c[0] },
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 5,
-          fillColor: pinColor(f),
-          fillOpacity: 1,
-          strokeColor: '#fff',
-          strokeWeight: 1
-        },
-        title: (f.properties && f.properties.name) || ''
-      });
-      mapMarkers.push(m);
-    });
-  }
+      L.circleMarker([c[1], c[0]], {
+        radius: 6, color: '#fff', weight: 1.5,
+        fillColor: pinColor(f), fillOpacity: 1
+      }).bindTooltip((f.properties && f.properties.name) || '', { direction: 'top' }).addTo(layerSession);
+    }
+  });
 }
 function makeFeature(def, lat, lng){
   var isComp = def.layer === 'competencia';
@@ -451,6 +533,31 @@ function makeFeature(def, lat, lng){
     }
   };
 }
+function makeCommentFeature(text, lat, lng, heading){
+  var a = offsetLatLng(lat, lng, heading, -COMMENT_HALF_M);
+  var b = offsetLatLng(lat, lng, heading, COMMENT_HALF_M);
+  return {
+    type: 'Feature',
+    geometry: {
+      type: 'LineString',
+      coordinates: [[a.lng, a.lat], [lng, lat], [b.lng, b.lat]]
+    },
+    properties: {
+      id: uuid('cz'),
+      kind: 'comentario_zona',
+      name: (text || '').slice(0, 80) || 'Comentario zona',
+      nota_raw: text || '',
+      comentario: text || '',
+      accuracy_m: null,
+      ts: new Date().toISOString(),
+      fuente: 'scout_sv',
+      status: 'inbox',
+      layer: 'comentario_zona',
+      heading: heading,
+      pano_id: currentPanoMeta.panoId || null
+    }
+  };
+}
 function dropPin(def){
   if (currentPanoMeta.lat == null || currentPanoMeta.lng == null) {
     toast('Sin panorama aún');
@@ -458,12 +565,27 @@ function dropPin(def){
   }
   var feat = makeFeature(def, currentPanoMeta.lat, currentPanoMeta.lng);
   sessionPins.push(feat);
+  persistFeature(feat);
   renderPins();
   toast('📍 ' + (def.label || def.name));
+}
+function dropComment(text){
+  if (currentPanoMeta.lat == null || currentPanoMeta.lng == null) {
+    toast('Sin panorama aún');
+    return;
+  }
+  var t = String(text || '').trim();
+  if (!t) { toast('Escribe un comentario'); return; }
+  var feat = makeCommentFeature(t, currentPanoMeta.lat, currentPanoMeta.lng, currentPanoMeta.heading || 0);
+  sessionPins.push(feat);
+  persistFeature(feat);
+  renderPins();
+  toast('💬 Zona guardada');
 }
 function undoPin(){
   if (!sessionPins.length) { toast('Nada que deshacer'); return; }
   var f = sessionPins.pop();
+  unpersistFeature(f);
   renderPins();
   toast('Deshecho: ' + ((f.properties && f.properties.name) || 'pin'));
 }
@@ -515,10 +637,156 @@ function syncAllNtfy(){
   toast('Sync ntfy: ' + n + ' upsert(s)');
 }
 
+/* ========== Leaflet mini-map ========== */
+function initMiniMap(){
+  if (miniMap) return;
+  miniMap = L.map('mapMini', {
+    center: [25.836071, -100.371121],
+    zoom: 17,
+    zoomControl: false,
+    attributionControl: true,
+    dragging: true,
+    scrollWheelZoom: false,
+    doubleClickZoom: false
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20,
+    subdomains: 'abcd',
+    attribution: '&copy; OSM &copy; CARTO'
+  }).addTo(miniMap);
+  layerCompet = L.layerGroup().addTo(miniMap);
+  layerAnclas = L.layerGroup().addTo(miniMap);
+  layerField = L.layerGroup().addTo(miniMap);
+  layerLiked = L.layerGroup().addTo(miniMap);
+  layerSession = L.layerGroup().addTo(miniMap);
+  pegMarker = L.marker([25.836071, -100.371121], {
+    interactive: false,
+    keyboard: false,
+    zIndexOffset: 2000,
+    icon: L.divIcon({
+      className: '',
+      iconSize: [14, 14],
+      iconAnchor: [7, 10],
+      html: '<div class="scout-peg" id="scoutPegArrow"></div>'
+    })
+  }).addTo(miniMap);
+  leafletReady = true;
+  loadSharedLayers();
+  paintLocalStoragePins();
+  setTimeout(function(){ try { miniMap.invalidateSize(); } catch (e) {} }, 80);
+}
+function paintPointLayer(fc, group, styleFn, limit){
+  if (!fc || !fc.features || !group) return;
+  var n = 0;
+  var max = limit || 8000;
+  fc.features.forEach(function(f){
+    if (n >= max) return;
+    var g = f.geometry;
+    if (!g) return;
+    if (g.type === 'Point') {
+      var c = g.coordinates;
+      if (!c) return;
+      var st = styleFn(f) || {};
+      L.circleMarker([c[1], c[0]], st).addTo(group);
+      n++;
+    } else if (g.type === 'LineString') {
+      var ll = g.coordinates.map(function(xy){ return [xy[1], xy[0]]; });
+      var p = f.properties || {};
+      var pl = L.polyline(ll, { color: COMMENT_COLOR, weight: 4, opacity: 0.85 });
+      if (p.nota_raw || p.name) pl.bindTooltip('💬 ' + (p.nota_raw || p.name), { sticky: true });
+      pl.addTo(group);
+      n++;
+    }
+  });
+}
+function loadSharedLayers(){
+  var bust = Date.now();
+  fetch('data/compet.geojson?v=' + bust, { cache: 'no-store' })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(fc){
+      paintPointLayer(fc, layerCompet, function(){
+        return { radius: 3, color: '#7a0000', weight: 1, fillColor: '#d7191c', fillOpacity: 0.85 };
+      });
+    }).catch(function(){});
+  fetch('data/anclas.geojson?v=' + bust, { cache: 'no-store' })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(fc){
+      paintPointLayer(fc, layerAnclas, function(f){
+        var t = ((f.properties || {}).tipo || '').toLowerCase();
+        var fill = t === 'iglesia' ? '#2b6cb0' : (t === 'hospital' ? '#3182ce' : '#63b3ed');
+        return { radius: 2.5, color: '#1a4f8a', weight: 0.5, fillColor: fill, fillOpacity: 0.7 };
+      }, 6000);
+    }).catch(function(){});
+  fetch('data/field_adds.geojson?v=' + bust, { cache: 'no-store' })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(fc){
+      paintPointLayer(fc, layerField, function(f){
+        var p = f.properties || {};
+        if (p.kind === 'comentario_zona') return null;
+        var fill = '#0f766e';
+        if (p.layer === 'favoritos' || p.kind === 'favorito') fill = '#f59e0b';
+        else if (p.kind === 'modelorama') fill = '#ca8a04';
+        else if (p.kind === 'express') fill = '#ea580c';
+        else if (p.kind === 'iglesia') fill = '#7c3aed';
+        else if (p.kind === 'escuela') fill = '#2563eb';
+        else if (p.layer === 'ancla_campo') fill = '#64748b';
+        return { radius: 4, color: '#fff', weight: 1, fillColor: fill, fillOpacity: 0.95 };
+      });
+    }).catch(function(){});
+  fetch('data/liked_zones.geojson?v=' + bust, { cache: 'no-store' })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(fc){
+      if (!fc || !fc.features) return;
+      fc.features.forEach(function(f){
+        var c = f.geometry && f.geometry.coordinates; if (!c) return;
+        L.marker([c[1], c[0]], {
+          interactive: false,
+          icon: L.divIcon({
+            className: '',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+            html: '<div style="width:16px;height:16px;border-radius:50%;background:#fbbf24;border:1px solid #78350f;font:700 10px/16px system-ui;text-align:center;color:#78350f">★</div>'
+          })
+        }).addTo(layerLiked);
+      });
+    }).catch(function(){});
+}
+function paintLocalStoragePins(){
+  if (!layerField) return;
+  function addLS(arr){
+    (arr || []).forEach(function(f){
+      if (!f || !f.geometry) return;
+      if (isCommentLine(f)) {
+        var ll = (f.geometry.coordinates || []).map(function(xy){ return [xy[1], xy[0]]; });
+        if (ll.length >= 2) {
+          L.polyline(ll, { color: COMMENT_COLOR, weight: 4, opacity: 0.8 })
+            .bindTooltip('💬 ' + ((f.properties && (f.properties.nota_raw || f.properties.name)) || ''), { sticky: true })
+            .addTo(layerField);
+        }
+        return;
+      }
+      var c = f.geometry.coordinates;
+      if (!c) return;
+      L.circleMarker([c[1], c[0]], {
+        radius: 4, color: '#fff', weight: 1, fillColor: pinColor(f), fillOpacity: 0.9
+      }).addTo(layerField);
+    });
+  }
+  addLS(loadLS(LS_COMP));
+  addLS(loadLS(LS_ANCLAS));
+}
+function updatePeg(){
+  if (!pegMarker || currentPanoMeta.lat == null) return;
+  var ll = [currentPanoMeta.lat, currentPanoMeta.lng];
+  pegMarker.setLatLng(ll);
+  if (miniMap) miniMap.setView(ll, miniMap.getZoom() || 17, { animate: false });
+  var el = document.getElementById('scoutPegArrow');
+  if (el) el.style.transform = 'rotate(' + (currentPanoMeta.heading || 0) + 'deg)';
+}
+
 /* ========== walk engine ========== */
 function speedMs(){
   var v = Number($('speedSlider').value) || 6;
-  // 1=lento(~2200ms) … 10=rápido(~350ms); 6≈medium-fast ~700ms
   return Math.round(2400 - (v - 1) * (2050 / 9));
 }
 function speedLabel(){
@@ -556,8 +824,7 @@ function setPaused(p){
   setStatus(paused ? 'Pausado' : 'Caminando', paused ? 'warn' : 'ok');
 }
 function headingDiff(a, b){
-  var d = Math.abs(((a - b + 540) % 360) - 180);
-  return d;
+  return Math.abs(((a - b + 540) % 360) - 180);
 }
 function pickForwardLink(pano){
   var links = pano.getLinks && pano.getLinks();
@@ -565,15 +832,13 @@ function pickForwardLink(pano){
   var heading = (pano.getPov && pano.getPov().heading) || currentPanoMeta.heading || 0;
   var best = null, bestScore = 1e9;
   for (var i = 0; i < links.length; i++) {
-    var L = links[i];
-    if (!L || !L.pano) continue;
-    if (visited[L.pano]) continue;
-    var score = headingDiff(heading, L.heading || 0);
-    // slight preference for description "hacia adelante" isn't reliable; heading wins
-    if (score < bestScore) { bestScore = score; best = L; }
+    var Lnk = links[i];
+    if (!Lnk || !Lnk.pano) continue;
+    if (visited[Lnk.pano]) continue;
+    var score = headingDiff(heading, Lnk.heading || 0);
+    if (score < bestScore) { bestScore = score; best = Lnk; }
   }
   if (best) return best;
-  // all visited: allow least-visited / any closest heading
   best = null; bestScore = 1e9;
   for (var j = 0; j < links.length; j++) {
     var L2 = links[j];
@@ -598,10 +863,7 @@ function onPanoChanged(){
     visited[pid] = true;
   }
   updateCoordsChip();
-  if (miniMap && pos) {
-    miniMap.setCenter(pos);
-    if (window.__scoutPegman) window.__scoutPegman.setPosition(pos);
-  }
+  updatePeg();
 }
 function scheduleNext(){
   clearWalkTimer();
@@ -623,7 +885,6 @@ function stepForward(){
     toast('Fin de grafo SV aquí');
     return;
   }
-  // Aim camera toward chosen link, then move
   var pov = panorama.getPov() || { heading: 0, pitch: 0 };
   panorama.setPov({ heading: link.heading || pov.heading, pitch: pov.pitch || 0 });
   panorama.setPano(link.pano);
@@ -655,27 +916,9 @@ function startAtLatLng(lat, lng){
     var loc = data.location.latLng;
     panorama.setPano(data.location.pano);
     panorama.setVisible(true);
-    if (miniMap) {
-      miniMap.setCenter(loc);
-      miniMap.setZoom(16);
-      if (!window.__scoutPegman) {
-        window.__scoutPegman = new google.maps.Marker({
-          map: miniMap,
-          position: loc,
-          title: 'Scout',
-          icon: {
-            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-            scale: 5,
-            fillColor: '#7a0177',
-            fillOpacity: 1,
-            strokeColor: '#fff',
-            strokeWeight: 1,
-            rotation: 0
-          }
-        });
-      } else {
-        window.__scoutPegman.setPosition(loc);
-      }
+    if (miniMap && loc) {
+      miniMap.setView([loc.lat(), loc.lng()], 17);
+      setTimeout(function(){ try { miniMap.invalidateSize(); } catch (e) {} }, 100);
     }
     walking = true;
     setPaused(false);
@@ -684,16 +927,9 @@ function startAtLatLng(lat, lng){
   });
 }
 
-/* ========== Maps bootstrap ========== */
-function initMaps(){
+/* ========== Maps bootstrap (SV only; mini-map is Leaflet) ========== */
+function initStreetView(){
   var center = { lat: 25.836071, lng: -100.371121 };
-  miniMap = new google.maps.Map($('mapMini'), {
-    center: center,
-    zoom: 14,
-    disableDefaultUI: true,
-    gestureHandling: 'cooperative',
-    mapTypeId: 'roadmap'
-  });
   panorama = new google.maps.StreetViewPanorama($('pano'), {
     position: center,
     pov: { heading: 0, pitch: 0 },
@@ -712,20 +948,24 @@ function initMaps(){
   panorama.addListener('pano_changed', onPanoChanged);
   panorama.addListener('pov_changed', function(){
     var pov = panorama.getPov();
-    if (pov && pov.heading != null) currentPanoMeta.heading = pov.heading;
+    if (pov && pov.heading != null) {
+      currentPanoMeta.heading = pov.heading;
+      updatePeg();
+    }
   });
   mapsReady = true;
+  initMiniMap();
   setStatus('Listo — elige centro', 'ok');
 }
 
 function loadGoogleMaps(key){
   if (window.google && window.google.maps) {
-    initMaps();
+    initStreetView();
     return;
   }
   var cb = '__scoutSvMapsReady';
   window[cb] = function(){
-    try { initMaps(); } catch (e) {
+    try { initStreetView(); } catch (e) {
       setStatus('Error init Maps', 'warn');
       console.error(e);
     }
@@ -747,6 +987,13 @@ function showKeyGate(show){
   if (show) {
     try { $('keyInput').value = localStorage.getItem(LS_KEY) || ''; } catch (e) {}
     setTimeout(function(){ try { $('keyInput').focus(); } catch (e) {} }, 50);
+  }
+}
+function showCommentGate(show){
+  $('commentGate').classList.toggle('show', !!show);
+  if (show) {
+    $('commentInput').value = '';
+    setTimeout(function(){ try { $('commentInput').focus(); } catch (e) {} }, 50);
   }
 }
 
@@ -802,7 +1049,8 @@ $('btnExport').addEventListener('click', downloadExport);
 $('btnSync').addEventListener('click', syncAllNtfy);
 $('btnClear').addEventListener('click', function(){
   if (!sessionPins.length) return;
-  if (!confirm('¿Limpiar pines de esta sesión?')) return;
+  if (!confirm('¿Limpiar pines de esta sesión? (también se quitan de localStorage + ntfy delete)')) return;
+  sessionPins.slice().forEach(unpersistFeature);
   sessionPins = [];
   renderPins();
   toast('Sesión limpia');
@@ -817,10 +1065,22 @@ $('btnSaveKey').addEventListener('click', function(){
   if (!mapsReady) loadGoogleMaps(k);
   else toast('Key guardada');
 });
+$('btnComment').addEventListener('click', function(){
+  if (currentPanoMeta.lat == null) { toast('Sin panorama aún'); return; }
+  showCommentGate(true);
+});
+$('btnCancelComment').addEventListener('click', function(){ showCommentGate(false); });
+$('btnSaveComment').addEventListener('click', function(){
+  var t = ($('commentInput').value || '').trim();
+  if (!t) { toast('Escribe un comentario'); return; }
+  showCommentGate(false);
+  dropComment(t);
+});
 
 window.addEventListener('keydown', function(ev){
   var tag = (ev.target && ev.target.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ev.target && ev.target.isContentEditable)) return;
+  if ($('commentGate').classList.contains('show') || $('keyGate').classList.contains('show')) return;
   if (ev.code === 'Space' || ev.key === ' ') {
     ev.preventDefault();
     if (!walking) { toast('Primero inicia un centro'); return; }
@@ -833,6 +1093,12 @@ window.addEventListener('keydown', function(ev){
     return;
   }
   var key = (ev.key || '').toUpperCase();
+  if (key === 'C') {
+    ev.preventDefault();
+    if (currentPanoMeta.lat == null) { toast('Sin panorama aún'); return; }
+    showCommentGate(true);
+    return;
+  }
   if (SCOUT_HOTKEYS[key]) {
     ev.preventDefault();
     dropPin(SCOUT_HOTKEYS[key]);
@@ -840,6 +1106,8 @@ window.addEventListener('keydown', function(ev){
 });
 
 renderPins();
+/* Mini-map can boot without Google key (tiles + geojson) */
+try { initMiniMap(); } catch (e) { console.warn(e); }
 
 (function boot(){
   var key = resolveApiKey();
