@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.7.2
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.7.2: speed solo slider (blur HUD ante Arrow* de ext); look-ahead cruce POV→salida; cobertura calles; auto-walk REQUIERE extensión. NO uses scout-sv.html.
+// @version      1.7.3
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.7.3: speed −/+ (sin range); sin blur HUD; routeBusy watchdog + destrabado; look-ahead cruce POV→salida; cobertura calles; auto-walk REQUIERE extensión. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -42,6 +42,7 @@
    * v1.7.0: rota el POV hacia el bearing del trayecto ANTES de ArrowUp; poll heading URL; U-turn ~180° real; HUD POV cur→target.
    * v1.7.1: HUD slim left — hotkeys, colonia+Start, speed, progress, Pause/Stop; mini-map route+peg; clutter→⋯ menu.
    * v1.7.2: speed no auto-acelera (blur/ignore Arrow* en slider ante ext); look-ahead esquina |turn|≥35° → POV a bearing de SALIDA ~50 m antes; HUD ↳/↰.
+   * v1.7.3: sin blur/restore HUD; speed = botones −/+ (nada focusable con Arrow*); routeBusy watchdog ~5s; POV hard timeout; destrabado si pose no cambia.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -52,7 +53,7 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.7.2';
+  var SCRIPT_VERSION = '1.7.3';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -98,7 +99,11 @@
   var POV_POLL_MS = 800; // wait/poll URL heading after turn-only burst
   var POV_EXTRA_BURSTS = 2; // extra turn bursts if heading URL doesn't update
   var POV_CLOSE_DEG = 18; // stop aligning when |diff| under this
+  var POV_HARD_TIMEOUT_MS = 3200; // v1.7.3: never hang forever waiting heading
   var EXT_STEP_TIMEOUT_MS = 5500;
+  var ROUTE_BUSY_WATCHDOG_MS = 5500; // v1.7.3: always clear routeBusy
+  var STUCK_POSE_N = 3; // unchanged pose after turn+↑ → unstick
+  var SPEED_STEP_MS = 100;
   var WALK_MODE = "ext";
   var FUENTE = 'scout_userscript';
   var ESCOBEDO = 'General Escobedo';
@@ -147,8 +152,8 @@
     povHudUntil: 0,
     targetBearing: null,
     nextTurnHud: null, // '↳ der 90°' / '↰ izq'
-    _speedPointerDown: false,
-    _hudInputLock: 0
+    _routeBusyTimer: null,
+    _lastUnstickToast: 0
   };
 
   try {
@@ -940,57 +945,38 @@
   var _extSeq = 0;
 
 
-  /* ---- v1.7.2: keep ext ArrowLeft/Right from mutating HUD <input type="range"> ---- */
-  function blurHudInputs() {
-    try {
-      var ae = document.activeElement;
-      if (ae && ae.closest && ae.closest('#purif-scout-root')) {
-        ae.blur();
-      }
-    } catch (e) {}
-    var ids = ['purif-scout-speed', 'purif-scout-colonia', 'purif-scout-col-filter', 'purif-scout-comment-text'];
-    for (var i = 0; i < ids.length; i++) {
-      var el = document.getElementById(ids[i]);
-      if (!el) continue;
-      try { el.blur(); } catch (e2) {}
-      if (el.tagName === 'INPUT' && el.type === 'range') {
-        el.dataset._hudPrevDisabled = el.disabled ? '1' : '0';
-        el.disabled = true;
-      }
-    }
+  /* ---- v1.7.3: no HUD blur/disable around ext steps (was flickering speed bar) ---- */
+  function toastDestrabado() {
+    var now = Date.now();
+    if (now - (state._lastUnstickToast || 0) < 4000) return;
+    state._lastUnstickToast = now;
+    toast('destrabado');
   }
 
-  function restoreHudInputs() {
-    var ids = ['purif-scout-speed', 'purif-scout-colonia', 'purif-scout-col-filter', 'purif-scout-comment-text'];
-    for (var i = 0; i < ids.length; i++) {
-      var el = document.getElementById(ids[i]);
-      if (!el) continue;
-      if (el.tagName === 'INPUT' && el.type === 'range') {
-        if (el.dataset._hudPrevDisabled === '0' || el.dataset._hudPrevDisabled == null) el.disabled = false;
-        delete el.dataset._hudPrevDisabled;
-      }
+  function clearRouteBusy() {
+    if (state._routeBusyTimer) {
+      clearTimeout(state._routeBusyTimer);
+      state._routeBusyTimer = null;
     }
+    state.routeBusy = false;
   }
 
-  function withHudInputLock(promiseFactory) {
-    state._hudInputLock = (state._hudInputLock || 0) + 1;
-    blurHudInputs();
-    var done = function (v) {
-      state._hudInputLock = Math.max(0, (state._hudInputLock || 1) - 1);
-      if (!state._hudInputLock) restoreHudInputs();
-      return v;
-    };
-    try {
-      return Promise.resolve(promiseFactory()).then(done, function (err) {
-        done(null);
-        return Promise.reject(err);
-      });
-    } catch (e) {
-      done(null);
-      return Promise.reject(e);
+  /** Set routeBusy with hard watchdog so routeTick never freezes forever. */
+  function setRouteBusy(watchMs) {
+    if (state._routeBusyTimer) {
+      clearTimeout(state._routeBusyTimer);
+      state._routeBusyTimer = null;
     }
+    state.routeBusy = true;
+    var ms = (watchMs != null && isFinite(watchMs)) ? Number(watchMs) : ROUTE_BUSY_WATCHDOG_MS;
+    state._routeBusyTimer = setTimeout(function () {
+      state._routeBusyTimer = null;
+      if (!state.routeBusy) return;
+      state.routeBusy = false;
+      console.warn('[scout] routeBusy watchdog fired (' + ms + 'ms)');
+      if (state.route && !state.route.paused) toastDestrabado();
+    }, ms);
   }
-
 
   function extPost(type, extra) {
     extra = extra || {};
@@ -1046,21 +1032,17 @@
 
   function requestExtStep(opts) {
     opts = opts || {};
-    return withHudInputLock(function () {
-      return extPost('step', {
-        turnDeg: opts.turnDeg,
-        turnsLeft: opts.turnsLeft,
-        turnsRight: opts.turnsRight,
-        forward: opts.forward !== false,
-        alsoW: !!opts.alsoW
-      });
+    return extPost('step', {
+      turnDeg: opts.turnDeg,
+      turnsLeft: opts.turnsLeft,
+      turnsRight: opts.turnsRight,
+      forward: opts.forward !== false,
+      alsoW: !!opts.alsoW
     });
   }
 
   function requestExtArrowUp() {
-    return withHudInputLock(function () {
-      return extPost('stepForward', {});
-    });
+    return extPost('stepForward', {});
   }
 
   function requestExtPing() {
@@ -1136,20 +1118,33 @@
    */
   function alignPovToBearing(targetBearing, extraBursts) {
     return new Promise(function (resolve) {
+      var settled = false;
+      function finish(res) {
+        if (settled) return;
+        settled = true;
+        if (hardTimer) clearTimeout(hardTimer);
+        resolve(res);
+      }
+      var hardTimer = setTimeout(function () {
+        // Heading poll failed / hung — caller still attempts one ↑
+        finish({ ok: false, err: 'pov-timeout', heading: state.heading });
+      }, POV_HARD_TIMEOUT_MS);
+
       refreshPose();
       if (targetBearing == null || !isFinite(targetBearing)) {
-        resolve({ ok: true, skipped: true });
+        finish({ ok: true, skipped: true });
         return;
       }
       if (!state.extAvailable) {
         rotateTowardHeading(targetBearing);
-        resolve({ ok: false, err: 'no-ext' });
+        finish({ ok: false, err: 'no-ext' });
         return;
       }
       var startH = state.heading;
       flashPovHud(startH, targetBearing);
 
       function oneBurst(remaining) {
+        if (settled) return;
         refreshPose();
         var cur = state.heading;
         var turnDeg = 0;
@@ -1161,32 +1156,34 @@
         }
         if (Math.abs(turnDeg) <= POV_ALIGN_DEG) {
           flashPovHud(cur, targetBearing);
-          resolve({ ok: true, diff: Math.abs(turnDeg), heading: cur });
+          finish({ ok: true, diff: Math.abs(turnDeg), heading: cur });
           return;
         }
         flashPovHud(cur, targetBearing);
         var beforeH = cur;
         requestExtStep({ turnDeg: turnDeg, forward: false }).then(function () {
-          return waitHeadingCloser(targetBearing, POV_POLL_MS, beforeH);
+          if (settled) return null;
+          return waitHeadingCloser(targetBearing, Math.min(POV_POLL_MS, 500), beforeH);
         }).then(function (res) {
+          if (settled) return;
           refreshPose();
           var diff = (state.heading != null && isFinite(state.heading))
             ? Math.abs(angleDiffDeg(targetBearing, state.heading))
             : (res && res.diff);
           flashPovHud(state.heading, targetBearing);
           if (diff != null && diff <= POV_CLOSE_DEG) {
-            resolve({ ok: true, diff: diff, heading: state.heading });
+            finish({ ok: true, diff: diff, heading: state.heading });
             return;
           }
           // Heading didn't update or still far — extra turn bursts (max remaining)
           if (remaining > 0 && (diff == null || diff > POV_CLOSE_DEG)) {
-            // If URL heading stuck, keep sending same signed burst
             oneBurst(remaining - 1);
             return;
           }
-          resolve({ ok: diff != null && diff <= POV_ALIGN_DEG + 15, diff: diff, heading: state.heading });
+          // Poll failed — still ok to attempt ↑ (caller does)
+          finish({ ok: diff != null && diff <= POV_ALIGN_DEG + 15, diff: diff, heading: state.heading });
         }).catch(function (e) {
-          resolve({ ok: false, err: String(e) });
+          finish({ ok: false, err: String(e) });
         });
       }
 
@@ -1469,11 +1466,11 @@
       if (state.lat != null) {
         heading = bearingDeg(state.lat, state.lng, pt.lat, pt.lng);
       }
-      state.routeBusy = true;
+      setRouteBusy();
       setRouteStatus('manual ▶ punto ' + (r.i + 1) + '/' + r.points.length + ' · ext');
       saveRoute();
       smoothStepForward(heading, true).then(function () {
-        state.routeBusy = false;
+        clearRouteBusy();
         refreshPose();
         if (state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < NEAR_WP_M) {
           r.i += 1;
@@ -1585,13 +1582,14 @@
   }
 
   function syncSpeedUi() {
-    var el = document.getElementById('purif-scout-speed');
     var lab = document.getElementById('purif-scout-speed-label');
-    if (el && !state._speedPointerDown) {
-      // Only write value when not dragging — never during trayecto ticks
-      if (String(el.value) !== String(state.autoMs)) el.value = String(state.autoMs);
-    }
     if (lab) lab.textContent = (state.autoMs / 1000).toFixed(1) + 's';
+  }
+
+  /** − = slower (↑ ms), + = faster (↓ ms). Buttons never take ArrowLeft focus. */
+  function bumpAutoMs(dir) {
+    // dir +1 → faster (lower ms), dir -1 → slower (higher ms)
+    setAutoMs(state.autoMs - (dir * SPEED_STEP_MS), true);
   }
 
   /* ---------- colonias + route builder ---------- */
@@ -2244,7 +2242,7 @@ function waysToCoveragePoints(elements, geom) {
       clearInterval(state.routeTimer);
       state.routeTimer = null;
     }
-    state.routeBusy = false;
+    clearRouteBusy();
     if (state.route) {
       state.route.paused = true;
       state.route.status = 'stopped';
@@ -2306,7 +2304,7 @@ function waysToCoveragePoints(elements, geom) {
     state.route = r;
     if (r.svFailStreak == null) r.svFailStreak = 0;
     if (r.flechaFailStreak == null) r.flechaFailStreak = 0;
-    state.routeBusy = false;
+    clearRouteBusy();
     state.routeEntered = !!r.entered;
     if (state.routeTimer) clearInterval(state.routeTimer);
     if (!r.paused) {
@@ -2473,12 +2471,12 @@ function waysToCoveragePoints(elements, geom) {
       r.entered = true;
       state.routeEntered = true;
       saveRoute();
-      state.routeBusy = true;
+      setRouteBusy(2000);
       setRouteStatus('entrada URL (1×) · luego cobertura calles · ' + r.name);
       updateHud();
       toast('Entrada colonia: 1 salto URL, luego camina todas las calles');
       navigateToSv(pt.lat, pt.lng, entryHeading, { silentWarn: false });
-      setTimeout(function () { state.routeBusy = false; }, 1500);
+      setTimeout(function () { clearRouteBusy(); }, 1500);
       return;
     }
 
@@ -2489,13 +2487,15 @@ function waysToCoveragePoints(elements, geom) {
     }
     var distToWp = (state.lat != null) ? haversineM(state.lat, state.lng, pt.lat, pt.lng) : Infinity;
 
-    state.routeBusy = true;
+    // Guard: never overlap ticks without a clear path
+    if (state.routeBusy) return;
+    setRouteBusy();
     setRouteStatus(routeProgressLabel(r) + (state.extAvailable ? ' · ext' : ' · SIN EXT'));
     saveRoute();
     updateHud();
 
     function afterStep(moved) {
-      state.routeBusy = false;
+      clearRouteBusy();
       refreshPose();
       if (!state.route || state.route !== r) return;
       if (state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < NEAR_WP_M) {
@@ -2505,6 +2505,8 @@ function waysToCoveragePoints(elements, geom) {
         r.flechaFailStreak = 0;
         r.deadEndFails = 0;
         r.hopFails = 0;
+        r.stuckPose = 0;
+        r._unstickUturn = false;
         saveRoute();
         setRouteStatus(routeProgressLabel(r));
         updateHud();
@@ -2515,17 +2517,46 @@ function waysToCoveragePoints(elements, geom) {
         r.failStreak = (r.failStreak || 0) + 1;
         r.deadEndFails = (r.deadEndFails || 0) + 1;
         r.hopFails = (r.hopFails || 0) + 1;
+        r.stuckPose = (r.stuckPose || 0) + 1;
+
+        // v1.7.3: pose unchanged for N steps after turn+↑ → U-turn once, then skip WP
+        if (r.stuckPose >= STUCK_POSE_N) {
+          r.stuckPose = 0;
+          if (!r._unstickUturn && state.extAvailable) {
+            r._unstickUturn = true;
+            r.deadEndFails = 0;
+            toastDestrabado();
+            setRouteBusy();
+            doUTurnBurst().then(function () {
+              clearRouteBusy();
+              saveRoute();
+              updateHud();
+            }).catch(function () { clearRouteBusy(); });
+            return;
+          }
+          // Already tried U-turn — skip waypoint and continue
+          r._unstickUturn = false;
+          r.skipped = (r.skipped || 0) + 1;
+          r.i += 1;
+          r.flechaFailStreak = 0;
+          r.deadEndFails = 0;
+          toastDestrabado();
+          setRouteStatus('destrabado · skip · ' + routeProgressLabel(r));
+          saveRoute();
+          updateHud();
+          return;
+        }
 
         // Dead-end: ArrowUp didn't move → U-turn, stay on covering path (includes reverse)
         if (r.deadEndFails >= ROUTE_DEAD_END_FAILS && state.extAvailable) {
           r.deadEndFails = 0;
-          state.routeBusy = true;
+          setRouteBusy();
           toast('↩ Calle sin salida — U-turn');
           doUTurnBurst().then(function () {
-            state.routeBusy = false;
+            clearRouteBusy();
             saveRoute();
             updateHud();
-          }).catch(function () { state.routeBusy = false; });
+          }).catch(function () { clearRouteBusy(); });
           return;
         }
 
@@ -2533,6 +2564,7 @@ function waysToCoveragePoints(elements, geom) {
         if (r.hopFails >= ROUTE_HOP_FAILS && distToWp > HOP_DIST_M) {
           r.hopFails = 0;
           r.deadEndFails = 0;
+          r.stuckPose = 0;
           r.hopCount = (r.hopCount || 0) + 1;
           state.hopCount = r.hopCount;
           var hopH = next ? bearingDeg(pt.lat, pt.lng, next.lat, next.lng) : heading;
@@ -2549,6 +2581,7 @@ function waysToCoveragePoints(elements, geom) {
           r.i += 1;
           r.flechaFailStreak = 0;
           r.deadEndFails = 0;
+          r.stuckPose = 0;
           setRouteStatus('skip · ' + routeProgressLabel(r));
           toast('Skip punto (flecha no avanza)');
         }
@@ -2558,6 +2591,8 @@ function waysToCoveragePoints(elements, geom) {
         r.flechaFailStreak = 0;
         r.deadEndFails = 0;
         r.hopFails = 0;
+        r.stuckPose = 0;
+        r._unstickUturn = false;
         saveRoute();
       }
     }
@@ -2589,17 +2624,17 @@ function waysToCoveragePoints(elements, geom) {
     if ((cornerCommit || Math.abs(turnDelta) > STRONG_TURN_DEG) && state.extAvailable) {
       flashPovHud(state.heading, heading);
       alignPovToBearing(heading, extra).then(function () {
-        // One ↑ along the committed exit heading (not oscillating link choice)
+        // POV may have timed out — still attempt one ↑ and advance logic
         return smoothStepForward(heading, false);
       }).then(afterStep).catch(function () {
-        state.routeBusy = false;
+        clearRouteBusy();
       });
       return;
     }
 
     if (isFinite(heading)) flashPovHud(state.heading, heading);
     smoothStepForward(heading, true).then(afterStep).catch(function () {
-      state.routeBusy = false;
+      clearRouteBusy();
     });
   }
 
@@ -2613,9 +2648,11 @@ function waysToCoveragePoints(elements, geom) {
     if (!state.route) return false;
     state.route.paused = !state.route.paused;
     if (state.route.paused) {
+      clearRouteBusy();
       toast('⏸ Trayecto pausado');
       setRouteStatus('PAUSA · punto ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length);
     } else {
+      clearRouteBusy();
       toast('▶ Trayecto reanudado · ext');
       if (!state.routeTimer) state.routeTimer = setInterval(routeTick, routeIntervalMs());
       setTimeout(routeTick, 200);
@@ -2776,18 +2813,20 @@ function waysToCoveragePoints(elements, geom) {
       '#purif-scout-hud kbd.sec{background:#44403c}',
       '#purif-scout-hud .tray label{display:block;font-size:9px;opacity:.7;margin:3px 0 2px;',
       'text-transform:uppercase;letter-spacing:.03em}',
-      '#purif-scout-hud input[type="search"],#purif-scout-hud select,#purif-scout-hud input[type="range"]{',
+      '#purif-scout-hud input[type="search"],#purif-scout-hud select{',
       'width:100%;border-radius:7px;border:1px solid #44403c;background:#0c0a09;color:#e7e5e4;',
       'padding:5px 7px;font:11px/1.2 system-ui;margin-bottom:3px}',
-      '#purif-scout-hud input[type="range"]{padding:0;height:18px;margin:2px 0 4px}',
       '#purif-scout-hud button.primary{pointer-events:auto;cursor:pointer;border:0;border-radius:8px;',
       'padding:9px 10px;font:700 12px/1.2 system-ui;background:#7a0177;color:#fff;width:100%;margin:4px 0 2px}',
       '#purif-scout-hud button.primary:hover{filter:brightness(1.07)}',
-      '#purif-scout-hud .speed-row{display:flex;align-items:center;gap:6px;margin:2px 0}',
+      '#purif-scout-hud .speed-row{display:flex;align-items:center;gap:5px;margin:2px 0}',
       '#purif-scout-hud .speed-row label{margin:0;flex:0 0 auto;text-transform:none;',
       'letter-spacing:0;font-size:10px;opacity:.8}',
-      '#purif-scout-hud .speed-row input{flex:1;margin:0}',
-      '#purif-scout-hud .speed-row span{flex:0 0 auto;font:600 10px/1 ui-monospace,Menlo,monospace;opacity:.85;min-width:2.4em}',
+      '#purif-scout-hud .speed-row button{pointer-events:auto;cursor:pointer;border:0;border-radius:6px;',
+      'width:28px;height:24px;padding:0;font:700 14px/1 system-ui;background:#292524;color:#e7e5e4;',
+      'flex:0 0 auto}',
+      '#purif-scout-hud .speed-row button:hover{filter:brightness(1.1)}',
+      '#purif-scout-hud .speed-row span{flex:0 0 auto;font:600 10px/1 ui-monospace,Menlo,monospace;opacity:.85;min-width:2.6em;text-align:center}',
       '#purif-scout-hud .route-status{font-size:10px;margin:4px 0 2px;color:#f9a8d4;',
       'min-height:1.15em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '#purif-scout-hud .acts{display:flex;gap:5px;margin-top:2px}',
@@ -2860,8 +2899,9 @@ function waysToCoveragePoints(elements, geom) {
       '      <button type="button" class="primary" id="purif-scout-start-route">▶ Start trayecto</button>',
       '      <div class="speed-row">',
       '        <label>Velocidad</label>',
-      '        <input type="range" id="purif-scout-speed" min="700" max="2500" step="100" tabindex="-1" value="' + state.autoMs + '" />',
-      '        <span id="purif-scout-speed-label">0.8s</span>',
+      '        <button type="button" id="purif-scout-speed-down" tabindex="-1" title="Más lento (−)">−</button>',
+      '        <span id="purif-scout-speed-label">' + (state.autoMs / 1000).toFixed(1) + 's</span>',
+      '        <button type="button" id="purif-scout-speed-up" tabindex="-1" title="Más rápido (+)">+</button>',
       '      </div>',
       '      <div class="route-status" id="purif-scout-route-status"></div>',
       '      <div class="acts">',
@@ -2947,34 +2987,21 @@ function waysToCoveragePoints(elements, geom) {
       stopRoute('Trayecto detenido');
       setRouteStatus('Detenido');
     });
-    var speedEl = document.getElementById('purif-scout-speed');
-    if (speedEl) {
-      speedEl.tabIndex = -1;
-      speedEl.addEventListener('pointerdown', function () { state._speedPointerDown = true; });
-      speedEl.addEventListener('pointerup', function () { state._speedPointerDown = false; try { speedEl.blur(); } catch (e) {} });
-      speedEl.addEventListener('pointercancel', function () { state._speedPointerDown = false; });
-      speedEl.addEventListener('keydown', function (e) {
-        // Extension ArrowLeft/Right must NEVER nudge the range. Only pointer-drag changes speed.
-        var k = e.key || '';
-        if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown' ||
-            k === 'Home' || k === 'End' || k === 'PageUp' || k === 'PageDown') {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          return;
-        }
-      }, true);
-      speedEl.addEventListener('input', function (e) {
-        if (!e.isTrusted) return; // ignore synthetic
-        if (state._hudInputLock) return; // ignore while ext is stepping
-        var ms = Number(e.target.value);
-        var lab = document.getElementById('purif-scout-speed-label');
-        if (lab) lab.textContent = (ms / 1000).toFixed(1) + 's';
-        setAutoMs(ms, true);
+    // v1.7.3: −/+ buttons only — no <input type="range"> (ArrowLeft cannot touch speed)
+    var speedDown = document.getElementById('purif-scout-speed-down');
+    var speedUp = document.getElementById('purif-scout-speed-up');
+    if (speedDown) {
+      speedDown.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        bumpAutoMs(-1); // slower = higher ms
+        try { speedDown.blur(); } catch (err) {}
       });
-      speedEl.addEventListener('change', function (e) {
-        if (!e.isTrusted) return;
-        setAutoMs(Number(e.target.value), true);
-        try { speedEl.blur(); } catch (err) {}
+    }
+    if (speedUp) {
+      speedUp.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        bumpAutoMs(1); // faster = lower ms
+        try { speedUp.blur(); } catch (err) {}
       });
     }
     syncSpeedUi();

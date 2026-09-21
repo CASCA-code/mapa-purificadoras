@@ -1,6 +1,6 @@
 # Scout Userscript (Tampermonkey) — Street View sin billing
 
-Actualizado: 2026-09-21 (**v1.7.2**)
+Actualizado: 2026-09-21 (**v1.7.3**)
 
 > **Camino primario para Nicolás.** Corre **sobre** Google Maps de consumidor (`https://www.google.com/maps` Street View).  
 > **Cero** Google Cloud / Maps Platform API key / hold de facturación.  
@@ -36,7 +36,7 @@ Detalle: [`extension/README.md`](../extension/README.md).
 2. **Utilidades** → **Instalar desde URL**:
 
    ```
-   https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js?v=172
+   https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js?v=173
    ```
    Si Tampermonkey no toma el cambio: **Reinstall** desde esa URL (no solo Update).
 
@@ -87,6 +87,7 @@ Extensión de usuarios (Tampermonkey) + **extensión Chrome companion (requerida
 - **v1.7:** rota el POV hacia el trayecto antes de avanzar (ext 1.5.1: más teclas/°, settle 320 ms, mouse-drag backup).
 - **v1.7.1:** HUD slim (hotkeys → colonia → Start → speed → progress → Pause/Stop + mini-mapa del recorrido; Export/Sync en ⋯).
 - **v1.7.2:** speed ya no “acelera solo” (ArrowLeft/Right de la extensión ya no mueven el `<input type="range">`: blur/disable HUD antes de cada step, `tabindex=-1`, `preventDefault`+`stopImmediatePropagation` en flechas). Look-ahead en cruces: ~55 m antes de esquina con `|turn|≥35°` alinea POV al **bearing de salida** del trayecto (no al link SV ambiguo); HUD `↳ der` / `↰ izq`.
+- **v1.7.3:** elimina blur/restore HUD (flicker del speed); speed = botones **− / +** + label (sin `<input type="range">`); `routeBusy` watchdog ~5.5 s + toast `destrabado`; POV align hard timeout ~3.2 s (igual intenta ↑); si pose no cambia N pasos → U-turn una vez luego skip WP. Look-ahead 1.7.2 se mantiene.
 
 ## Extensión = requerida (no opcional)
 

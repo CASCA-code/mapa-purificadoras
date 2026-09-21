@@ -1,3 +1,9 @@
+## 2026-09-21 (scout v1.7.3 — sin flicker speed + destrabado)
+
+- Speed: botones −/+ (sin range); se quitó `blurHudInputs`/`withHudInputLock` que parpadeaba el HUD en cada step de la extensión.
+- Stuck: `routeBusy` watchdog ~5.5s; POV hard timeout; pose sin cambio N pasos → U-turn una vez luego skip; toast `destrabado`.
+- Look-ahead cruces (exit bearing) de 1.7.2 se mantiene. Reinstall `?v=173`.
+
 ## 2026-09-21 (scout v1.7.2 — speed fijo + look-ahead cruces)
 
 - Nicolás: velocidad “subía sola” porque ArrowLeft de la extensión también golpeaba el `<input type="range">` enfocado.
