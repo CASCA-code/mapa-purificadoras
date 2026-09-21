@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.1.0
-// @description  Scout de campo sobre Google Maps Street View (sin Maps Platform / sin billing). Hotkeys + trayecto por colonia (OSM Overpass). Para Nicolás / Purificadoras ZMM.
+// @version      1.2.0
+// @description  Scout de campo sobre Google Maps Street View (sin Maps Platform / sin billing). Hotkeys + trayecto por colonia (prebaked OSM + Overpass fallback). Para Nicolás / Purificadoras ZMM.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -17,6 +17,7 @@
 // @connect      raw.githubusercontent.com
 // @connect      overpass-api.de
 // @connect      overpass.kumi.systems
+// @connect      overpass.openstreetmap.ru
 // @connect      router.project-osrm.org
 // @run-at       document-idle
 // @noframes
@@ -30,6 +31,7 @@
    * Purificadoras Scout — Tampermonkey sobre Street View de consumidor.
    * Sin API key de Maps Platform. Sync primario: ntfy (mismo topic que index.html).
    * v1.1: auto-walk robusto + picker de colonia + trayecto OSM (Overpass) sin billing.
+   * v1.2: prebaked roads_zmm.geojson + Overpass hard-timeout/mirrors + grid fallback + fuzzy colonia.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -44,8 +46,17 @@
   ];
   var OVERPASS_URLS = [
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter'
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.openstreetmap.ru/api/interpreter'
   ];
+  var ROADS_URLS = [
+    MAP_BASE + 'data/roads_zmm.geojson',
+    'https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/data/roads_zmm.geojson'
+  ];
+  var OVERPASS_HARD_MS = 12000; // per mirror — never hang on "consultando…"
+  var OVERPASS_QUERY_TIMEOUT = 15;
+  var GRID_STEP_M = 50;
+  var MIN_ROUTE_PTS = 4;
   var COMMENT_HALF_M = 30;
   var COMMENT_COLOR = '#db2777';
   var DEFAULT_AUTO_MS = 1400;
@@ -84,7 +95,11 @@
     selectedColonia: null,
     route: null, // { name, points:[{lat,lng}], i, paused, status, skipped }
     routeTimer: null,
-    routeBusy: false
+    routeBusy: false,
+    roadsFc: null,
+    roadsLoading: null,
+    trayectoBuilding: false,
+    lastTrayectoError: null
   };
 
   try {
@@ -231,6 +246,54 @@
         .catch(function () { return next(); });
     }
     return next();
+  }
+
+  function withHardTimeout(promise, ms, label) {
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error('timeout duro ' + ms + 'ms' + (label ? ' · ' + label : '')));
+      }, ms);
+      promise.then(function (v) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(v);
+      }, function (err) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+  }
+
+  function normalizeText(s) {
+    return String(s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function fuzzyScore(query, blob) {
+    var q = normalizeText(query);
+    var b = normalizeText(blob);
+    if (!q) return 1;
+    if (b.indexOf(q) >= 0) return 100;
+    var tokens = q.split(' ').filter(function (t) { return t.length >= 2; });
+    if (!tokens.length) return b.indexOf(q) >= 0 ? 50 : 0;
+    var hit = 0;
+    for (var i = 0; i < tokens.length; i++) {
+      if (b.indexOf(tokens[i]) >= 0) hit++;
+    }
+    var ratio = hit / tokens.length;
+    // Prefer Escobedo / common aliases lightly via caller sort; score is match quality
+    return Math.round(ratio * 80) + (hit === tokens.length ? 15 : 0);
   }
 
   /* ---------- URL / Street View parse ---------- */
@@ -780,16 +843,35 @@
   function fillColoniaSelect(filter) {
     var sel = document.getElementById('purif-scout-colonia');
     if (!sel) return;
-    var q = String(filter || '').trim().toLowerCase();
+    var q = String(filter || '').trim();
     var list = state.colonias;
     if (q) {
-      list = list.filter(function (ft) {
+      var scored = [];
+      for (var i = 0; i < list.length; i++) {
+        var ft = list[i];
         var p = ft.properties || {};
-        var blob = [p.colonia, p.colonia_raw, p.municipio, p.cve_col, String(p.rank || '')].join(' ').toLowerCase();
-        return blob.indexOf(q) >= 0;
+        var blob = [p.colonia, p.colonia_raw, p.municipio, p.cve_col, String(p.rank || '')].join(' ');
+        var sc = fuzzyScore(q, blob);
+        // Alias: "unidad san francisco" / "san francisco" → villas
+        var nq = normalizeText(q);
+        var nb = normalizeText(blob);
+        if (nq.indexOf('san francisco') >= 0 && nb.indexOf('san francisco') >= 0) sc = Math.max(sc, 90);
+        if (nq.indexOf('topo') >= 0 && nb.indexOf('topo chico') >= 0) sc = Math.max(sc, 88);
+        if (nq.indexOf('pedregal') >= 0 && nb.indexOf('pedregal') >= 0) sc = Math.max(sc, 88);
+        if (sc >= 40) scored.push({ ft: ft, sc: sc });
+      }
+      scored.sort(function (a, b) {
+        if (b.sc !== a.sc) return b.sc - a.sc;
+        var am = (a.ft.properties || {}).municipio || '';
+        var bm = (b.ft.properties || {}).municipio || '';
+        var ae = am === ESCOBEDO ? 0 : 1;
+        var be = bm === ESCOBEDO ? 0 : 1;
+        if (ae !== be) return ae - be;
+        return (Number((a.ft.properties || {}).rank) || 9999) - (Number((b.ft.properties || {}).rank) || 9999);
       });
+      list = scored.map(function (x) { return x.ft; });
     }
-    list = sortColonias(list).slice(0, 120);
+    list = (q ? list : sortColonias(list)).slice(0, 120);
     var prev = sel.value;
     sel.innerHTML = '';
     var opt0 = document.createElement('option');
@@ -856,29 +938,142 @@
   }
 
   function overpassHighways(bbox) {
-    var q = '[out:json][timeout:60];\n' +
-      'way["highway"~"^(primary|secondary|tertiary|residential|unclassified|living_street|service|pedestrian)$"](' +
+    var q = '[out:json][timeout:' + OVERPASS_QUERY_TIMEOUT + '][maxsize:33554432];\n' +
+      'way["highway"~"^(primary|secondary|tertiary|residential|unclassified|living_street|service)$"](' +
       bbox.south + ',' + bbox.west + ',' + bbox.north + ',' + bbox.east + ');\n' +
       'out geom;';
     var body = 'data=' + encodeURIComponent(q);
     var i = 0;
     function next() {
-      if (i >= OVERPASS_URLS.length) return Promise.reject(new Error('Overpass falló'));
+      if (i >= OVERPASS_URLS.length) return Promise.reject(new Error('Overpass falló en todos los mirrors'));
       var url = OVERPASS_URLS[i++];
-      return gmRequest({
+      var host = url.replace(/^https?:\/\//, '').split('/')[0];
+      setRouteStatus('OSM Overpass ' + i + '/' + OVERPASS_URLS.length + ' · ' + host + '…');
+      var req = gmRequest({
         method: 'POST',
         url: url,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'PurificadorasScout/1.1 (CASCA-code; field scout)'
+          'User-Agent': 'PurificadorasScout/1.2 (CASCA-code; field scout)'
         },
         data: body,
-        timeout: 70000
+        timeout: OVERPASS_HARD_MS
       }).then(function (res) {
         return JSON.parse(res.responseText);
-      }).catch(function () { return next(); });
+      });
+      return withHardTimeout(req, OVERPASS_HARD_MS + 1500, host).catch(function (err) {
+        console.warn('[scout] Overpass mirror fail', host, err && err.message);
+        return next();
+      });
     }
     return next();
+  }
+
+  function loadPrebakedRoads() {
+    if (state.roadsFc) return Promise.resolve(state.roadsFc);
+    if (state.roadsLoading) return state.roadsLoading;
+    setRouteStatus('Cargando calles prebaked…');
+    state.roadsLoading = fetchTextFirst(ROADS_URLS).then(function (txt) {
+      var fc = JSON.parse(txt);
+      state.roadsFc = fc;
+      state.roadsLoading = null;
+      return fc;
+    }).catch(function (err) {
+      state.roadsLoading = null;
+      throw err;
+    });
+    return state.roadsLoading;
+  }
+
+  function geojsonRoadsToElements(fc, bbox) {
+    var elements = [];
+    var feats = (fc && fc.features) || [];
+    for (var i = 0; i < feats.length; i++) {
+      var f = feats[i];
+      var g = f && f.geometry;
+      if (!g || g.type !== 'LineString' || !g.coordinates || g.coordinates.length < 2) continue;
+      var coords = g.coordinates;
+      var minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+      for (var c = 0; c < coords.length; c++) {
+        var lon = coords[c][0], lat = coords[c][1];
+        if (lon < minLng) minLng = lon;
+        if (lon > maxLng) maxLng = lon;
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+      }
+      if (maxLng < bbox.west || minLng > bbox.east || maxLat < bbox.south || minLat > bbox.north) continue;
+      var geom = [];
+      for (var k = 0; k < coords.length; k++) {
+        geom.push({ lon: coords[k][0], lat: coords[k][1] });
+      }
+      elements.push({
+        type: 'way',
+        geometry: geom,
+        tags: { highway: (f.properties && f.properties.highway) || 'residential' }
+      });
+    }
+    return elements;
+  }
+
+  function densifyPolygonFallback(geom, stepM) {
+    var step = stepM || GRID_STEP_M;
+    var bbox = geomBbox(geom);
+    var points = [];
+    var last = null;
+
+    function pushPt(lat, lng) {
+      if (!pointInPolygon(lng, lat, geom)) return;
+      if (last && haversineM(last.lat, last.lng, lat, lng) < step * 0.4) return;
+      var pt = { lat: lat, lng: lng };
+      points.push(pt);
+      last = pt;
+    }
+
+    // 1) densify outer ring(s)
+    var rings = [];
+    if (geom.type === 'Polygon') rings = [geom.coordinates[0]];
+    else if (geom.type === 'MultiPolygon') {
+      for (var p = 0; p < geom.coordinates.length; p++) rings.push(geom.coordinates[p][0]);
+    }
+    for (var r = 0; r < rings.length; r++) {
+      var samples = samplePolyline(rings[r], step);
+      for (var s = 0; s < samples.length; s++) pushPt(samples[s].lat, samples[s].lng);
+    }
+
+    // 2) grid inside bbox (~40–60 m)
+    var lat0 = bbox.south;
+    var mPerDegLat = 111320;
+    var mPerDegLng = 111320 * Math.cos(((bbox.south + bbox.north) / 2) * Math.PI / 180);
+    var dLat = step / mPerDegLat;
+    var dLng = step / Math.max(mPerDegLng, 1e-6);
+    var row = 0;
+    for (var lat = bbox.south; lat <= bbox.north + 1e-12; lat += dLat, row++) {
+      var colOff = (row % 2) * (dLng * 0.5); // slight stagger
+      for (var lng = bbox.west + colOff; lng <= bbox.east + 1e-12; lng += dLng) {
+        pushPt(lat, lng);
+      }
+    }
+
+    var MAX_PTS = 900;
+    if (points.length > MAX_PTS) {
+      var stride = Math.ceil(points.length / MAX_PTS);
+      var thinned = [];
+      for (var t = 0; t < points.length; t += stride) thinned.push(points[t]);
+      points = thinned;
+    }
+    return points;
+  }
+
+  function setRetryVisible(show) {
+    var btn = document.getElementById('purif-scout-retry-route');
+    if (btn) btn.style.display = show ? '' : 'none';
+  }
+
+  function showTrayectoError(msg) {
+    state.lastTrayectoError = msg || 'Error armando trayecto';
+    setRouteStatus('❌ ' + state.lastTrayectoError);
+    setRetryVisible(true);
+    toast(state.lastTrayectoError);
   }
 
   function waysToCoveragePoints(elements, geom) {
@@ -1078,13 +1273,16 @@
       toast('Elige una colonia');
       return;
     }
+    if (state.trayectoBuilding) {
+      toast('Ya se está armando el trayecto…');
+      return;
+    }
     state.selectedColonia = ft;
     var p = ft.properties || {};
-    var name = (p.colonia || '?') + ' · ' + (p.municipio || '');
+    var name = (p.colonia_raw || p.colonia || '?') + ' · ' + (p.municipio || '');
     var geom = ft.geometry;
     if (!geom) { toast('Colonia sin geometría'); return; }
     var bbox = geomBbox(geom);
-    // pad bbox slightly
     var pad = 0.0003;
     bbox = {
       south: bbox.south - pad,
@@ -1092,19 +1290,76 @@
       north: bbox.north + pad,
       east: bbox.east + pad
     };
-    setRouteStatus('Consultando OSM Overpass…');
+
+    state.trayectoBuilding = true;
+    state.lastTrayectoError = null;
+    setRetryVisible(false);
+    setRouteStatus('Armando trayecto…');
     toast('Generando trayecto…');
-    overpassHighways(bbox).then(function (data) {
-      var pts = waysToCoveragePoints(data.elements || [], geom);
-      setRouteStatus(pts.length + ' puntos · ' + name);
+
+    function finishOk(pts, source) {
+      state.trayectoBuilding = false;
+      setRetryVisible(false);
+      setRouteStatus(pts.length + ' pts · ' + source + ' · ' + name);
       if (!pts.length) {
-        toast('Sin vías OSM dentro del polígono');
+        showTrayectoError('Sin puntos de cobertura en ' + name);
         return;
       }
       startRoute(pts, name);
+    }
+
+    function tryLiveOverpass() {
+      setRouteStatus('Consultando OSM Overpass…');
+      // Hard ceiling ~22s across mirrors — never infinite "consultando…"
+      return withHardTimeout(
+        overpassHighways(bbox),
+        22000,
+        'overpass-total'
+      ).then(function (data) {
+        var pts = waysToCoveragePoints(data.elements || [], geom);
+        if (pts.length >= MIN_ROUTE_PTS) {
+          finishOk(pts, 'Overpass');
+          return true;
+        }
+        return false;
+      }).catch(function (err) {
+        console.warn('[scout] Overpass failed', err && err.message);
+        return false;
+      });
+    }
+
+    function useGridFallback(reason) {
+      setRouteStatus('Fallback rejilla / borde…');
+      var pts = densifyPolygonFallback(geom, GRID_STEP_M);
+      if (pts.length >= MIN_ROUTE_PTS) {
+        finishOk(pts, 'rejilla ' + GRID_STEP_M + 'm');
+        toast('⚠ Sin calles OSM — usando rejilla (' + reason + ')');
+        return;
+      }
+      state.trayectoBuilding = false;
+      showTrayectoError('No se pudo armar trayecto (' + reason + '). Reintentar.');
+    }
+
+    // 1) Prebaked roads (preferred — no live Overpass)
+    loadPrebakedRoads().then(function (fc) {
+      var elements = geojsonRoadsToElements(fc, bbox);
+      var pts = waysToCoveragePoints(elements, geom);
+      if (pts.length >= MIN_ROUTE_PTS) {
+        finishOk(pts, 'prebaked');
+        return null;
+      }
+      // 2) Live Overpass optional refresh
+      return tryLiveOverpass().then(function (ok) {
+        if (!ok) useGridFallback('sin vías en polígono');
+      });
+    }).catch(function () {
+      // prebake missing → Overpass → grid
+      return tryLiveOverpass().then(function (ok) {
+        if (!ok) useGridFallback('prebake+Overpass fallaron');
+      });
     }).catch(function (err) {
-      setRouteStatus('Overpass error');
-      toast('Overpass falló: ' + (err && err.message || err));
+      state.trayectoBuilding = false;
+      showTrayectoError('Error: ' + (err && err.message || err));
     });
   }
 
@@ -1202,6 +1457,7 @@
       '      <button type="button" class="primary" id="purif-scout-start-route">Start trayecto</button>',
       '      <button type="button" id="purif-scout-pause-route">Pausa</button>',
       '      <button type="button" class="danger" id="purif-scout-stop-route">Stop</button>',
+      '      <button type="button" id="purif-scout-retry-route" style="display:none;background:#b45309;color:#fff">Reintentar</button>',
       '    </div>',
       '    <div class="route-status" id="purif-scout-route-status"></div>',
       '  </div>',
@@ -1253,6 +1509,11 @@
     });
     document.getElementById('purif-scout-start-route').addEventListener('click', function (e) {
       e.preventDefault(); e.stopPropagation();
+      buildTrayectoForSelection();
+    });
+    document.getElementById('purif-scout-retry-route').addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      setRetryVisible(false);
       buildTrayectoForSelection();
     });
     document.getElementById('purif-scout-pause-route').addEventListener('click', function (e) {

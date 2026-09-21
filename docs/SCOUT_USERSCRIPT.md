@@ -1,6 +1,6 @@
 # Scout Userscript (Tampermonkey) — Street View sin billing
 
-Actualizado: 2026-09-21 (v1.1.0)
+Actualizado: 2026-09-21 (v1.2.0)
 
 > **Camino primario para Nicolás.** Corre **sobre** Google Maps de consumidor (`google.com/maps` Street View).  
 > **No** requiere Google Cloud / Maps Platform API key / hold de facturación.  
@@ -14,6 +14,7 @@ Extensión de usuarios (Tampermonkey) que, mientras ves **Street View** en el Ma
 - No scrapea negocios ni cachea imagery de Street View — solo GeoJSON (coords + props).
 - Sync **primario: ntfy** (el userscript en `google.com` **no** puede compartir `localStorage` con `casca-code.github.io`).
 - **v1.1:** picker de colonia + **trayecto** de cobertura vial (OSM Overpass) + auto-walk más fiable.
+- **v1.2:** calles **prebaked** (`data/roads_zmm.geojson`) para Escobedo — ya no depende de Overpass en vivo para colonias comunes; Overpass con timeout duro + mirrors + **Reintentar**; fallback rejilla; búsqueda fuzzy de colonia.
 
 ## Instalación (Chrome / Edge / Firefox)
 
@@ -36,8 +37,10 @@ Actualizar: Tampermonkey suele detectar la nueva versión en el raw de GitHub; o
 1. En el HUD, **busca / elige una colonia** (lista prioriza **General Escobedo**, luego el resto de ZMM por `rank` del GeoJSON del proyecto).
 2. Pulsa **Start trayecto**.
    - El script carga el polígono desde Pages (`data/colonias.geojson`).
-   - Consulta **OSM Overpass** (vías `highway` dentro del bbox) — sin Google billing.
-   - Arma una secuencia de puntos ~15–25 m (cobertura greedy por centerlines) y te lleva por Street View.
+   - **Preferido:** filtra vías de `data/roads_zmm.geojson` (prebaked OSM Escobedo) — suele armar el trayecto en pocos segundos, sin Overpass.
+   - Si no hay calles prebaked en el polígono: intenta **OSM Overpass** (2–3 mirrors, timeout duro ~12 s/mirror, techo ~22 s). Nunca se queda infinito en “Consultando OSM…”.
+   - Si Overpass también falla: **fallback** rejilla ~50 m + puntos en el borde del polígono + botón **Reintentar**.
+   - Arma una secuencia de puntos ~20 m (cobertura greedy por centerlines) y te lleva por Street View.
 3. Mientras camina el trayecto:
    - Marca con **M / S / Y / E / P / I / H / C** como siempre.
    - **Space** = pausar / reanudar el trayecto.
@@ -47,6 +50,10 @@ Actualizar: Tampermonkey suele detectar la nueva versión en el raw de GitHub; o
 5. Al terminar: badge “Completo” + toasts; puedes elegir otra colonia.
 
 Datos de colonias: `https://casca-code.github.io/mapa-purificadoras/data/colonias.geojson` (fallback raw GitHub).
+
+Calles prebaked: `https://casca-code.github.io/mapa-purificadoras/data/roads_zmm.geojson` — regenerar con `python3 scripts/prebake_roads_zmm.py`.
+
+Búsqueda de colonia: fuzzy (sin acentos) + aliases (`topo`, `pedregal`, `san francisco` → Villas / Pedregal del Topo Chico, etc.).
 
 ## Hotkeys (igual que Scout SV)
 
@@ -111,19 +118,31 @@ Google Maps impone CSP estricto (bloquea Leaflet/CDN y a menudo iframes externos
 ## Permisos `@connect`
 
 - `ntfy.sh` — sync pines
-- `casca-code.github.io` / `raw.githubusercontent.com` — colonias GeoJSON
-- `overpass-api.de` / `overpass.kumi.systems` — red vial OSM
+- `casca-code.github.io` / `raw.githubusercontent.com` — colonias + `roads_zmm.geojson`
+- `overpass-api.de` / `overpass.kumi.systems` / `overpass.openstreetmap.ru` — Overpass opcional (refresh)
 - `router.project-osrm.org` — reservado (puente corto opcional; no obligatorio)
 
 ## Limitaciones
 
 - Hay que estar en **Street View** para marcar pines (el trayecto te mete solo).
 - Lat/lng/heading se leen de la URL (`/@lat,lng,3a,…`, `map_action=pano`, `!3d`/`!4d`) + poll de `history`.
-- Cobertura vial depende de OSM; colonias con pocas vías salen cortas.
+- Cobertura vial: prebaked Escobedo primero; fuera de Escobedo o si el prebake no cubre → Overpass o rejilla.
+- Colonias con pocas vías OSM salen cortas (o usan rejilla).
 - Colonias muy grandes se **muestrean** (máx. ~900 puntos) para no eternizar el recorrido.
 - Auto-walk local no es el grafo de panoramas de la API de Maps; el **trayecto por colonia** es el camino fiable para cobertura.
 - No implementa métricas / panel de control (diferido a propósito).
 - Topic ntfy es el público del repo (ver nota de rotación en `FIELD_ADDS.md`). No se committean secrets nuevos.
+
+## v1.2 — Overpass hang fix (Step 1)
+
+Problema: al elegir colonia (p. ej. Pedregal del Topo Chico, Villas de San Francisco) el HUD se quedaba en **“Consultando OSM Overpass…”** sin fin.
+
+Cambios:
+1. Timeout duro por mirror (~12 s) + techo total ~22 s + mensaje de error + **Reintentar**.
+2. Query Overpass más chica (`[timeout:15][maxsize:…]`, sin `pedestrian`).
+3. **Prebaked** `data/roads_zmm.geojson` (Escobedo) servido desde Pages/raw — camino feliz sin Overpass.
+4. Fallback densificar borde del polígono + rejilla ~50 m.
+5. Búsqueda fuzzy de colonias.
 
 ## Relacionado
 
