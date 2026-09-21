@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.7.1
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.7.1: HUD slim (hotkeys/colonia/Start/speed/mini-map); v1.7 POV→trayecto; cobertura calles; auto-walk REQUIERE extensión. NO uses scout-sv.html.
+// @version      1.7.2
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.7.2: speed solo slider (blur HUD ante Arrow* de ext); look-ahead cruce POV→salida; cobertura calles; auto-walk REQUIERE extensión. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -41,6 +41,7 @@
    * v1.6.0: trayecto = cobertura total calles (grafo + Chinese Postman approx); steering turnDeg; U-turn dead-end; hop raro entre componentes.
    * v1.7.0: rota el POV hacia el bearing del trayecto ANTES de ArrowUp; poll heading URL; U-turn ~180° real; HUD POV cur→target.
    * v1.7.1: HUD slim left — hotkeys, colonia+Start, speed, progress, Pause/Stop; mini-map route+peg; clutter→⋯ menu.
+   * v1.7.2: speed no auto-acelera (blur/ignore Arrow* en slider ante ext); look-ahead esquina |turn|≥35° → POV a bearing de SALIDA ~50 m antes; HUD ↳/↰.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -51,7 +52,7 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.7.1';
+  var SCRIPT_VERSION = '1.7.2';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -87,7 +88,10 @@
   var CONSEC_SV_FAILS = 3;
   var URL_RECOVERY_EVERY = 8; // rare URL jump after N flecha failures
   var NEAR_WP_M = 28; // haversine to advance trayecto index
-  var LOOKAHEAD_NEAR_M = 22; // when this close to WP, steer toward WP+1
+  var LOOKAHEAD_NEAR_M = 22; // soft steer toward WP+1 when this close (legacy)
+  var CORNER_LOOKAHEAD_M = 55; // v1.7.2: commit exit bearing this far before corner
+  var CORNER_TURN_DEG = 35; // |turnDeg| at WP ≥ this → corner / multi-link
+  var CORNER_EXTRA_BURSTS = 2; // stronger POV align at crossroads
   var EXT_TURN_THRESH = 18; // deg — ask extension to turn if |delta| above this
   var STRONG_TURN_DEG = 20; // |delta| above this → align POV before ArrowUp (v1.7)
   var POV_ALIGN_DEG = 20; // same threshold for alignPovToBearing
@@ -141,12 +145,18 @@
     routeEntered: false, // first URL jump done for trayecto
     povHud: null, // brief 'POV 120°→85°'
     povHudUntil: 0,
-    targetBearing: null
+    targetBearing: null,
+    nextTurnHud: null, // '↳ der 90°' / '↰ izq'
+    _speedPointerDown: false,
+    _hudInputLock: 0
   };
 
   try {
-    var savedSpeed = Number(GM_getValue && GM_getValue(LS_SPEED, DEFAULT_AUTO_MS));
-    if (isFinite(savedSpeed) && savedSpeed >= 700 && savedSpeed <= 4000) state.autoMs = savedSpeed;
+    var savedSpeed = Number(GM_getValue && GM_getValue(LS_SPEED, NaN));
+    if (!isFinite(savedSpeed)) {
+      try { savedSpeed = Number(localStorage.getItem(LS_SPEED)); } catch (e2) { savedSpeed = NaN; }
+    }
+    if (isFinite(savedSpeed) && savedSpeed >= ROUTE_MS_MIN && savedSpeed <= ROUTE_MS_MAX) state.autoMs = savedSpeed;
   } catch (e) {}
 
   /* ---------- utils ---------- */
@@ -929,6 +939,59 @@
   var _extPending = {};
   var _extSeq = 0;
 
+
+  /* ---- v1.7.2: keep ext ArrowLeft/Right from mutating HUD <input type="range"> ---- */
+  function blurHudInputs() {
+    try {
+      var ae = document.activeElement;
+      if (ae && ae.closest && ae.closest('#purif-scout-root')) {
+        ae.blur();
+      }
+    } catch (e) {}
+    var ids = ['purif-scout-speed', 'purif-scout-colonia', 'purif-scout-col-filter', 'purif-scout-comment-text'];
+    for (var i = 0; i < ids.length; i++) {
+      var el = document.getElementById(ids[i]);
+      if (!el) continue;
+      try { el.blur(); } catch (e2) {}
+      if (el.tagName === 'INPUT' && el.type === 'range') {
+        el.dataset._hudPrevDisabled = el.disabled ? '1' : '0';
+        el.disabled = true;
+      }
+    }
+  }
+
+  function restoreHudInputs() {
+    var ids = ['purif-scout-speed', 'purif-scout-colonia', 'purif-scout-col-filter', 'purif-scout-comment-text'];
+    for (var i = 0; i < ids.length; i++) {
+      var el = document.getElementById(ids[i]);
+      if (!el) continue;
+      if (el.tagName === 'INPUT' && el.type === 'range') {
+        if (el.dataset._hudPrevDisabled === '0' || el.dataset._hudPrevDisabled == null) el.disabled = false;
+        delete el.dataset._hudPrevDisabled;
+      }
+    }
+  }
+
+  function withHudInputLock(promiseFactory) {
+    state._hudInputLock = (state._hudInputLock || 0) + 1;
+    blurHudInputs();
+    var done = function (v) {
+      state._hudInputLock = Math.max(0, (state._hudInputLock || 1) - 1);
+      if (!state._hudInputLock) restoreHudInputs();
+      return v;
+    };
+    try {
+      return Promise.resolve(promiseFactory()).then(done, function (err) {
+        done(null);
+        return Promise.reject(err);
+      });
+    } catch (e) {
+      done(null);
+      return Promise.reject(e);
+    }
+  }
+
+
   function extPost(type, extra) {
     extra = extra || {};
     var reqId = 'u' + (++_extSeq) + '_' + Date.now();
@@ -983,17 +1046,21 @@
 
   function requestExtStep(opts) {
     opts = opts || {};
-    return extPost('step', {
-      turnDeg: opts.turnDeg,
-      turnsLeft: opts.turnsLeft,
-      turnsRight: opts.turnsRight,
-      forward: opts.forward !== false,
-      alsoW: !!opts.alsoW
+    return withHudInputLock(function () {
+      return extPost('step', {
+        turnDeg: opts.turnDeg,
+        turnsLeft: opts.turnsLeft,
+        turnsRight: opts.turnsRight,
+        forward: opts.forward !== false,
+        alsoW: !!opts.alsoW
+      });
     });
   }
 
   function requestExtArrowUp() {
-    return extPost('stepForward', {});
+    return withHudInputLock(function () {
+      return extPost('stepForward', {});
+    });
   }
 
   function requestExtPing() {
@@ -1067,7 +1134,7 @@
    * Rotate POV to face trayecto bearing BEFORE stepping forward.
    * Uses extension step({turnDeg, forward:false}), polls URL heading, up to POV_EXTRA_BURSTS extras.
    */
-  function alignPovToBearing(targetBearing) {
+  function alignPovToBearing(targetBearing, extraBursts) {
     return new Promise(function (resolve) {
       refreshPose();
       if (targetBearing == null || !isFinite(targetBearing)) {
@@ -1123,7 +1190,8 @@
         });
       }
 
-      oneBurst(POV_EXTRA_BURSTS);
+      var bursts = (extraBursts != null && isFinite(extraBursts)) ? Number(extraBursts) : POV_EXTRA_BURSTS;
+      oneBurst(bursts);
     });
   }
 
@@ -1492,22 +1560,38 @@
     return false;
   }
 
-  function setAutoMs(ms) {
-    ms = Math.max(700, Math.min(4000, Number(ms) || DEFAULT_AUTO_MS));
+  function setAutoMs(ms, fromUser) {
+    ms = Math.max(ROUTE_MS_MIN, Math.min(ROUTE_MS_MAX, Number(ms) || DEFAULT_AUTO_MS));
+    // Snap to slider step 100
+    ms = Math.round(ms / 100) * 100;
+    if (ms < ROUTE_MS_MIN) ms = ROUTE_MS_MIN;
+    if (ms > ROUTE_MS_MAX) ms = ROUTE_MS_MAX;
+    if (ms === state.autoMs && !fromUser) {
+      syncSpeedUi();
+      return;
+    }
     state.autoMs = ms;
     try { if (typeof GM_setValue === 'function') GM_setValue(LS_SPEED, ms); } catch (e) {}
-    if (state.autoWalk) {
-      if (state.autoTimer) {
-        clearInterval(state.autoTimer);
-        if (!state.extAvailable) toast('⚠ Sin extensión — auto-walk no se moverá');
+    try { localStorage.setItem(LS_SPEED, String(ms)); } catch (e2) {}
+    syncSpeedUi();
+    if (state.autoWalk && state.autoTimer) {
+      clearInterval(state.autoTimer);
       state.autoTimer = setInterval(autoWalkTick, state.autoMs);
-      }
     }
     if (state.route && !state.route.paused && state.routeTimer) {
       clearInterval(state.routeTimer);
       state.routeTimer = setInterval(routeTick, routeIntervalMs());
     }
-    updateHud();
+  }
+
+  function syncSpeedUi() {
+    var el = document.getElementById('purif-scout-speed');
+    var lab = document.getElementById('purif-scout-speed-label');
+    if (el && !state._speedPointerDown) {
+      // Only write value when not dragging — never during trayecto ticks
+      if (String(el.value) !== String(state.autoMs)) el.value = String(state.autoMs);
+    }
+    if (lab) lab.textContent = (state.autoMs / 1000).toFixed(1) + 's';
   }
 
   /* ---------- colonias + route builder ---------- */
@@ -1799,7 +1883,34 @@
    * 3) Hierholzer circuit → sample waypoints every STEP_M.
    * Returns { points, streetCount, edgeCount, capped }.
    */
-  function waysToCoveragePoints(elements, geom) {
+  
+  /** Precompute turnDeg / exitBearing at each WP (bearing in→out). Deterministic steering. */
+  function annotateRouteTurns(points) {
+    if (!points || points.length < 2) return points;
+    for (var i = 0; i < points.length; i++) {
+      var prev = points[i - 1];
+      var cur = points[i];
+      var nxt = points[i + 1];
+      var inB = null, outB = null, turn = 0;
+      if (prev) inB = bearingDeg(prev.lat, prev.lng, cur.lat, cur.lng);
+      if (nxt) outB = bearingDeg(cur.lat, cur.lng, nxt.lat, nxt.lng);
+      if (inB != null && outB != null) turn = angleDiffDeg(outB, inB);
+      cur.turnDeg = turn;
+      cur.inBearing = inB;
+      cur.exitBearing = outB != null ? outB : inB;
+      cur.isCorner = Math.abs(turn) >= CORNER_TURN_DEG;
+    }
+    return points;
+  }
+
+  function formatNextTurnHud(turnDeg) {
+    if (turnDeg == null || !isFinite(turnDeg) || Math.abs(turnDeg) < CORNER_TURN_DEG) return null;
+    var abs = Math.round(Math.abs(turnDeg));
+    if (turnDeg > 0) return '↳ der ' + abs + '°';
+    return '↰ izq ' + abs + '°';
+  }
+
+function waysToCoveragePoints(elements, geom) {
     var NODE_PREC = 5; // ~1.1 m snap
     var ways = [];
     (elements || []).forEach(function (el) {
@@ -2106,6 +2217,8 @@
       points = thinned;
     }
 
+    annotateRouteTurns(points);
+
     return {
       points: points,
       streetCount: ways.length,
@@ -2246,7 +2359,42 @@
   }
 
   function routeSteerHeading(r, pt, next) {
+    // v1.7.2: prefer EXIT bearing of upcoming corner (commit turn early), not "toward next point"
+    // which oscillates between left/right link options at SV intersections.
     var heading;
+    var corner = null;
+    var cornerDist = Infinity;
+    if (r && r.points && state.lat != null) {
+      // Look ahead up to ~3 WPs / CORNER_LOOKAHEAD_M for a marked corner
+      var maxK = Math.min(r.points.length - 1, (r.i != null ? r.i : 0) + 3);
+      var startI = (r.i != null ? r.i : 0);
+      for (var k = startI; k <= maxK; k++) {
+        var cand = r.points[k];
+        if (!cand || !cand.isCorner) continue;
+        var d = haversineM(state.lat, state.lng, cand.lat, cand.lng);
+        if (d <= CORNER_LOOKAHEAD_M && d < cornerDist) {
+          corner = cand;
+          cornerDist = d;
+        }
+      }
+    }
+    if (corner && corner.exitBearing != null && isFinite(corner.exitBearing)) {
+      state.nextTurnHud = formatNextTurnHud(corner.turnDeg);
+      return corner.exitBearing;
+    }
+    // Precomputed exit on current WP when close
+    if (pt && pt.exitBearing != null && isFinite(pt.exitBearing) && state.lat != null) {
+      var distPt = haversineM(state.lat, state.lng, pt.lat, pt.lng);
+      if (distPt < CORNER_LOOKAHEAD_M && pt.isCorner) {
+        state.nextTurnHud = formatNextTurnHud(pt.turnDeg);
+        return pt.exitBearing;
+      }
+      if (distPt < LOOKAHEAD_NEAR_M && next) {
+        state.nextTurnHud = formatNextTurnHud(pt.turnDeg);
+        return (pt.exitBearing != null) ? pt.exitBearing : bearingDeg(state.lat, state.lng, next.lat, next.lng);
+      }
+    }
+    state.nextTurnHud = (pt && pt.isCorner) ? formatNextTurnHud(pt.turnDeg) : null;
     if (state.lat != null) {
       var dist = haversineM(state.lat, state.lng, pt.lat, pt.lng);
       if (dist < LOOKAHEAD_NEAR_M && next) {
@@ -2414,10 +2562,34 @@
       }
     }
 
-    // v1.7: always face trayecto bearing (POV) before ArrowUp when |Δ| > 20°
-    if (Math.abs(turnDelta) > STRONG_TURN_DEG && state.extAvailable) {
+    // v1.7.2: face EXIT bearing early at corners; stronger bursts at multi-link turns
+    var cornerCommit = false;
+    var extra = POV_EXTRA_BURSTS;
+    if (state.lat != null && pt) {
+      var dCorner = haversineM(state.lat, state.lng, pt.lat, pt.lng);
+      if (pt.isCorner && Math.abs(pt.turnDeg || 0) >= CORNER_TURN_DEG && dCorner <= CORNER_LOOKAHEAD_M) {
+        cornerCommit = true;
+        extra = POV_EXTRA_BURSTS + CORNER_EXTRA_BURSTS;
+        if (pt.exitBearing != null && isFinite(pt.exitBearing)) heading = pt.exitBearing;
+        state.nextTurnHud = formatNextTurnHud(pt.turnDeg);
+      } else if (next && next.isCorner && Math.abs(next.turnDeg || 0) >= CORNER_TURN_DEG) {
+        var dNext = haversineM(state.lat, state.lng, next.lat, next.lng);
+        if (dNext <= CORNER_LOOKAHEAD_M) {
+          cornerCommit = true;
+          extra = POV_EXTRA_BURSTS + CORNER_EXTRA_BURSTS;
+          if (next.exitBearing != null && isFinite(next.exitBearing)) heading = next.exitBearing;
+          state.nextTurnHud = formatNextTurnHud(next.turnDeg);
+        }
+      }
+    }
+    if (state.heading != null && isFinite(state.heading) && isFinite(heading)) {
+      turnDelta = angleDiffDeg(heading, state.heading);
+    }
+
+    if ((cornerCommit || Math.abs(turnDelta) > STRONG_TURN_DEG) && state.extAvailable) {
       flashPovHud(state.heading, heading);
-      alignPovToBearing(heading).then(function () {
+      alignPovToBearing(heading, extra).then(function () {
+        // One ↑ along the committed exit heading (not oscillating link choice)
         return smoothStepForward(heading, false);
       }).then(afterStep).catch(function () {
         state.routeBusy = false;
@@ -2688,7 +2860,7 @@
       '      <button type="button" class="primary" id="purif-scout-start-route">▶ Start trayecto</button>',
       '      <div class="speed-row">',
       '        <label>Velocidad</label>',
-      '        <input type="range" id="purif-scout-speed" min="700" max="2500" step="100" value="' + state.autoMs + '" />',
+      '        <input type="range" id="purif-scout-speed" min="700" max="2500" step="100" tabindex="-1" value="' + state.autoMs + '" />',
       '        <span id="purif-scout-speed-label">0.8s</span>',
       '      </div>',
       '      <div class="route-status" id="purif-scout-route-status"></div>',
@@ -2775,14 +2947,37 @@
       stopRoute('Trayecto detenido');
       setRouteStatus('Detenido');
     });
-    document.getElementById('purif-scout-speed').addEventListener('input', function (e) {
-      var ms = Number(e.target.value);
-      var lab = document.getElementById('purif-scout-speed-label');
-      if (lab) lab.textContent = (ms / 1000).toFixed(1) + 's';
-      setAutoMs(ms);
-    });
-    var lab0 = document.getElementById('purif-scout-speed-label');
-    if (lab0) lab0.textContent = (state.autoMs / 1000).toFixed(1) + 's';
+    var speedEl = document.getElementById('purif-scout-speed');
+    if (speedEl) {
+      speedEl.tabIndex = -1;
+      speedEl.addEventListener('pointerdown', function () { state._speedPointerDown = true; });
+      speedEl.addEventListener('pointerup', function () { state._speedPointerDown = false; try { speedEl.blur(); } catch (e) {} });
+      speedEl.addEventListener('pointercancel', function () { state._speedPointerDown = false; });
+      speedEl.addEventListener('keydown', function (e) {
+        // Extension ArrowLeft/Right must NEVER nudge the range. Only pointer-drag changes speed.
+        var k = e.key || '';
+        if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown' ||
+            k === 'Home' || k === 'End' || k === 'PageUp' || k === 'PageDown') {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return;
+        }
+      }, true);
+      speedEl.addEventListener('input', function (e) {
+        if (!e.isTrusted) return; // ignore synthetic
+        if (state._hudInputLock) return; // ignore while ext is stepping
+        var ms = Number(e.target.value);
+        var lab = document.getElementById('purif-scout-speed-label');
+        if (lab) lab.textContent = (ms / 1000).toFixed(1) + 's';
+        setAutoMs(ms, true);
+      });
+      speedEl.addEventListener('change', function (e) {
+        if (!e.isTrusted) return;
+        setAutoMs(Number(e.target.value), true);
+        try { speedEl.blur(); } catch (err) {}
+      });
+    }
+    syncSpeedUi();
   }
 
   function openComment() {
@@ -2821,7 +3016,8 @@
     var rs = document.getElementById('purif-scout-route-status');
     if (rs && state.route && state.route.status === 'running') {
       var prog = routeProgressLabel(state.route);
-      rs.textContent = (state.route.paused ? '⏸ ' : '▶ ') + prog + (state.extAvailable ? '' : ' · sin ext');
+      var turnBit = state.nextTurnHud ? (' · ' + state.nextTurnHud) : '';
+      rs.textContent = (state.route.paused ? '⏸ ' : '▶ ') + prog + turnBit + (state.extAvailable ? '' : ' · sin ext');
     } else if (rs && state.route && state.route.status === 'stopped') {
       if (!rs.textContent) rs.textContent = 'Detenido';
     } else if (rs && !state.route && !state.trayectoBuilding && !state.lastTrayectoError) {

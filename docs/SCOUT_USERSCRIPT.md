@@ -1,6 +1,6 @@
 # Scout Userscript (Tampermonkey) — Street View sin billing
 
-Actualizado: 2026-09-21 (**v1.7.1**)
+Actualizado: 2026-09-21 (**v1.7.2**)
 
 > **Camino primario para Nicolás.** Corre **sobre** Google Maps de consumidor (`https://www.google.com/maps` Street View).  
 > **Cero** Google Cloud / Maps Platform API key / hold de facturación.  
@@ -36,7 +36,7 @@ Detalle: [`extension/README.md`](../extension/README.md).
 2. **Utilidades** → **Instalar desde URL**:
 
    ```
-   https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js?v=171
+   https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js?v=172
    ```
    Si Tampermonkey no toma el cambio: **Reinstall** desde esa URL (no solo Update).
 
@@ -60,7 +60,7 @@ Pulsa **▶ Start trayecto** (acción principal). El script:
 4. Muestrea waypoints cada ~15 m (cap ~2500 pts en colonias muy grandes; el HUD lo anuncia).
 5. HUD antes de caminar: `Trayecto: N pts · ~X calles · cobertura colonia`.
 6. Entra **1 vez** al inicio con URL (puede flash negro).
-7. Luego **loop automático**: **v1.7 rota el POV hacia el trayecto antes de avanzar** (poll heading URL; luego ArrowUp). En esquinas (|Δ| > 20°) alinea cámara primero.
+7. Luego **loop automático**: **v1.7+ rota el POV hacia el trayecto antes de avanzar** (poll heading URL; luego ArrowUp). **v1.7.2:** ~55 m antes de un cruce con giro ≥35° alinea al bearing de **salida** del trayecto (evita quedarse entre link izq/der de SV).
 8. Callejón sin salida: si ArrowUp no mueve 2–3 veces → U-turn POV ~180° real (sin Up), luego sigue el path.
 9. Componente lejano: solo si el siguiente punto está >90 m **y** falla ≥5 veces → **un** salto `map_action=pano` (“otra calle”), luego vuelve a flecha.
 10. **Space** = pausa/reanuda el trayecto. Si hay colonia elegida y aún no hay ruta → Space arma y arranca el trayecto.
@@ -86,6 +86,7 @@ Extensión de usuarios (Tampermonkey) + **extensión Chrome companion (requerida
 - **v1.6:** trayecto = **cobertura total de calles** (grafo + Chinese Postman), no “solo ArrowUp en una avenida”. Steering con giros fuertes, U-turn en dead-ends, hop raro entre componentes.
 - **v1.7:** rota el POV hacia el trayecto antes de avanzar (ext 1.5.1: más teclas/°, settle 320 ms, mouse-drag backup).
 - **v1.7.1:** HUD slim (hotkeys → colonia → Start → speed → progress → Pause/Stop + mini-mapa del recorrido; Export/Sync en ⋯).
+- **v1.7.2:** speed ya no “acelera solo” (ArrowLeft/Right de la extensión ya no mueven el `<input type="range">`: blur/disable HUD antes de cada step, `tabindex=-1`, `preventDefault`+`stopImmediatePropagation` en flechas). Look-ahead en cruces: ~55 m antes de esquina con `|turn|≥35°` alinea POV al **bearing de salida** del trayecto (no al link SV ambiguo); HUD `↳ der` / `↰ izq`.
 
 ## Extensión = requerida (no opcional)
 

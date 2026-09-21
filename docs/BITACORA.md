@@ -1,3 +1,9 @@
+## 2026-09-21 (scout v1.7.2 — speed fijo + look-ahead cruces)
+
+- Nicolás: velocidad “subía sola” porque ArrowLeft de la extensión también golpeaba el `<input type="range">` enfocado.
+- Fix: blur/disable inputs HUD antes de cada `ext` step; `tabindex=-1`; ignore Arrow*/Home/End en el slider (`preventDefault`+`stopImmediatePropagation`); solo drag de puntero cambia speed; persist GM+localStorage.
+- Cruces: annotate `turnDeg`/`exitBearing` en waypoints; ~55 m antes de |giro|≥35° alinea POV a la **salida** del trayecto (bursts extra); HUD `↳ der` / `↰ izq`.
+
 ## 2026-09-21 (scout v1.7.0 — POV rota hacia trayecto antes de avanzar)
 
 - Feedback Nicolás v1.6: walking OK-ish, pero POV “gira” débil y sigue mirando el forward viejo → ↑ va mal.
