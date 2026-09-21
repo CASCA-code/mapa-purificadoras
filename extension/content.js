@@ -1,5 +1,6 @@
-/* Bridge: page/userscript ↔ extension background (trusted debugger keys).
- * Exposes window.PURIF_SCOUT_EXT in the page world + postMessage API. */
+/* Bridge v1.6.0: page/userscript ↔ extension background (trusted debugger keys).
+ * Primary: window.postMessage + reqId (one debugger burst per logical step).
+ * CustomEvent = legacy only when reqId absent. Exposes PURIF_SCOUT_EXT via postMessage. */
 (function () {
   'use strict';
 
@@ -15,7 +16,7 @@
   function readyPing() {
     postToPage({
       type: 'PURIF_SCOUT_EXT_READY',
-      version: (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '1.5.1',
+      version: (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '1.6.0',
       api: ['step', 'stepForward', 'turnLeft', 'turnRight', 'ping']
     });
   }
@@ -103,16 +104,28 @@
     }
   }
 
+  // v1.6.0: primary channel = postMessage with reqId (userscript must NOT also fire CustomEvent)
   window.addEventListener('message', function (ev) {
+    try {
+      var o = ev && ev.origin;
+      if (o && o !== 'null' && o.indexOf('google.') < 0 && o.indexOf('chrome-extension://') !== 0) {
+        // ignore non-Maps origins; Maps tab origin is google.*
+        return;
+      }
+    } catch (eO) {}
     handlePageMsg(ev && ev.data);
   });
 
-  // CustomEvent fallbacks from userscript
-  document.addEventListener('purif-scout-forward', function () {
+  // Legacy CustomEvent ONLY if an old userscript still dispatches (no postMessage).
+  // Current userscript v1.8+ uses postMessage exclusively — do not double-fire.
+  document.addEventListener('purif-scout-forward', function (ev) {
+    var detail = (ev && ev.detail) || {};
+    if (detail && detail.reqId) return; // paired with postMessage — ignore
     handlePageMsg({ source: PAGE_SOURCE, type: 'stepForward' });
   });
   document.addEventListener('purif-scout-step', function (ev) {
     var detail = (ev && ev.detail) || {};
+    if (detail && detail.reqId) return; // paired with postMessage — ignore
     handlePageMsg(Object.assign({ source: PAGE_SOURCE, type: 'step' }, detail));
   });
 
@@ -140,11 +153,11 @@
       '      window.addEventListener("message", onMsg);',
       '      var payload = Object.assign({ source: "purif-scout", type: type, reqId: reqId, ts: Date.now() }, extra || {});',
       '      window.postMessage(payload, "*");',
-      '      setTimeout(function(){ if (!done) { window.removeEventListener("message", onMsg); resolve({ ok: false, err: "timeout" }); } }, 6000);',
+      '      setTimeout(function(){ if (!done) { window.removeEventListener("message", onMsg); resolve({ ok: false, err: "timeout" }); } }, 12000);',
       '    });',
       '  }',
       '  window.PURIF_SCOUT_EXT = {',
-      '    _v: "1.5.1",',
+      '    _v: "1.6.0",',
       '    ping: function(){ return send("ping"); },',
       '    stepForward: function(opts){ return send("stepForward", opts || {}); },',
       '    turnLeft: function(count){ return send("turnLeft", { count: count || 1 }); },',

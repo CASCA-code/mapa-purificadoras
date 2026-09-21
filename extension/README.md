@@ -1,8 +1,8 @@
-# Extensión Chrome — Purificadoras Scout v1.5.1 (**REQUERIDA**)
+# Extensión Chrome — Purificadoras Scout v1.6.0 (**REQUERIDA**)
 
 Sin esta extensión **el auto-walk no se mueve**. Google Maps Street View ignora clicks/teclas sintéticas (*untrusted*). Solo `chrome.debugger` envía `ArrowUp` / `ArrowLeft` / `ArrowRight` confiables.
 
-Companion del userscript Tampermonkey: **Purificadoras Scout v1.7+** (cobertura calles + **rota POV antes de avanzar**; la extensión es el pasito Left/Right/Up confiable).
+Companion del userscript Tampermonkey: **Purificadoras Scout v1.8+** (cobertura calles + **rota POV antes de avanzar**; la extensión es el pasito Left/Right/Up confiable).
 
 ---
 
@@ -22,9 +22,10 @@ Luego actualiza el userscript y elige colonia → **Start trayecto**.
 
 ## ¿Qué hace?
 
-- Escucha al userscript (`postMessage` / `PURIF_SCOUT_EXT.step({turnDeg})`).
+- Escucha al userscript (**postMessage + reqId** primario; CustomEvent solo legacy). `PURIF_SCOUT_EXT.step({turnDeg})` también usa postMessage por debajo.
+- **v1.6.0:** un burst debugger por step lógico; origin check en content script; timeout inject 12s alineado con userscript.
 - Adjunta el debugger a la pestaña de Maps, dispara teclas confiables, **desadjunta** al terminar el burst (banner amarillo breve).
-- **v1.5.1:** ~9° por tecla de giro; si `|turnDeg|≥12` envía **solo giros**, espera ~320 ms (POV settle), **luego** ArrowUp — un solo attach para turn+wait+Up. `forward:false` = solo rotar POV. Backup: drag horizontal del mouse en el centro del viewport si `|turnDeg|` grande.
+- **v1.6.0:** ~9° por tecla de giro; si `|turnDeg|≥12` envía **solo giros**, espera ~320 ms (POV settle), **luego** ArrowUp — un solo attach para turn+wait+Up. `forward:false` = solo rotar POV. Backup: drag horizontal del mouse en el centro del viewport si `|turnDeg|` grande.
 - Teclas: `ArrowUp` (avanzar), `ArrowLeft` / `ArrowRight` (rumbo), opcional `KeyW`.
 
 ### API

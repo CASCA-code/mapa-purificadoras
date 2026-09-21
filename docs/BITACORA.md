@@ -1,3 +1,14 @@
+## 2026-09-21 (scout v1.8.0 — audit Nicolás)
+
+- Bridge: `extPost` = **postMessage only** (quitó CustomEvent + `PURIF_SCOUT_EXT.step` double-fire). Extensión **1.6.0** (reload).
+- `routeBusy`: clear en `finally` del chain align+step; watchdog 15s; sin ticks solapados.
+- `EXT_STEP_TIMEOUT_MS=12s` alineado a attach+settle+keys; `alreadyAligned` evita doble POV align.
+- Heading soft-ok si ext OK pero URL atrasa; `parseFromUrl` no early-return tras turns.
+- Look-ahead esquina por metros acumulados (~70 m); `oneway`; excluye `highway=service` salvo alley.
+- Componentes ordenados por distancia al peg + hop proactivo; annotate turns en densify fallback.
+- Thinning con mínimo por tramo; recovery único dead-end/stuck; drawMini throttle; meta en saveRoute.
+- Pins `fuente:'campo'` + `client:'userscript'`. Reinstall `?v=180`.
+
 ## 2026-09-21 (scout v1.7.3 — sin flicker speed + destrabado)
 
 - Speed: botones −/+ (sin range); se quitó `blurHudInputs`/`withHudInputLock` que parpadeaba el HUD en cada step de la extensión.

@@ -164,7 +164,12 @@ def main():
         feats.append(
             {
                 "type": "Feature",
-                "properties": {"highway": hw, "osm_id": el.get("id")},
+                "properties": {
+                    "highway": hw,
+                    "osm_id": el.get("id"),
+                    "oneway": tags.get("oneway") or "",
+                    "service": tags.get("service") or "",
+                },
                 "geometry": {"type": "LineString", "coordinates": coords},
             }
         )

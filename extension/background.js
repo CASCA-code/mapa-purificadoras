@@ -1,9 +1,11 @@
-/* Purificadoras Scout v1.5.1 — trusted SV keys via chrome.debugger (MV3).
+/* Purificadoras Scout v1.6.0 — trusted SV keys via chrome.debugger (MV3).
  * PRIMARY walk driver: ArrowUp / ArrowLeft / ArrowRight (+ optional KeyW).
  * v1.5.1: stronger POV turns — more keys per deg, turn burst + settle BEFORE ArrowUp,
  * optional mouse-drag backup; one attach for turn+wait+Up (no mid-step detach).
  */
 
+// Shared budget with userscript EXT_STEP_TIMEOUT_MS (12s) / ROUTE_BUSY_WATCHDOG_MS (15s):
+// attach + turn keys + POV_SETTLE_MS + ArrowUp must fit under userscript step timeout.
 const ATTACH_TIMEOUT_MS = 8000;
 const DEG_PER_TURN_KEY = 9; // ~8–10°: more Left/Right presses for same turnDeg
 const MAX_TURN_KEYS = 24; // allow ~180°+ at 9°/key

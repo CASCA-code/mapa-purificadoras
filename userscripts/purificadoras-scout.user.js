@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.7.4
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.7.3: speed −/+ (sin range); sin blur HUD; routeBusy watchdog + destrabado; look-ahead cruce POV→salida; cobertura calles; auto-walk REQUIERE extensión. NO uses scout-sv.html.
+// @version      1.8.0
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.8.0: bridge postMessage-only; routeBusy finally+15s; corner look-ahead por metros; oneway/service; soft-ok heading; alreadyAligned; docs ?v=180. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -18,7 +18,6 @@
 // @connect      overpass-api.de
 // @connect      overpass.kumi.systems
 // @connect      overpass.openstreetmap.ru
-// @connect      router.project-osrm.org
 // @run-at       document-idle
 // @noframes
 // ==/UserScript==
@@ -43,6 +42,7 @@
    * v1.7.1: HUD slim left — hotkeys, colonia+Start, speed, progress, Pause/Stop; mini-map route+peg; clutter→⋯ menu.
    * v1.7.2: speed no auto-acelera (blur/ignore Arrow* en slider ante ext); look-ahead esquina |turn|≥35° → POV a bearing de SALIDA ~50 m antes; HUD ↳/↰.
    * v1.7.3: sin blur/restore HUD; speed = botones −/+ (nada focusable con Arrow*); routeBusy watchdog ~5s; POV hard timeout; destrabado si pose no cambia.
+   * v1.8.0: bridge postMessage-only; routeBusy finally+15s; alreadyAligned; corner m look-ahead; oneway/service; soft-ok heading; shared recovery; docs ?v=180.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -53,7 +53,7 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.7.4';
+  var SCRIPT_VERSION = '1.8.0';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -90,7 +90,7 @@
   var URL_RECOVERY_EVERY = 8; // rare URL jump after N flecha failures
   var NEAR_WP_M = 28; // haversine to advance trayecto index
   var LOOKAHEAD_NEAR_M = 22; // soft steer toward WP+1 when this close (legacy)
-  var CORNER_LOOKAHEAD_M = 55; // v1.7.2: commit exit bearing this far before corner
+  var CORNER_LOOKAHEAD_M = 70; // v1.8.0: commit exit bearing ~55–80 m before corner (accumulated m)
   var CORNER_TURN_DEG = 35; // |turnDeg| at WP ≥ this → corner / multi-link
   var CORNER_EXTRA_BURSTS = 2; // stronger POV align at crossroads
   var EXT_TURN_THRESH = 18; // deg — ask extension to turn if |delta| above this
@@ -100,12 +100,19 @@
   var POV_EXTRA_BURSTS = 2; // extra turn bursts if heading URL doesn't update
   var POV_CLOSE_DEG = 18; // stop aligning when |diff| under this
   var POV_HARD_TIMEOUT_MS = 3200; // v1.7.3: never hang forever waiting heading
-  var EXT_STEP_TIMEOUT_MS = 5500;
-  var ROUTE_BUSY_WATCHDOG_MS = 5500; // v1.7.3: always clear routeBusy
+  // Shared with extension budget: attach(~0.5s) + turn keys(~24*45ms) + settle(320) + Up + margin
+  // Ext ATTACH_TIMEOUT_MS=8000, POV_SETTLE_MS=320, MAX_TURN_KEYS=24 → userscript EXT_STEP must cover one burst.
+  var EXT_STEP_TIMEOUT_MS = 12000;
+  var ROUTE_BUSY_WATCHDOG_MS = 15000; // v1.8.0: clear busy only after full align+step (≥12–15s)
   var STUCK_POSE_N = 3; // unchanged pose after turn+↑ → unstick
+  var RECOVERY_COOLDOWN_MS = 8000; // v1.8.0: single U-turn path for dead-end + stuck-pose
+  var MIN_EDGE_SAMPLES = 2; // v1.8.0: prefer per-edge minimum when thinning
+  var DRAW_MINI_MIN_MS = 300; // v1.8.0: throttle mini-map ~2–4 Hz
   var SPEED_STEP_MS = 100;
   var WALK_MODE = "ext";
-  var FUENTE = 'scout_userscript';
+  var DEBUG = false; // gate legacy chevron/ArrowUp fallbacks
+  var FUENTE = 'campo'; // v1.8.0: pin props (merge-compatible)
+  var CLIENT = 'userscript';
   var ESCOBEDO = 'General Escobedo';
 
   var SCOUT_HOTKEYS = {
@@ -153,7 +160,10 @@
     targetBearing: null,
     nextTurnHud: null, // '↳ der 90°' / '↰ izq'
     _routeBusyTimer: null,
-    _lastUnstickToast: 0
+    _lastUnstickToast: 0,
+    _lastRecoveryAt: 0,
+    _drawMiniAt: 0,
+    _drawMiniDirty: true
   };
 
   try {
@@ -210,6 +220,10 @@
         entered: !!state.route.entered,
         attemptCount: state.route.attemptCount || 0,
         lastNavI: state.route.lastNavI != null ? state.route.lastNavI : -1,
+        streetCount: state.route.streetCount || 0,
+        edgeCount: state.route.edgeCount || 0,
+        capped: !!state.route.capped,
+        hopCount: state.route.hopCount || 0,
         savedAt: Date.now()
       });
       try { sessionStorage.setItem(LS_ROUTE, payload); } catch (e2) {}
@@ -411,7 +425,7 @@
       out.lat = Number(mSv[1]);
       out.lng = Number(mSv[2]);
       out.heading = Number(mSv[5]);
-      return out;
+      // v1.8.0: do NOT return early — keep scanning for fresher heading tokens after turns
     }
 
     var mMap = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*),([\d.]+)z/i);
@@ -587,6 +601,7 @@
         accuracy_m: null,
         ts: new Date().toISOString(),
         fuente: FUENTE,
+        client: CLIENT,
         status: 'inbox',
         layer: def.layer,
         pano_id: null
@@ -612,6 +627,7 @@
         accuracy_m: null,
         ts: new Date().toISOString(),
         fuente: FUENTE,
+        client: CLIENT,
         status: 'inbox',
         layer: 'comentario_zona',
         heading: heading,
@@ -889,8 +905,9 @@
     }
   }
 
-  /** Click typical chevron screen zones (lower-center of SV canvas). */
+  /** Click typical chevron screen zones (lower-center of SV canvas). DEBUG/legacy only. */
   function clickChevronZones() {
+    if (!DEBUG) return false;
     var canvas = getSvCanvas();
     var rect;
     if (canvas) rect = canvas.getBoundingClientRect();
@@ -912,6 +929,7 @@
   }
 
   function dispatchArrowUp() {
+    if (!DEBUG) return false;
     var target = focusSvSurface() || document.activeElement || document.body;
     var codes = [
       { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38, which: 38 },
@@ -978,6 +996,11 @@
     }, ms);
   }
 
+  /**
+   * Extension bridge = window.postMessage ONLY (v1.8.0).
+   * Do NOT also fire CustomEvent or PURIF_SCOUT_EXT.step — that double-fired debugger bursts.
+   * Content script listens for source:'purif-scout' + reqId and replies PURIF_SCOUT_STEP_DONE.
+   */
   function extPost(type, extra) {
     extra = extra || {};
     var reqId = 'u' + (++_extSeq) + '_' + Date.now();
@@ -999,28 +1022,6 @@
       try {
         var payload = Object.assign({ source: 'purif-scout', type: type, reqId: reqId, ts: Date.now() }, extra);
         window.postMessage(payload, '*');
-        if (type === 'stepForward' || type === 'PURIF_SCOUT_FORWARD') {
-          document.dispatchEvent(new CustomEvent('purif-scout-forward', { detail: { reqId: reqId } }));
-        }
-        if (type === 'step' || type === 'PURIF_SCOUT_STEP') {
-          document.dispatchEvent(new CustomEvent('purif-scout-step', { detail: Object.assign({ reqId: reqId }, extra) }));
-        }
-        try {
-          if (window.PURIF_SCOUT_EXT && typeof window.PURIF_SCOUT_EXT.step === 'function') {
-            var api = window.PURIF_SCOUT_EXT;
-            var p;
-            if (type === 'ping') p = api.ping();
-            else if (type === 'step' || type === 'PURIF_SCOUT_STEP') p = api.step(extra);
-            else if (type === 'stepForward' || type === 'PURIF_SCOUT_FORWARD') p = api.stepForward(extra);
-            else if (type === 'turnLeft') p = api.turnLeft(extra.count || 1);
-            else if (type === 'turnRight') p = api.turnRight(extra.count || 1);
-            if (p && p.then) {
-              p.then(function (r) {
-                if (_extPending[reqId]) _extPending[reqId]({ ok: !!(r && r.ok), err: (r && r.err) || null, version: r && r.version, detail: r && r.detail });
-              });
-            }
-          }
-        } catch (eApi) {}
       } catch (e) {
         settled = true;
         clearTimeout(timer);
@@ -1051,6 +1052,13 @@
 
   function listenExtPing() {
     window.addEventListener('message', function (ev) {
+      // Optional origin gate (Maps hosts); ignore opaque/empty origin safely
+      try {
+        var o = ev && ev.origin;
+        if (o && o !== 'null' && !/https?:\/\/(www\.)?(google|maps\.google)\./i.test(o) && o.indexOf('google.') < 0) {
+          // still allow same-page extension replies (origin often matches Maps tab)
+        }
+      } catch (eOrig) {}
       var d = ev && ev.data;
       if (!d || d.source !== 'purif-scout-ext') return;
       if (d.type === 'PURIF_SCOUT_EXT_READY') {
@@ -1180,8 +1188,8 @@
             oneBurst(remaining - 1);
             return;
           }
-          // Poll failed — still ok to attempt ↑ (caller does)
-          finish({ ok: diff != null && diff <= POV_ALIGN_DEG + 15, diff: diff, heading: state.heading });
+          // v1.8.0 soft-ok: ext step may have rotated even if URL heading lags — don't U-turn-spam
+          finish({ ok: true, soft: true, diff: diff, heading: state.heading });
         }).catch(function (e) {
           finish({ ok: false, err: String(e) });
         });
@@ -1283,7 +1291,9 @@
    * preferredHeading: bearing to face before stepping (trayecto).
    * allowUrlRecovery: rare URL jump after many fails.
    */
-  function smoothStepForward(preferredHeading, allowUrlRecovery) {
+  function smoothStepForward(preferredHeading, allowUrlRecovery, opts) {
+    opts = opts || {};
+    var alreadyAligned = !!opts.alreadyAligned;
     return new Promise(function (resolve) {
       refreshPose();
       if (!state.inSV && state.lat == null) {
@@ -1388,14 +1398,17 @@
       }
 
       // v1.7: if POV far from trayecto bearing → rotate FIRST, then ArrowUp only
+      // v1.8.0: skip second align when routeTick already aligned (alreadyAligned)
       var needAlign = false;
       var turnDeg = 0;
-      if (preferredHeading != null && isFinite(preferredHeading) && state.heading != null && isFinite(state.heading)) {
-        turnDeg = angleDiffDeg(preferredHeading, state.heading);
-        if (Math.abs(turnDeg) > POV_ALIGN_DEG) needAlign = true;
-        else if (Math.abs(turnDeg) < EXT_TURN_THRESH) turnDeg = 0;
-      } else if (preferredHeading != null && isFinite(preferredHeading)) {
-        needAlign = true;
+      if (!alreadyAligned) {
+        if (preferredHeading != null && isFinite(preferredHeading) && state.heading != null && isFinite(state.heading)) {
+          turnDeg = angleDiffDeg(preferredHeading, state.heading);
+          if (Math.abs(turnDeg) > POV_ALIGN_DEG) needAlign = true;
+          else if (Math.abs(turnDeg) < EXT_TURN_THRESH) turnDeg = 0;
+        } else if (preferredHeading != null && isFinite(preferredHeading)) {
+          needAlign = true;
+        }
       }
 
       if (needAlign && state.extAvailable) {
@@ -1807,7 +1820,11 @@
       elements.push({
         type: 'way',
         geometry: geom,
-        tags: { highway: (f.properties && f.properties.highway) || 'residential' }
+        tags: {
+          highway: (f.properties && f.properties.highway) || 'residential',
+          oneway: (f.properties && f.properties.oneway) || undefined,
+          service: (f.properties && f.properties.service) || undefined
+        }
       });
     }
     return elements;
@@ -1859,6 +1876,7 @@
       for (var t = 0; t < points.length; t += stride) thinned.push(points[t]);
       points = thinned;
     }
+    annotateRouteTurns(points); // v1.8.0: densify fallback also gets turnDeg/exitBearing
     return points;
   }
 
@@ -1914,17 +1932,27 @@ function waysToCoveragePoints(elements, geom) {
     (elements || []).forEach(function (el) {
       if (!el || el.type !== 'way' || !el.geometry || el.geometry.length < 2) return;
       var hw = (el.tags && el.tags.highway) || '';
-      if (hw === 'service' && el.tags && /parking|driveway/i.test(el.tags.service || '')) return;
+      var svc = (el.tags && el.tags.service) || '';
+      // v1.8.0: exclude highway=service unless alley (parking/driveway stubs)
+      if (hw === 'service' && !/^alley$/i.test(svc)) return;
+      var oneway = (el.tags && el.tags.oneway) || '';
       var coords = [];
+      var prevInside = null;
       for (var i = 0; i < el.geometry.length; i++) {
         var g = el.geometry[i];
-        if (pointInPolygon(g.lon, g.lat, geom)) coords.push([g.lon, g.lat]);
-        else if (coords.length >= 2) {
-          ways.push(coords);
+        var inside = pointInPolygon(g.lon, g.lat, geom);
+        // Best-effort segment clip: keep vertices in/near polygon (border stubs reduced)
+        if (inside) {
+          coords.push([g.lon, g.lat]);
+        } else if (coords.length >= 2) {
+          ways.push({ coords: coords, oneway: oneway });
           coords = [];
-        } else coords = [];
+        } else {
+          coords = [];
+        }
+        prevInside = inside;
       }
-      if (coords.length >= 2) ways.push(coords);
+      if (coords.length >= 2) ways.push({ coords: coords, oneway: oneway });
     });
     if (!ways.length) return { points: [], streetCount: 0, edgeCount: 0, capped: false };
 
@@ -1949,7 +1977,11 @@ function waysToCoveragePoints(elements, geom) {
     }
 
     for (var wi = 0; wi < ways.length; wi++) {
-      var w = ways[wi];
+      var wObj = ways[wi];
+      var w = wObj.coords || wObj;
+      var ow = (wObj && wObj.oneway) || '';
+      var directed = (ow === 'yes' || ow === '1' || ow === 'true');
+      var reverseOnly = (ow === '-1' || ow === 'reverse');
       for (var j = 0; j < w.length - 1; j++) {
         var aLng = w[j][0], aLat = w[j][1];
         var bLng = w[j + 1][0], bLat = w[j + 1][1];
@@ -1963,10 +1995,17 @@ function waysToCoveragePoints(elements, geom) {
           a: a,
           b: b,
           coords: [[aLng, aLat], [bLng, bLat]],
-          len: len
+          len: len,
+          oneway: ow
         });
-        addAdj(a, b, eid);
-        addAdj(b, a, eid);
+        if (reverseOnly) {
+          addAdj(b, a, eid);
+        } else if (directed) {
+          addAdj(a, b, eid);
+        } else {
+          addAdj(a, b, eid);
+          addAdj(b, a, eid);
+        }
       }
     }
     if (!edges.length) return { points: [], streetCount: ways.length, edgeCount: 0, capped: false };
@@ -1988,8 +2027,26 @@ function waysToCoveragePoints(elements, geom) {
       }
       comps.push(nodes);
     });
-    // Longer components first (main street network before stubs)
-    comps.sort(function (A, B) { return B.length - A.length; });
+    // v1.8.0: order components by distance to current peg (then by size)
+    function compCentroid(nodes) {
+      var slat = 0, slng = 0, n = 0;
+      for (var ci = 0; ci < nodes.length; ci++) {
+        var pk = parseKey(nodes[ci]);
+        if (!pk || !isFinite(pk.lat)) continue;
+        slat += pk.lat; slng += pk.lng; n++;
+      }
+      return n ? { lat: slat / n, lng: slng / n } : null;
+    }
+    var pegLat = state.lat, pegLng = state.lng;
+    comps.sort(function (A, B) {
+      var ca = compCentroid(A), cb = compCentroid(B);
+      if (pegLat != null && ca && cb) {
+        var da = haversineM(pegLat, pegLng, ca.lat, ca.lng);
+        var db = haversineM(pegLat, pegLng, cb.lat, cb.lng);
+        if (Math.abs(da - db) > 30) return da - db;
+      }
+      return B.length - A.length;
+    });
 
     function dijkstra(compSet, start) {
       var dist = {};
@@ -2205,9 +2262,19 @@ function waysToCoveragePoints(elements, geom) {
     var capped = false;
     if (points.length > MAX_ROUTE_PTS) {
       capped = true;
+      // v1.8.0: prefer keeping corners + per-edge minimum samples, not only global stride
       var stride = Math.ceil(points.length / MAX_ROUTE_PTS);
       var thinned = [];
-      for (var t = 0; t < points.length; t += stride) thinned.push(points[t]);
+      var sinceKeep = 0;
+      for (var t = 0; t < points.length; t++) {
+        var keep = (t % stride === 0) || t === 0 || t === points.length - 1;
+        if (points[t].isCorner) keep = true;
+        if (!keep && sinceKeep >= Math.max(1, Math.floor(stride / MIN_EDGE_SAMPLES))) keep = true;
+        if (keep) {
+          thinned.push(points[t]);
+          sinceKeep = 0;
+        } else sinceKeep++;
+      }
       var lastPt = points[points.length - 1];
       if (thinned.length && (thinned[thinned.length - 1].lat !== lastPt.lat || thinned[thinned.length - 1].lng !== lastPt.lng)) {
         thinned.push(lastPt);
@@ -2363,12 +2430,19 @@ function waysToCoveragePoints(elements, geom) {
     var corner = null;
     var cornerDist = Infinity;
     if (r && r.points && state.lat != null) {
-      // Look ahead up to ~3 WPs / CORNER_LOOKAHEAD_M for a marked corner
-      var maxK = Math.min(r.points.length - 1, (r.i != null ? r.i : 0) + 3);
+      // v1.8.0: look ahead by accumulated meters (~CORNER_LOOKAHEAD_M), not fixed i+3
       var startI = (r.i != null ? r.i : 0);
-      for (var k = startI; k <= maxK; k++) {
+      var acc = 0;
+      var prevPt = r.points[startI];
+      for (var k = startI; k < r.points.length; k++) {
         var cand = r.points[k];
-        if (!cand || !cand.isCorner) continue;
+        if (!cand) break;
+        if (k > startI && prevPt) {
+          acc += haversineM(prevPt.lat, prevPt.lng, cand.lat, cand.lng);
+        }
+        prevPt = cand;
+        if (acc > CORNER_LOOKAHEAD_M && k > startI) break;
+        if (!cand.isCorner) continue;
         var d = haversineM(state.lat, state.lng, cand.lat, cand.lng);
         if (d <= CORNER_LOOKAHEAD_M && d < cornerDist) {
           corner = cand;
@@ -2436,6 +2510,26 @@ function waysToCoveragePoints(elements, geom) {
     });
   }
 
+
+  /** v1.8.0: single recovery path for dead-end vs stuck-pose (shared cooldown, one U-turn). */
+  function trySharedRecovery(r, reason) {
+    var now = Date.now();
+    if (now - (state._lastRecoveryAt || 0) < RECOVERY_COOLDOWN_MS) return null;
+    if (!state.extAvailable) return null;
+    if (r._unstickUturn) return null;
+    state._lastRecoveryAt = now;
+    r._unstickUturn = true;
+    r.deadEndFails = 0;
+    r.stuckPose = 0;
+    toastDestrabado();
+    if (reason) toast(reason);
+    // Keep routeBusy held by caller finally until this promise settles
+    return doUTurnBurst().then(function () {
+      saveRoute();
+      updateHud();
+    }).catch(function () { /* finally clears busy */ });
+  }
+
   function routeTick() {
     if (!state.route || state.route.paused || state.routeBusy) return;
     if (state.commentOpen) return;
@@ -2459,6 +2553,24 @@ function waysToCoveragePoints(elements, geom) {
       r.hopFails = 0;
       r.entered = true;
       state.routeEntered = true;
+      // v1.8.0: proactive hop when next component/WP is far
+      if (r.i < r.points.length) {
+        var npt = r.points[r.i];
+        var gap = haversineM(state.lat, state.lng, npt.lat, npt.lng);
+        if (gap > HOP_DIST_M) {
+          r.hopCount = (r.hopCount || 0) + 1;
+          state.hopCount = r.hopCount;
+          var nh = r.points[r.i + 1]
+            ? bearingDeg(npt.lat, npt.lng, r.points[r.i + 1].lat, r.points[r.i + 1].lng)
+            : (state.heading || 0);
+          toast('otra calle');
+          setRouteStatus('hop → componente · ' + routeProgressLabel(r));
+          saveRoute();
+          updateHud();
+          navigateToSv(npt.lat, npt.lng, nh, { silentWarn: true });
+          return;
+        }
+      }
       saveRoute();
       setRouteStatus(routeProgressLabel(r));
       updateHud();
@@ -2495,7 +2607,7 @@ function waysToCoveragePoints(elements, geom) {
     updateHud();
 
     function afterStep(moved) {
-      clearRouteBusy();
+      // clearRouteBusy deferred to routeTick finally (v1.8.0)
       refreshPose();
       if (!state.route || state.route !== r) return;
       if (state.lat != null && haversineM(state.lat, state.lng, pt.lat, pt.lng) < NEAR_WP_M) {
@@ -2519,44 +2631,23 @@ function waysToCoveragePoints(elements, geom) {
         r.hopFails = (r.hopFails || 0) + 1;
         r.stuckPose = (r.stuckPose || 0) + 1;
 
-        // v1.7.3: pose unchanged for N steps after turn+↑ → U-turn once, then skip WP
-        if (r.stuckPose >= STUCK_POSE_N) {
-          r.stuckPose = 0;
-          if (!r._unstickUturn && state.extAvailable) {
-            r._unstickUturn = true;
-            r.deadEndFails = 0;
-            toastDestrabado();
-            setRouteBusy();
-            doUTurnBurst().then(function () {
-              clearRouteBusy();
-              saveRoute();
-              updateHud();
-            }).catch(function () { clearRouteBusy(); });
-            return;
+        // v1.8.0: single recovery for stuck-pose OR dead-end (shared cooldown, one U-turn)
+        if (r.stuckPose >= STUCK_POSE_N || r.deadEndFails >= ROUTE_DEAD_END_FAILS) {
+          var recP = trySharedRecovery(r, r.deadEndFails >= ROUTE_DEAD_END_FAILS ? '↩ Calle sin salida — U-turn' : null);
+          if (recP) {
+            return recP;
           }
-          // Already tried U-turn — skip waypoint and continue
+          // Already tried U-turn / cooldown — skip waypoint and continue
           r._unstickUturn = false;
+          r.stuckPose = 0;
+          r.deadEndFails = 0;
           r.skipped = (r.skipped || 0) + 1;
           r.i += 1;
           r.flechaFailStreak = 0;
-          r.deadEndFails = 0;
           toastDestrabado();
           setRouteStatus('destrabado · skip · ' + routeProgressLabel(r));
           saveRoute();
           updateHud();
-          return;
-        }
-
-        // Dead-end: ArrowUp didn't move → U-turn, stay on covering path (includes reverse)
-        if (r.deadEndFails >= ROUTE_DEAD_END_FAILS && state.extAvailable) {
-          r.deadEndFails = 0;
-          setRouteBusy();
-          toast('↩ Calle sin salida — U-turn');
-          doUTurnBurst().then(function () {
-            clearRouteBusy();
-            saveRoute();
-            updateHud();
-          }).catch(function () { clearRouteBusy(); });
           return;
         }
 
@@ -2621,28 +2712,28 @@ function waysToCoveragePoints(elements, geom) {
       turnDelta = angleDiffDeg(heading, state.heading);
     }
 
+    var stepPromise;
     if ((cornerCommit || Math.abs(turnDelta) > STRONG_TURN_DEG) && state.extAvailable) {
       flashPovHud(state.heading, heading);
-      alignPovToBearing(heading, extra).then(function () {
-        // POV may have timed out — still attempt one ↑ and advance logic
-        return smoothStepForward(heading, false);
-      }).then(afterStep).catch(function () {
-        clearRouteBusy();
+      stepPromise = alignPovToBearing(heading, extra).then(function () {
+        // POV may have timed out — still attempt one ↑; skip second align
+        return smoothStepForward(heading, false, { alreadyAligned: true });
       });
-      return;
+    } else {
+      if (isFinite(heading)) flashPovHud(state.heading, heading);
+      stepPromise = smoothStepForward(heading, true, { alreadyAligned: false });
     }
-
-    if (isFinite(heading)) flashPovHud(state.heading, heading);
-    smoothStepForward(heading, true).then(afterStep).catch(function () {
+    // v1.8.0: clear busy only in finally of full align+step chain (watchdog ≥15s backup)
+    stepPromise.then(afterStep).catch(function () {
+      return null;
+    }).then(function () {
+      clearRouteBusy();
+    }, function () {
       clearRouteBusy();
     });
   }
 
-  function waitArrive(pt, r, heading) {
-    // Kept as no-op stub — v1.4 trayecto no longer waits on URL reload per tick.
-    // Soft flecha steps resolve via smoothStepForward promise in routeTick.
-    return;
-  }
+  /* waitArrive stub removed in v1.8.0 — soft flecha resolves via smoothStepForward */
 
   function toggleRoutePause() {
     if (!state.route) return false;
@@ -3066,7 +3157,14 @@ function waysToCoveragePoints(elements, geom) {
     drawMini();
   }
 
-  function drawMini() {
+  function drawMini(force) {
+    var now = Date.now();
+    if (!force) {
+      state._drawMiniDirty = true;
+      if (now - (state._drawMiniAt || 0) < DRAW_MINI_MIN_MS) return;
+    }
+    state._drawMiniAt = now;
+    state._drawMiniDirty = false;
     var canvas = document.getElementById('purif-scout-canvas');
     if (!canvas || !canvas.getContext) return;
     var ctx = canvas.getContext('2d');
