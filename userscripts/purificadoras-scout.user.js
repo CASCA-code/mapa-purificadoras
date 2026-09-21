@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.4.0
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps Platform API key / billing. Auto-walk + trayecto por flecha SV (paso suave in-pano). URL-pano solo entrada/recuperación rara. NO uses scout-sv.html.
+// @version      1.5.0
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.5: auto-walk REQUIERE extensión Chrome (debugger ArrowUp/Left/Right). Trayecto colonia camina solo. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -37,6 +37,7 @@
    * v1.2.1: trayecto persiste tras navigate; HUD sin falso “falta key”.
    * v1.3.0: walk = saltos URL map_action=pano (causaba pantalla negra).
    * v1.4.0: walk = flecha SV in-pano (click chevron / pointer / tecla); URL solo 1er punto trayecto o recovery raro.
+   * v1.5.0: extensión Chrome = PRIMARY (requerida). Ext FIRST cada tick; giro Left/Right + ArrowUp; trayecto auto sin clicks; pace ~800ms.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -47,7 +48,7 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.4.0';
+  var SCRIPT_VERSION = '1.5.0';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -68,8 +69,8 @@
   var MIN_ROUTE_PTS = 4;
   var COMMENT_HALF_M = 30;
   var COMMENT_COLOR = '#db2777';
-  var DEFAULT_AUTO_MS = 1100; // gentle flecha-SV pace (~0.8–1.5s)
-  var ROUTE_MS_MIN = 800;
+  var DEFAULT_AUTO_MS = 800; // v1.5 faster pace (~0.7–0.9s)
+  var ROUTE_MS_MIN = 700;
   var ROUTE_MS_MAX = 2500;
   var FORWARD_M_MIN = 8;
   var FORWARD_M_MAX = 14;
@@ -79,7 +80,9 @@
   var CONSEC_SV_FAILS = 3;
   var URL_RECOVERY_EVERY = 8; // rare URL jump after N flecha failures
   var NEAR_WP_M = 28; // haversine to advance trayecto index
-  var WALK_MODE = "flecha SV";
+  var EXT_TURN_THRESH = 18; // deg — ask extension to turn if |delta| above this
+  var EXT_STEP_TIMEOUT_MS = 4500;
+  var WALK_MODE = "ext";
   var FUENTE = 'scout_userscript';
   var ESCOBEDO = 'General Escobedo';
 
@@ -126,7 +129,7 @@
 
   try {
     var savedSpeed = Number(GM_getValue && GM_getValue(LS_SPEED, DEFAULT_AUTO_MS));
-    if (isFinite(savedSpeed) && savedSpeed >= 800 && savedSpeed <= 4000) state.autoMs = savedSpeed;
+    if (isFinite(savedSpeed) && savedSpeed >= 700 && savedSpeed <= 4000) state.autoMs = savedSpeed;
   } catch (e) {}
 
   /* ---------- utils ---------- */
@@ -894,13 +897,79 @@
     return ok;
   }
 
-  /** Ask companion Chrome extension (if installed) for trusted ArrowUp via debugger. */
+  /* ---- Extension bridge (PRIMARY walk driver, v1.5) ---- */
+  var _extPending = {};
+  var _extSeq = 0;
+
+  function extPost(type, extra) {
+    extra = extra || {};
+    var reqId = 'u' + (++_extSeq) + '_' + Date.now();
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        delete _extPending[reqId];
+        resolve({ ok: false, err: 'timeout' });
+      }, EXT_STEP_TIMEOUT_MS);
+      _extPending[reqId] = function (res) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        delete _extPending[reqId];
+        resolve(res || { ok: false, err: 'empty' });
+      };
+      try {
+        var payload = Object.assign({ source: 'purif-scout', type: type, reqId: reqId, ts: Date.now() }, extra);
+        window.postMessage(payload, '*');
+        if (type === 'stepForward' || type === 'PURIF_SCOUT_FORWARD') {
+          document.dispatchEvent(new CustomEvent('purif-scout-forward', { detail: { reqId: reqId } }));
+        }
+        if (type === 'step' || type === 'PURIF_SCOUT_STEP') {
+          document.dispatchEvent(new CustomEvent('purif-scout-step', { detail: Object.assign({ reqId: reqId }, extra) }));
+        }
+        try {
+          if (window.PURIF_SCOUT_EXT && typeof window.PURIF_SCOUT_EXT.step === 'function') {
+            var api = window.PURIF_SCOUT_EXT;
+            var p;
+            if (type === 'ping') p = api.ping();
+            else if (type === 'step' || type === 'PURIF_SCOUT_STEP') p = api.step(extra);
+            else if (type === 'stepForward' || type === 'PURIF_SCOUT_FORWARD') p = api.stepForward(extra);
+            else if (type === 'turnLeft') p = api.turnLeft(extra.count || 1);
+            else if (type === 'turnRight') p = api.turnRight(extra.count || 1);
+            if (p && p.then) {
+              p.then(function (r) {
+                if (_extPending[reqId]) _extPending[reqId]({ ok: !!(r && r.ok), err: (r && r.err) || null, version: r && r.version, detail: r && r.detail });
+              });
+            }
+          }
+        } catch (eApi) {}
+      } catch (e) {
+        settled = true;
+        clearTimeout(timer);
+        delete _extPending[reqId];
+        resolve({ ok: false, err: String(e) });
+      }
+    });
+  }
+
+  function requestExtStep(opts) {
+    opts = opts || {};
+    return extPost('step', {
+      turnDeg: opts.turnDeg,
+      turnsLeft: opts.turnsLeft,
+      turnsRight: opts.turnsRight,
+      forward: opts.forward !== false,
+      alsoW: !!opts.alsoW
+    });
+  }
+
   function requestExtArrowUp() {
-    try {
-      window.postMessage({ source: 'purif-scout', type: 'PURIF_SCOUT_FORWARD', ts: Date.now() }, '*');
-      document.dispatchEvent(new CustomEvent('purif-scout-forward', { detail: { ts: Date.now() } }));
-      return true;
-    } catch (e) { return false; }
+    return extPost('stepForward', {});
+  }
+
+  function requestExtPing() {
+    return extPost('ping', {});
   }
 
   function listenExtPing() {
@@ -909,14 +978,24 @@
       if (!d || d.source !== 'purif-scout-ext') return;
       if (d.type === 'PURIF_SCOUT_EXT_READY') {
         state.extAvailable = true;
+        state.extVersion = d.version || state.extVersion || '1.5';
         updateHud();
       }
       if (d.type === 'PURIF_SCOUT_STEP_DONE') {
-        state.flechaFailStreak = 0;
-        state.walkMethod = 'flecha SV+ext';
+        if (d.ok) {
+          state.extAvailable = true;
+          state.flechaFailStreak = 0;
+          state.walkMethod = 'ext';
+        }
+        if (d.reqId && _extPending[d.reqId]) {
+          _extPending[d.reqId]({ ok: !!d.ok, err: d.err || null, detail: d.detail || null, version: d.version || null });
+        }
         updateHud();
       }
     });
+    setTimeout(function () { requestExtPing(); }, 400);
+    setTimeout(function () { requestExtPing(); }, 2000);
+    setTimeout(function () { requestExtPing(); }, 5000);
   }
 
   /** Rotate view using real HTML buttons (trusted .click works). */
@@ -985,6 +1064,31 @@
    * preferredHeading: optional bearing to face before stepping (trayecto).
    * allowUrlRecovery: if true, after URL_RECOVERY_EVERY flecha fails, do one URL jump.
    */
+  function waitPoseChange(before, minM, maxMs) {
+    return new Promise(function (resolve) {
+      var start = Date.now();
+      var maxChecks = Math.max(6, Math.floor((maxMs || 1200) / 100));
+      var checks = 0;
+      var timer = setInterval(function () {
+        checks++;
+        if (poseChanged(before, minM || 2.5)) {
+          clearInterval(timer);
+          resolve(true);
+          return;
+        }
+        if (checks >= maxChecks || (Date.now() - start) > (maxMs || 1200)) {
+          clearInterval(timer);
+          resolve(false);
+        }
+      }, 100);
+    });
+  }
+
+  /**
+   * One soft forward step. Extension FIRST (required for reliable move).
+   * preferredHeading: bearing to face before stepping (trayecto).
+   * allowUrlRecovery: rare URL jump after many fails.
+   */
   function smoothStepForward(preferredHeading, allowUrlRecovery) {
     return new Promise(function (resolve) {
       refreshPose();
@@ -994,89 +1098,109 @@
         return;
       }
 
-      if (preferredHeading != null && isFinite(preferredHeading)) {
+      var turnDeg = 0;
+      if (preferredHeading != null && isFinite(preferredHeading) && state.heading != null && isFinite(state.heading)) {
+        turnDeg = angleDiffDeg(preferredHeading, state.heading);
+        if (Math.abs(turnDeg) < EXT_TURN_THRESH) turnDeg = 0;
+      } else if (preferredHeading != null && isFinite(preferredHeading)) {
         rotateTowardHeading(preferredHeading);
       }
 
       var before = poseSnapshot();
-      var method = null;
 
-      // 1) Real DOM arrow / link overlays
-      var arrows = findSvNavArrowEls(preferredHeading);
-      if (arrows.length) {
-        if (clickEl(arrows[0].el)) method = 'DOM-flecha';
-      }
-
-      // 2) Pointer clicks on typical chevron zones
-      if (!method) {
-        if (clickChevronZones()) method = 'canvas-click';
-      }
-
-      // 3) Focus + ArrowUp (often ignored if untrusted)
-      dispatchArrowUp();
-      if (!method) method = 'ArrowUp';
-
-      // 4) Ask extension for trusted key
-      requestExtArrowUp();
-
-      state.walkMethod = 'flecha SV';
-      state._lastWalkMethod = method || 'flecha SV';
-      updateHud();
-
-      // Wait for pose change (soft transition — no reload)
-      var checks = 0;
-      var maxChecks = 10;
-      var timer = setInterval(function () {
-        checks++;
-        if (poseChanged(before, 2.5)) {
-          clearInterval(timer);
+      function afterMove(moved, method) {
+        if (moved) {
           state.flechaFailStreak = 0;
           state.autoFailStreak = 0;
-          state.walkMethod = 'flecha SV';
+          state.walkMethod = method || (state.extAvailable ? 'ext' : 'flecha SV');
           updateHud();
           resolve(true);
           return;
         }
-        if (checks >= maxChecks) {
-          clearInterval(timer);
-          state.flechaFailStreak = (state.flechaFailStreak || 0) + 1;
-          // Dead-end / facing wrong way — try rotate ±45 and one more click burst
-          if (state.flechaFailStreak % 2 === 1) {
-            var dir = (state._autoRotateDir || 1) * -1;
-            state._autoRotateDir = dir;
+        state.flechaFailStreak = (state.flechaFailStreak || 0) + 1;
+        if (state.flechaFailStreak % 2 === 1) {
+          var dir = (state._autoRotateDir || 1) * -1;
+          state._autoRotateDir = dir;
+          if (state.extAvailable) {
+            requestExtStep({ turnDeg: dir * 45, forward: true });
+          } else {
             var base = (preferredHeading != null && isFinite(preferredHeading))
               ? preferredHeading
               : (state.heading || 0);
             rotateTowardHeading((base + dir * 45 + 360) % 360);
             clickChevronZones();
             dispatchArrowUp();
-            requestExtArrowUp();
           }
-
-          if (allowUrlRecovery && state.flechaFailStreak > 0 &&
-              state.flechaFailStreak % URL_RECOVERY_EVERY === 0 &&
-              state.lat != null) {
-            state.urlRecoveryCount = (state.urlRecoveryCount || 0) + 1;
-            var h = (preferredHeading != null && isFinite(preferredHeading))
-              ? preferredHeading
-              : (state.heading || 0);
-            var next = offsetLatLng(state.lat, state.lng, h, forwardMeters());
-            toast('⚠ Recovery URL #' + state.urlRecoveryCount + ' (flash) tras ' + state.flechaFailStreak + ' fallos flecha');
-            navigateToSv(next.lat, next.lng, h);
-            resolve(false);
-            return;
-          }
-
-          if (state.flechaFailStreak >= DEAD_END_FAILS) {
-            if (state.autoWalk) setAutoWalk(false);
-            toast('⏹ Sin avance flecha tras ' + DEAD_END_FAILS + ' intentos — gira la vista o usa extensión');
-          }
-          updateHud();
-          resolve(false);
         }
-      }, 120);
+
+        if (allowUrlRecovery && state.flechaFailStreak > 0 &&
+            state.flechaFailStreak % URL_RECOVERY_EVERY === 0 &&
+            state.lat != null) {
+          state.urlRecoveryCount = (state.urlRecoveryCount || 0) + 1;
+          var h = (preferredHeading != null && isFinite(preferredHeading))
+            ? preferredHeading
+            : (state.heading || 0);
+          var next = offsetLatLng(state.lat, state.lng, h, forwardMeters());
+          toast('⚠ Recovery URL #' + state.urlRecoveryCount + ' (flash) tras ' + state.flechaFailStreak + ' fallos');
+          navigateToSv(next.lat, next.lng, h);
+          resolve(false);
+          return;
+        }
+
+        if (state.flechaFailStreak >= DEAD_END_FAILS) {
+          if (state.autoWalk) setAutoWalk(false);
+          if (!state.extAvailable) {
+            toast('⏹ INSTALA la extensión — sin ella Maps ignora la flecha');
+          } else {
+            toast('⏹ Sin avance tras ' + DEAD_END_FAILS + ' intentos — gira la vista o reanuda');
+          }
+        }
+        updateHud();
+        resolve(false);
+      }
+
+      // 1) EXTENSION FIRST (primary)
+      state.walkMethod = state.extAvailable ? 'ext' : 'ext?';
+      state._lastWalkMethod = 'ext';
+      updateHud();
+
+      requestExtStep({ turnDeg: turnDeg, forward: true }).then(function (res) {
+        if (res && res.ok) {
+          state.extAvailable = true;
+          return waitPoseChange(before, 2.0, 1100).then(function (moved) {
+            if (moved) { afterMove(true, 'ext'); return true; }
+            return requestExtArrowUp().then(function () {
+              return waitPoseChange(before, 2.0, 900).then(function (moved2) {
+                if (moved2) { afterMove(true, 'ext'); return true; }
+                return false;
+              });
+            });
+          });
+        }
+        return false;
+      }).then(function (done) {
+        if (done) return;
+        if (!state.extAvailable) {
+          toast('⚠ Sin extensión — no camina solo. Instala extension/ (HUD rojo)');
+        }
+        if (preferredHeading != null && isFinite(preferredHeading)) {
+          rotateTowardHeading(preferredHeading);
+        }
+        var arrows = findSvNavArrowEls(preferredHeading);
+        if (arrows.length) clickEl(arrows[0].el);
+        clickChevronZones();
+        dispatchArrowUp();
+        requestExtStep({ turnDeg: turnDeg, forward: true }).then(function () {
+          waitPoseChange(before, 2.5, 1000).then(function (moved) {
+            afterMove(moved, moved && state.extAvailable ? 'ext' : 'fallback');
+          });
+        });
+      }).catch(function () {
+        afterMove(false, 'err');
+      });
     });
   }
+
 
   function advanceOneStep() {
     // HUD ▶ Siguiente — one flecha SV step (or trayecto soft step)
@@ -1113,7 +1237,7 @@
         heading = bearingDeg(state.lat, state.lng, pt.lat, pt.lng);
       }
       state.routeBusy = true;
-      setRouteStatus('manual ▶ punto ' + (r.i + 1) + '/' + r.points.length + ' · flecha SV');
+      setRouteStatus('manual ▶ punto ' + (r.i + 1) + '/' + r.points.length + ' · ext');
       saveRoute();
       smoothStepForward(heading, true).then(function () {
         state.routeBusy = false;
@@ -1184,9 +1308,10 @@
         return;
       }
       state.walkMethod = 'flecha SV';
+      if (!state.extAvailable) toast('⚠ Sin extensión — auto-walk no se moverá');
       state.autoTimer = setInterval(autoWalkTick, state.autoMs);
       setTimeout(autoWalkTick, 250);
-      toast('▶ Auto-walk ON · flecha SV (' + (state.autoMs / 1000).toFixed(1) + 's) — sin flash URL');
+      toast('▶ Auto-walk ON · ext (' + (state.autoMs / 1000).toFixed(1) + 's) — sin flash URL');
     } else {
       toast('⏸ Auto-walk OFF');
     }
@@ -1203,13 +1328,14 @@
   }
 
   function setAutoMs(ms) {
-    ms = Math.max(800, Math.min(4000, Number(ms) || DEFAULT_AUTO_MS));
+    ms = Math.max(700, Math.min(4000, Number(ms) || DEFAULT_AUTO_MS));
     state.autoMs = ms;
     try { if (typeof GM_setValue === 'function') GM_setValue(LS_SPEED, ms); } catch (e) {}
     if (state.autoWalk) {
       if (state.autoTimer) {
         clearInterval(state.autoTimer);
-        state.autoTimer = setInterval(autoWalkTick, state.autoMs);
+        if (!state.extAvailable) toast('⚠ Sin extensión — auto-walk no se moverá');
+      state.autoTimer = setInterval(autoWalkTick, state.autoMs);
       }
     }
     if (state.route && !state.route.paused && state.routeTimer) {
@@ -1624,8 +1750,9 @@
     if (state.routeTimer) clearInterval(state.routeTimer);
     var iv = routeIntervalMs();
     state.routeTimer = setInterval(routeTick, iv);
-    toast('🛣 Trayecto: ' + points.length + ' pts · flecha SV · ' + (iv / 1000).toFixed(1) + 's · ' + name);
-    setRouteStatus('punto 1/' + points.length + ' · flecha SV · ' + name);
+    toast('🛣 Trayecto: ' + points.length + ' pts · ext · ' + (iv / 1000).toFixed(1) + 's · ' + name);
+    if (!state.extAvailable) toast('⚠ Sin extensión — el trayecto no avanzará hasta instalarla');
+    setRouteStatus('punto 1/' + points.length + ' · ext · ' + name);
     updateHud();
     routeTick();
   }
@@ -1642,7 +1769,7 @@
     if (!r.paused) {
       var iv = routeIntervalMs();
       state.routeTimer = setInterval(routeTick, iv);
-      setRouteStatus('reanudado · punto ' + Math.min(r.i + 1, r.points.length) + '/' + r.points.length + ' · flecha SV · ' + r.name);
+      setRouteStatus('reanudado · punto ' + Math.min(r.i + 1, r.points.length) + '/' + r.points.length + ' · ext · ' + r.name);
       // If we just landed from the one-time URL entry, settle then continue with flecha
       setTimeout(function () {
         refreshPose();
@@ -1659,7 +1786,7 @@
             rt.svFailStreak = 0;
             rt.flechaFailStreak = 0;
             saveRoute();
-            setRouteStatus('punto ' + Math.min(rt.i + 1, rt.points.length) + '/' + rt.points.length + ' · flecha SV · ' + rt.name);
+            setRouteStatus('punto ' + Math.min(rt.i + 1, rt.points.length) + '/' + rt.points.length + ' · ext · ' + rt.name);
             updateHud();
           } else if (rt.entered) {
             // Soft resume mid-route — keep walking flecha toward current WP
@@ -1685,7 +1812,7 @@
     var r = state.route;
     if (r.i >= r.points.length) {
       stopRoute('✅ Trayecto completo · ' + r.name);
-      setRouteStatus('Completo · ' + r.points.length + ' pts · skip ' + r.skipped + ' · flecha SV');
+      setRouteStatus('Completo · ' + r.points.length + ' pts · skip ' + r.skipped + ' · ext');
       return;
     }
     var pt = r.points[r.i];
@@ -1712,9 +1839,9 @@
       state.routeEntered = true;
       saveRoute();
       state.routeBusy = true;
-      setRouteStatus('entrada URL (1×) · punto 1/' + r.points.length + ' · luego flecha SV · ' + r.name);
+      setRouteStatus('entrada URL (1×) · punto 1/' + r.points.length + ' · luego ext · ' + r.name);
       updateHud();
-      toast('Entrada colonia: 1 salto URL, luego camina con flecha SV');
+      toast('Entrada colonia: 1 salto URL, luego camina con extensión');
       navigateToSv(pt.lat, pt.lng, entryHeading, { silentWarn: false });
       // page likely reloads; resumeRouteFromPersist continues
       setTimeout(function () { state.routeBusy = false; }, 1500);
@@ -1727,7 +1854,7 @@
       : (next ? bearingDeg(pt.lat, pt.lng, next.lat, next.lng) : (state.heading || 0));
 
     state.routeBusy = true;
-    setRouteStatus('punto ' + (r.i + 1) + '/' + r.points.length + ' · flecha SV · ' + r.name);
+    setRouteStatus('punto ' + (r.i + 1) + '/' + r.points.length + ' · ext · ' + r.name);
     saveRoute();
     updateHud();
 
@@ -1752,7 +1879,7 @@
           r.skipped = (r.skipped || 0) + 1;
           r.i += 1;
           r.flechaFailStreak = 0;
-          setRouteStatus('skip flecha · punto ' + r.i + '/' + r.points.length + ' · flecha SV · ' + r.name);
+          setRouteStatus('skip flecha · punto ' + r.i + '/' + r.points.length + ' · ext · ' + r.name);
           toast('Skip punto (flecha no avanza)');
         }
         saveRoute();
@@ -1779,7 +1906,7 @@
       toast('⏸ Trayecto pausado');
       setRouteStatus('PAUSA · punto ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length);
     } else {
-      toast('▶ Trayecto reanudado · flecha SV');
+      toast('▶ Trayecto reanudado · ext');
       if (!state.routeTimer) state.routeTimer = setInterval(routeTick, routeIntervalMs());
       setTimeout(routeTick, 200);
     }
@@ -1909,6 +2036,12 @@
       '#purif-scout-hud .badge.on{background:#0f766e;color:#fff}',
       '#purif-scout-hud .badge.off{background:#57534e;color:#e7e5e4}',
       '#purif-scout-hud .badge.warn{background:#b45309;color:#fff}',
+      '#purif-scout-ext-status{display:block;margin:6px 0 8px;padding:8px 10px;border-radius:10px;',
+      'font:700 13px/1.25 system-ui;text-align:center}',
+      '#purif-scout-ext-status.ok{background:#14532d;color:#bbf7d0;border:1px solid #22c55e}',
+      '#purif-scout-ext-status.bad{background:#7f1d1d;color:#fecaca;border:1px solid #ef4444;',
+      'animation:purif-pulse 1.4s ease infinite}',
+      '@keyframes purif-pulse{0%,100%{opacity:1}50%{opacity:.72}}',
       '#purif-scout-hud .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}',
       '#purif-scout-hud button{pointer-events:auto;cursor:pointer;border:0;border-radius:8px;',
       'padding:6px 8px;font:600 11px/1 system-ui;background:#f5efe3;color:#1f1a14}',
@@ -1962,7 +2095,8 @@
     root.innerHTML = [
       '<div id="purif-scout-hud">',
       '  <div class="badge off" id="purif-scout-badge">Mapa</div>',
-      '  <div class="meta" id="purif-scout-nokey" style="margin:0 0 6px;color:#86efac;font-weight:600">v' + SCRIPT_VERSION + ' · walk=flecha SV · google.com/maps (NO scout-sv)</div>',
+      '  <div id="purif-scout-ext-status" class="bad">INSTALA extensión — sin ella no se mueve</div>',
+      '  <div class="meta" id="purif-scout-nokey" style="margin:0 0 6px;color:#86efac;font-weight:600">v' + SCRIPT_VERSION + ' · walk=ext · google.com/maps (NO scout-sv)</div>',
       '  <div class="row"><kbd>M</kbd><b>Modelorama</b></div>',
       '  <div class="row"><kbd>S</kbd><b>Semáforo</b></div>',
       '  <div class="row"><kbd class="sec">Y</kbd>Comp · <kbd class="sec">E</kbd>Express · <kbd class="sec">P</kbd>Iglesia</div>',
@@ -1974,8 +2108,8 @@
       '    <label>Colonia (Escobedo + ZMM)</label>',
       '    <input type="search" id="purif-scout-col-filter" placeholder="Buscar colonia…" autocomplete="off" />',
       '    <select id="purif-scout-colonia"><option value="">— cargando… —</option></select>',
-      '    <label>Velocidad auto / trayecto: <span id="purif-scout-speed-label">1.1s</span></label>',
-      '    <input type="range" id="purif-scout-speed" min="800" max="2500" step="100" value="' + state.autoMs + '" />',
+      '    <label>Velocidad auto / trayecto: <span id="purif-scout-speed-label">0.8s</span></label>',
+      '    <input type="range" id="purif-scout-speed" min="700" max="2500" step="100" value="' + state.autoMs + '" />',
       '    <div class="acts">',
       '      <button type="button" class="primary" id="purif-scout-start-route">Start trayecto</button>',
       '      <button type="button" id="purif-scout-pause-route">Pausa</button>',
@@ -2085,6 +2219,17 @@
     var link = document.getElementById('purif-scout-openmap');
     var nokey = document.getElementById('purif-scout-nokey');
     if (!badge || !meta) return;
+    var extEl = document.getElementById('purif-scout-ext-status');
+    if (extEl) {
+      if (state.extAvailable) {
+        extEl.className = 'ok';
+        extEl.textContent = 'ext OK · camina solo';
+      } else {
+        extEl.className = 'bad';
+        extEl.textContent = 'INSTALA extensión — sin ella no se mueve';
+      }
+    }
+
     if (nokey) {
       var meth = (state.extAvailable ? 'flecha SV+ext' : (state.walkMethod || WALK_MODE || 'flecha SV'));
       nokey.textContent = 'v' + SCRIPT_VERSION + ' · ' + meth + ' · google.com/maps (NO scout-sv)';
@@ -2097,11 +2242,11 @@
     }
     if (state.route && state.route.status === 'running') {
       badge.textContent = state.route.paused
-        ? ('Trayecto ⏸ ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length + ' · flecha SV')
-        : ('Trayecto ▶ ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length + ' · flecha SV');
+        ? ('⏸ ' + (state.route.name || 'colonia') + ' · ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length + ' · ' + (state.extAvailable ? 'ext' : 'SIN EXT'))
+        : ('▶ ' + (state.route.name || 'colonia') + ' · ' + Math.min(state.route.i + 1, state.route.points.length) + '/' + state.route.points.length + ' · ' + (state.extAvailable ? 'ext' : 'SIN EXT'));
       badge.className = 'badge ' + (state.route.paused ? 'warn' : 'on');
     } else if (state.inSV) {
-      badge.textContent = state.autoWalk ? 'SV · auto ▶ · flecha SV' : 'Street View · flecha SV';
+      badge.textContent = state.autoWalk ? 'SV · auto ▶ · ext' : 'Street View · ext';
       badge.className = 'badge on';
     } else {
       badge.textContent = 'No SV — peoncito / ▶ Siguiente';
@@ -2292,11 +2437,11 @@
       resumedWalk = resumeAutoWalkFromPersist();
     }
     if (resumed) {
-      toast('Scout v' + SCRIPT_VERSION + ' · reanudando trayecto · flecha SV');
+      toast('Scout v' + SCRIPT_VERSION + ' · reanudando trayecto · ext');
     } else if (resumedWalk) {
-      toast('Scout v' + SCRIPT_VERSION + ' · reanudando auto-walk · flecha SV');
+      toast('Scout v' + SCRIPT_VERSION + ' · reanudando auto-walk · ext');
     } else {
-      toast('Scout v' + SCRIPT_VERSION + ' · flecha SV · google.com/maps');
+      toast('Scout v' + SCRIPT_VERSION + ' · ext · google.com/maps');
     }
     updateHud();
   }

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Purificadoras Scout — flecha SV",
-  "version": "1.4.0",
-  "description": "Fallback de ArrowUp confiable para el userscript Scout en Google Maps Street View (sin pantalla negra). Companion de casca-code/mapa-purificadoras.",
+  "version": "1.5.0",
+  "description": "REQUERIDA para auto-walk Scout: ArrowUp/Left/Right confiables vía chrome.debugger en Google Maps Street View. Companion de casca-code/mapa-purificadoras.",
   "permissions": ["debugger", "activeTab", "scripting"],
   "host_permissions": [
     "https://www.google.com/maps*",
@@ -31,7 +31,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Purificadoras Scout flecha SV",
+    "default_title": "Purificadoras Scout — extensión REQUERIDA para caminar",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png"

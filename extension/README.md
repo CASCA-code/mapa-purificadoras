@@ -1,40 +1,57 @@
-# Extensión Chrome — flecha SV (fallback Scout)
+# Extensión Chrome — Purificadoras Scout v1.5 (**REQUERIDA**)
 
-Companion opcional del userscript Tampermonkey **Purificadoras Scout v1.4+**.
+Sin esta extensión **el auto-walk no se mueve**. Google Maps Street View ignora clicks/teclas sintéticas (*untrusted*). Solo `chrome.debugger` envía `ArrowUp` / `ArrowLeft` / `ArrowRight` confiables.
 
-## ¿Para qué?
+Companion del userscript Tampermonkey: **Purificadoras Scout v1.5+**.
 
-Google Maps Street View **ignora** `KeyboardEvent` / clicks sintéticos *untrusted*.
-Las flechas blancas del camino están dibujadas en WebGL (no hay botón HTML "Forward").
+---
 
-El userscript intenta:
-1. Click en overlays DOM si existen
-2. Pointer clicks en la zona típica del chevron
-3. `ArrowUp` sintético al canvas
-4. Pedir a **esta extensión** un `ArrowUp` **confiable** vía `chrome.debugger`
+## Instalación en 5 pasos (haz esto PRIMERO)
 
-Solo necesitas la extensión si el auto-walk del userscript **no avanza** solo.
+1. **Descarga** el zip:  
+   https://github.com/CASCA-code/mapa-purificadoras/raw/main/extension-dist/purificadoras-scout-ext.zip  
+   (o clona el repo y usa la carpeta `extension/`)
+2. Descomprime el zip en una carpeta fija (ej. `~/purificadoras-scout-ext`).
+3. Abre Chrome → `chrome://extensions` → activa **Modo de desarrollador**.
+4. Pulsa **Cargar descomprimida** → elige esa carpeta (debe verse `manifest.json`).
+5. Abre **[Google Maps](https://www.google.com/maps)** → Street View (peoncito). El HUD del userscript debe ponerse **verde: «ext OK · camina solo»**.
 
-## Instalación (Chrome / Edge)
+Luego actualiza el userscript y elige colonia → **Start trayecto**.
 
-1. Abre `chrome://extensions`
-2. Activa **Modo de desarrollador**
-3. **Cargar descomprimida** → elige esta carpeta `extension/`
-4. Confirma permisos (debugger + Maps)
-5. Abre `https://www.google.com/maps` → Street View (peoncito)
-6. El HUD del userscript puede mostrar que la extensión está lista
-7. Al usar **Space** / **▶ Siguiente**, si el userscript pide ayuda, Chrome mostrará
-   un banner amarillo breve ("debugging this browser") — es normal y se quita solo
+---
+
+## ¿Qué hace?
+
+- Escucha al userscript (`postMessage` / `PURIF_SCOUT_EXT.step({turnDeg})`).
+- Adjunta el debugger a la pestaña de Maps, dispara teclas confiables, **desadjunta** al terminar el burst (banner amarillo breve).
+- Teclas: `ArrowUp` (avanzar), `ArrowLeft` / `ArrowRight` (rumbo), opcional `KeyW`.
+
+### API
+
+```js
+await PURIF_SCOUT_EXT.step({ turnDeg: -30 }); // negativo = izquierda
+PURIF_SCOUT_EXT.stepForward();
+PURIF_SCOUT_EXT.turnLeft(2);
+PURIF_SCOUT_EXT.turnRight(1);
+PURIF_SCOUT_EXT.ping();
+```
+
+También `postMessage` (`source: 'purif-scout'`, types: `step` / `stepForward` / `turnLeft` / `turnRight` / `ping`).
+
+---
+
+## Banner amarillo
+
+Chrome muestra «debugging this browser» mientras el debugger está adjunto. En v1.5 se adjunta **solo durante cada paso** y se suelta después.
 
 ## Seguridad
 
-- No envía datos a servidores externos
-- Solo despacha `ArrowUp` en pestañas de Google Maps
-- No lee el contenido del panorama ni pines
+- No envía datos a servidores externos.
+- Solo despacha teclas en pestañas de Google Maps.
+- No lee el panorama ni los pines.
 
-## Relación con el userscript
+## Userscript
 
-Instala primero:
 https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js
 
 Docs: `docs/SCOUT_USERSCRIPT.md`

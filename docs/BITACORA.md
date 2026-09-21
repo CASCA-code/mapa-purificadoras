@@ -1,3 +1,11 @@
+## 2026-09-21 (scout v1.5.0 — extensión PRIMARY / trayecto auto)
+
+- Nicolás: flecha userscript no movía; necesitaba walk fully automatic por trayecto de colonia.
+- Realidad: clicks/teclas untrusted fallan. Solo extensión `chrome.debugger` ArrowUp/Left/Right es confiable → **PRIMARY (requerida)**.
+- Extensión v1.5: burst attach→keys→detach; API `step({turnDeg})` / turnLeft / turnRight / ping; zip en `extension-dist/purificadoras-scout-ext.zip`.
+- Userscript v1.5: detecta ext (HUD verde/rojo); cada tick llama extensión PRIMERO; pace ~800 ms; Start→entra 1× URL→loop sin clicks hacia waypoints; Space=pausa; progreso `colonia · i/n · ext`.
+- Docs ES: instalar extensión ANTES de esperar walk.
+
 ## 2026-09-21 (scout userscript v1.4.0 — flecha SV)
 
 - Feedback Nicolás: `map_action=pano` saltaba demasiado lejos → pantalla negra cada paso.
