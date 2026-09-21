@@ -15,7 +15,7 @@
   function readyPing() {
     postToPage({
       type: 'PURIF_SCOUT_EXT_READY',
-      version: (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '1.5.0',
+      version: (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '1.5.1',
       api: ['step', 'stepForward', 'turnLeft', 'turnRight', 'ping']
     });
   }
@@ -87,12 +87,14 @@
     }
 
     if (t === 'step' || t === 'PURIF_SCOUT_STEP') {
+      // Preserve forward:false for POV-only rotate (no ArrowUp)
+      var fwd = (d.forward === false) ? false : true;
       callBg({
         type: 'step',
         turnDeg: d.turnDeg,
         turnsLeft: d.turnsLeft,
         turnsRight: d.turnsRight,
-        forward: d.forward !== false,
+        forward: fwd,
         alsoW: !!d.alsoW
       }).then(function (res) {
         replyDone('step', res, reqId);
@@ -142,7 +144,7 @@
       '    });',
       '  }',
       '  window.PURIF_SCOUT_EXT = {',
-      '    _v: "1.5.0",',
+      '    _v: "1.5.1",',
       '    ping: function(){ return send("ping"); },',
       '    stepForward: function(opts){ return send("stepForward", opts || {}); },',
       '    turnLeft: function(count){ return send("turnLeft", { count: count || 1 }); },',

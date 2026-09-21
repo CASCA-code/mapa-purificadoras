@@ -1,8 +1,8 @@
-# Extensión Chrome — Purificadoras Scout v1.5 (**REQUERIDA**)
+# Extensión Chrome — Purificadoras Scout v1.5.1 (**REQUERIDA**)
 
 Sin esta extensión **el auto-walk no se mueve**. Google Maps Street View ignora clicks/teclas sintéticas (*untrusted*). Solo `chrome.debugger` envía `ArrowUp` / `ArrowLeft` / `ArrowRight` confiables.
 
-Companion del userscript Tampermonkey: **Purificadoras Scout v1.5+** (v1.6 = cobertura total de calles; la extensión sigue siendo solo el pasito Left/Right/Up).
+Companion del userscript Tampermonkey: **Purificadoras Scout v1.7+** (cobertura calles + **rota POV antes de avanzar**; la extensión es el pasito Left/Right/Up confiable).
 
 ---
 
@@ -24,12 +24,14 @@ Luego actualiza el userscript y elige colonia → **Start trayecto**.
 
 - Escucha al userscript (`postMessage` / `PURIF_SCOUT_EXT.step({turnDeg})`).
 - Adjunta el debugger a la pestaña de Maps, dispara teclas confiables, **desadjunta** al terminar el burst (banner amarillo breve).
+- **v1.5.1:** ~9° por tecla de giro; si `|turnDeg|≥12` envía **solo giros**, espera ~320 ms (POV settle), **luego** ArrowUp — un solo attach para turn+wait+Up. `forward:false` = solo rotar POV. Backup: drag horizontal del mouse en el centro del viewport si `|turnDeg|` grande.
 - Teclas: `ArrowUp` (avanzar), `ArrowLeft` / `ArrowRight` (rumbo), opcional `KeyW`.
 
 ### API
 
 ```js
 await PURIF_SCOUT_EXT.step({ turnDeg: -30 }); // negativo = izquierda
+await PURIF_SCOUT_EXT.step({ turnDeg: -90, forward: false }); // solo POV
 PURIF_SCOUT_EXT.stepForward();
 PURIF_SCOUT_EXT.turnLeft(2);
 PURIF_SCOUT_EXT.turnRight(1);

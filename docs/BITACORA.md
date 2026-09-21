@@ -1,3 +1,10 @@
+## 2026-09-21 (scout v1.7.0 — POV rota hacia trayecto antes de avanzar)
+
+- Feedback Nicolás v1.6: walking OK-ish, pero POV “gira” débil y sigue mirando el forward viejo → ↑ va mal.
+- Fix: userscript alinea POV (`step({turnDeg, forward:false})` + poll heading URL, max 2 bursts extra) **antes** de ArrowUp; U-turn ~180° real; HUD `POV 120°→85°`.
+- Extensión **1.5.1**: DEG_PER_TURN_KEY≈9°, settle 320 ms entre giros y Up, un attach para turn+wait+Up, mouse-drag backup; zip refreshed.
+- Cobertura colonia (Chinese Postman) de v1.6 intacta.
+
 ## 2026-09-21 (scout v1.5.0 — extensión PRIMARY / trayecto auto)
 
 - Nicolás: flecha userscript no movía; necesitaba walk fully automatic por trayecto de colonia.

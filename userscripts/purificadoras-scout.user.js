@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.6.0
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.6: cobertura total de calles (Chinese Postman) + giros; auto-walk REQUIERE extensión. NO uses scout-sv.html.
+// @version      1.7.0
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.7: rota POV hacia el trayecto antes de avanzar; cobertura calles v1.6; auto-walk REQUIERE extensión. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -39,6 +39,7 @@
    * v1.4.0: walk = flecha SV in-pano (click chevron / pointer / tecla); URL solo 1er punto trayecto o recovery raro.
    * v1.5.0: extensión Chrome = PRIMARY (requerida). Ext FIRST cada tick; giro Left/Right + ArrowUp; trayecto auto sin clicks; pace ~800ms.
    * v1.6.0: trayecto = cobertura total calles (grafo + Chinese Postman approx); steering turnDeg; U-turn dead-end; hop raro entre componentes.
+   * v1.7.0: rota el POV hacia el bearing del trayecto ANTES de ArrowUp; poll heading URL; U-turn ~180° real; HUD POV cur→target.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -49,7 +50,7 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.6.0';
+  var SCRIPT_VERSION = '1.7.0';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -87,8 +88,12 @@
   var NEAR_WP_M = 28; // haversine to advance trayecto index
   var LOOKAHEAD_NEAR_M = 22; // when this close to WP, steer toward WP+1
   var EXT_TURN_THRESH = 18; // deg — ask extension to turn if |delta| above this
-  var STRONG_TURN_DEG = 35; // |delta| above this → turn keys before ArrowUp
-  var EXT_STEP_TIMEOUT_MS = 4500;
+  var STRONG_TURN_DEG = 20; // |delta| above this → align POV before ArrowUp (v1.7)
+  var POV_ALIGN_DEG = 20; // same threshold for alignPovToBearing
+  var POV_POLL_MS = 800; // wait/poll URL heading after turn-only burst
+  var POV_EXTRA_BURSTS = 2; // extra turn bursts if heading URL doesn't update
+  var POV_CLOSE_DEG = 18; // stop aligning when |diff| under this
+  var EXT_STEP_TIMEOUT_MS = 5500;
   var WALK_MODE = "ext";
   var FUENTE = 'scout_userscript';
   var ESCOBEDO = 'General Escobedo';
@@ -132,7 +137,10 @@
     urlRecoveryCount: 0,
     hopCount: 0,
     extAvailable: false,
-    routeEntered: false // first URL jump done for trayecto
+    routeEntered: false, // first URL jump done for trayecto
+    povHud: null, // brief 'POV 120°→85°'
+    povHudUntil: 0,
+    targetBearing: null
   };
 
   try {
@@ -405,10 +413,13 @@
     if (/!1e1/.test(url) || /\/data=!3m\d+!1e1/.test(url) || /3a,[\d.]+y,/.test(url) || /map_action=pano/i.test(url)) {
       out.inSV = true;
     }
-    var mH = url.match(/,([\d.]+)h,([\d.]+)t/i);
-    if (mH && out.heading == null) out.heading = Number(mH[1]);
-    var mHead = url.match(/[?&]heading=(-?[\d.]+)/i);
-    if (mHead && out.heading == null) out.heading = Number(mHead[1]);
+    var mH = url.match(/,(-?[\d.]+)h,([\d.]+)t/i);
+    if (mH) out.heading = Number(mH[1]); // prefer latest h,t even if set
+    var mHead = url.match(/[?&#]heading=(-?[\d.]+)/i);
+    if (mHead) out.heading = Number(mHead[1]);
+    // Maps sometimes puts heading in !3e / nested data — last ,Xh, before t
+    var mH2 = url.match(/,(-?[\d.]+)h,/i);
+    if (mH2 && (out.heading == null || !isFinite(out.heading))) out.heading = Number(mH2[1]);
     var mVp = url.match(/[?&]viewpoint=(-?\d+\.?\d*),(-?\d+\.?\d*)/i);
     if (mVp) {
       out.lat = Number(mVp[1]);
@@ -436,6 +447,14 @@
 
   function refreshPose() {
     var p = parseFromUrl(location.href);
+    // Also peek history.state / hash if href lagging (Maps SPA)
+    try {
+      if ((!p.heading || !isFinite(p.heading)) && location.hash) {
+        var ph = parseFromUrl(location.origin + location.pathname + location.hash);
+        if (ph.heading != null && isFinite(ph.heading)) p.heading = ph.heading;
+        if (ph.lat != null) { p.lat = ph.lat; p.lng = ph.lng; }
+      }
+    } catch (eHash) {}
     var changed = false;
     if (p.lat != null && p.lng != null) {
       if (state.lat !== p.lat || state.lng !== p.lng) changed = true;
@@ -443,8 +462,8 @@
       state.lng = p.lng;
     }
     if (p.heading != null && isFinite(p.heading)) {
+      if (state.heading !== p.heading) changed = true;
       state.heading = p.heading;
-      changed = true;
     }
     if (p.inSV !== state.inSV) {
       state.inSV = p.inSV;
@@ -1006,7 +1025,108 @@
     setTimeout(function () { requestExtPing(); }, 5000);
   }
 
-  /** Rotate view using real HTML buttons (trusted .click works). */
+  function flashPovHud(fromH, toH) {
+    var a = (fromH != null && isFinite(fromH)) ? Math.round(fromH) : '?';
+    var b = (toH != null && isFinite(toH)) ? Math.round(toH) : '?';
+    state.povHud = 'POV ' + a + '°→' + b + '°';
+    state.targetBearing = (toH != null && isFinite(toH)) ? toH : null;
+    state.povHudUntil = Date.now() + 2200;
+    updateHud();
+  }
+
+  /** Poll Maps URL heading until closer to target or timeout. */
+  function waitHeadingCloser(targetHeading, maxMs, startHeading) {
+    return new Promise(function (resolve) {
+      var start = Date.now();
+      var max = maxMs != null ? maxMs : POV_POLL_MS;
+      var best = null;
+      var timer = setInterval(function () {
+        refreshPose();
+        var cur = state.heading;
+        var diff = (cur != null && isFinite(cur) && targetHeading != null && isFinite(targetHeading))
+          ? Math.abs(angleDiffDeg(targetHeading, cur))
+          : null;
+        if (diff != null) best = diff;
+        var movedHeading = (startHeading != null && cur != null && isFinite(cur) &&
+          Math.abs(angleDiffDeg(cur, startHeading)) >= 8);
+        if (diff != null && diff <= POV_CLOSE_DEG) {
+          clearInterval(timer);
+          resolve({ ok: true, diff: diff, heading: cur });
+          return;
+        }
+        if ((Date.now() - start) >= max) {
+          clearInterval(timer);
+          resolve({ ok: diff != null && diff <= POV_ALIGN_DEG + 10, diff: best, heading: cur, movedHeading: !!movedHeading });
+        }
+      }, 90);
+    });
+  }
+
+  /**
+   * Rotate POV to face trayecto bearing BEFORE stepping forward.
+   * Uses extension step({turnDeg, forward:false}), polls URL heading, up to POV_EXTRA_BURSTS extras.
+   */
+  function alignPovToBearing(targetBearing) {
+    return new Promise(function (resolve) {
+      refreshPose();
+      if (targetBearing == null || !isFinite(targetBearing)) {
+        resolve({ ok: true, skipped: true });
+        return;
+      }
+      if (!state.extAvailable) {
+        rotateTowardHeading(targetBearing);
+        resolve({ ok: false, err: 'no-ext' });
+        return;
+      }
+      var startH = state.heading;
+      flashPovHud(startH, targetBearing);
+
+      function oneBurst(remaining) {
+        refreshPose();
+        var cur = state.heading;
+        var turnDeg = 0;
+        if (cur != null && isFinite(cur)) {
+          turnDeg = angleDiffDeg(targetBearing, cur);
+        } else {
+          // Unknown heading — still send a burst toward target guess using last turn sign
+          turnDeg = angleDiffDeg(targetBearing, startH != null ? startH : 0);
+        }
+        if (Math.abs(turnDeg) <= POV_ALIGN_DEG) {
+          flashPovHud(cur, targetBearing);
+          resolve({ ok: true, diff: Math.abs(turnDeg), heading: cur });
+          return;
+        }
+        flashPovHud(cur, targetBearing);
+        var beforeH = cur;
+        requestExtStep({ turnDeg: turnDeg, forward: false }).then(function () {
+          return waitHeadingCloser(targetBearing, POV_POLL_MS, beforeH);
+        }).then(function (res) {
+          refreshPose();
+          var diff = (state.heading != null && isFinite(state.heading))
+            ? Math.abs(angleDiffDeg(targetBearing, state.heading))
+            : (res && res.diff);
+          flashPovHud(state.heading, targetBearing);
+          if (diff != null && diff <= POV_CLOSE_DEG) {
+            resolve({ ok: true, diff: diff, heading: state.heading });
+            return;
+          }
+          // Heading didn't update or still far — extra turn bursts (max remaining)
+          if (remaining > 0 && (diff == null || diff > POV_CLOSE_DEG)) {
+            // If URL heading stuck, keep sending same signed burst
+            oneBurst(remaining - 1);
+            return;
+          }
+          resolve({ ok: diff != null && diff <= POV_ALIGN_DEG + 15, diff: diff, heading: state.heading });
+        }).catch(function (e) {
+          resolve({ ok: false, err: String(e) });
+        });
+      }
+
+      oneBurst(POV_EXTRA_BURSTS);
+    });
+  }
+
+    /** Rotate view using real HTML buttons (trusted .click works). */
   function rotateTowardHeading(targetHeading) {
     refreshPose();
     var cur = state.heading;
@@ -1106,16 +1226,6 @@
         return;
       }
 
-      var turnDeg = 0;
-      if (preferredHeading != null && isFinite(preferredHeading) && state.heading != null && isFinite(state.heading)) {
-        turnDeg = angleDiffDeg(preferredHeading, state.heading);
-        if (Math.abs(turnDeg) < EXT_TURN_THRESH) turnDeg = 0;
-      } else if (preferredHeading != null && isFinite(preferredHeading)) {
-        rotateTowardHeading(preferredHeading);
-      }
-
-      var before = poseSnapshot();
-
       function afterMove(moved, method) {
         if (moved) {
           state.flechaFailStreak = 0;
@@ -1130,7 +1240,10 @@
           var dir = (state._autoRotateDir || 1) * -1;
           state._autoRotateDir = dir;
           if (state.extAvailable) {
-            requestExtStep({ turnDeg: dir * 45, forward: true });
+            // Align a bit then Up (don't combine poorly)
+            requestExtStep({ turnDeg: dir * 45, forward: false }).then(function () {
+              return requestExtStep({ turnDeg: 0, forward: true });
+            });
           } else {
             var base = (preferredHeading != null && isFinite(preferredHeading))
               ? preferredHeading
@@ -1167,45 +1280,88 @@
         resolve(false);
       }
 
-      // 1) EXTENSION FIRST (primary)
-      state.walkMethod = state.extAvailable ? 'ext' : 'ext?';
-      state._lastWalkMethod = 'ext';
-      updateHud();
-
-      requestExtStep({ turnDeg: turnDeg, forward: true }).then(function (res) {
-        if (res && res.ok) {
-          state.extAvailable = true;
-          return waitPoseChange(before, 2.0, 1100).then(function (moved) {
-            if (moved) { afterMove(true, 'ext'); return true; }
-            return requestExtArrowUp().then(function () {
-              return waitPoseChange(before, 2.0, 900).then(function (moved2) {
-                if (moved2) { afterMove(true, 'ext'); return true; }
-                return false;
+      function doForwardOnly() {
+        var before = poseSnapshot();
+        state.walkMethod = state.extAvailable ? 'ext' : 'ext?';
+        state._lastWalkMethod = 'ext';
+        updateHud();
+        requestExtStep({ turnDeg: 0, forward: true }).then(function (res) {
+          if (res && res.ok) {
+            state.extAvailable = true;
+            return waitPoseChange(before, 2.0, 1100).then(function (moved) {
+              if (moved) { afterMove(true, 'ext'); return true; }
+              return requestExtArrowUp().then(function () {
+                return waitPoseChange(before, 2.0, 900).then(function (moved2) {
+                  if (moved2) { afterMove(true, 'ext'); return true; }
+                  return false;
+                });
               });
             });
+          }
+          return false;
+        }).then(function (done) {
+          if (done) return;
+          if (!state.extAvailable) {
+            toast('⚠ Sin extensión — no camina solo. Instala extension/ (HUD rojo)');
+          }
+          if (preferredHeading != null && isFinite(preferredHeading)) {
+            rotateTowardHeading(preferredHeading);
+          }
+          var arrows = findSvNavArrowEls(preferredHeading);
+          if (arrows.length) clickEl(arrows[0].el);
+          clickChevronZones();
+          dispatchArrowUp();
+          requestExtStep({ turnDeg: 0, forward: true }).then(function () {
+            waitPoseChange(before, 2.5, 1000).then(function (moved) {
+              afterMove(moved, moved && state.extAvailable ? 'ext' : 'fallback');
+            });
           });
-        }
-        return false;
-      }).then(function (done) {
-        if (done) return;
-        if (!state.extAvailable) {
-          toast('⚠ Sin extensión — no camina solo. Instala extension/ (HUD rojo)');
-        }
-        if (preferredHeading != null && isFinite(preferredHeading)) {
-          rotateTowardHeading(preferredHeading);
-        }
-        var arrows = findSvNavArrowEls(preferredHeading);
-        if (arrows.length) clickEl(arrows[0].el);
-        clickChevronZones();
-        dispatchArrowUp();
-        requestExtStep({ turnDeg: turnDeg, forward: true }).then(function () {
-          waitPoseChange(before, 2.5, 1000).then(function (moved) {
-            afterMove(moved, moved && state.extAvailable ? 'ext' : 'fallback');
-          });
+        }).catch(function () {
+          afterMove(false, 'err');
         });
-      }).catch(function () {
-        afterMove(false, 'err');
-      });
+      }
+
+      // v1.7: if POV far from trayecto bearing → rotate FIRST, then ArrowUp only
+      var needAlign = false;
+      var turnDeg = 0;
+      if (preferredHeading != null && isFinite(preferredHeading) && state.heading != null && isFinite(state.heading)) {
+        turnDeg = angleDiffDeg(preferredHeading, state.heading);
+        if (Math.abs(turnDeg) > POV_ALIGN_DEG) needAlign = true;
+        else if (Math.abs(turnDeg) < EXT_TURN_THRESH) turnDeg = 0;
+      } else if (preferredHeading != null && isFinite(preferredHeading)) {
+        needAlign = true;
+      }
+
+      if (needAlign && state.extAvailable) {
+        alignPovToBearing(preferredHeading).then(function () {
+          refreshPose();
+          doForwardOnly();
+        }).catch(function () {
+          doForwardOnly();
+        });
+        return;
+      }
+
+      // Small/no turn: single step (ext may still apply tiny turnDeg if any)
+      if (turnDeg && Math.abs(turnDeg) >= EXT_TURN_THRESH && state.extAvailable) {
+        var before2 = poseSnapshot();
+        state.walkMethod = 'ext';
+        updateHud();
+        requestExtStep({ turnDeg: turnDeg, forward: true }).then(function (res) {
+          if (res && res.ok) {
+            return waitPoseChange(before2, 2.0, 1100).then(function (moved) {
+              if (moved) { afterMove(true, 'ext'); return true; }
+              return false;
+            });
+          }
+          return false;
+        }).then(function (done) {
+          if (!done) doForwardOnly();
+        }).catch(function () { doForwardOnly(); });
+        return;
+      }
+
+      doForwardOnly();
     });
   }
 
@@ -2105,11 +2261,31 @@
     return heading;
   }
 
-  /** U-turn ~180° via extension Left bursts (no ArrowUp). */
+  /** U-turn ~180° POV change via extension (no ArrowUp), then ready for forward. */
   function doUTurnBurst() {
-    // MAX_TURN_KEYS=8 @ ~15° → 120° per burst; two bursts ≈ 180°
-    return requestExtStep({ turnDeg: -120, forward: false }).then(function () {
-      return requestExtStep({ turnDeg: -60, forward: false });
+    refreshPose();
+    var start = state.heading;
+    var target = (start != null && isFinite(start)) ? ((start + 180) % 360) : null;
+    flashPovHud(start, target != null ? target : ((start || 0) + 180));
+    // Ext v1.5.1: ~9°/key, MAX 24 → one -180 burst is enough; settle + poll; extra if stuck
+    return requestExtStep({ turnDeg: -180, forward: false }).then(function () {
+      if (target == null) {
+        return requestExtStep({ turnDeg: -90, forward: false });
+      }
+      return waitHeadingCloser(target, POV_POLL_MS, start).then(function (res) {
+        refreshPose();
+        var diff = (state.heading != null && target != null)
+          ? Math.abs(angleDiffDeg(target, state.heading))
+          : 999;
+        flashPovHud(state.heading, target);
+        if (diff > 35) {
+          var rem = angleDiffDeg(target, state.heading || start || 0);
+          return requestExtStep({ turnDeg: rem, forward: false }).then(function () {
+            return waitHeadingCloser(target, POV_POLL_MS, state.heading);
+          });
+        }
+        return res;
+      });
     });
   }
 
@@ -2237,10 +2413,10 @@
       }
     }
 
-    // Strong turn: spend turn keys BEFORE ArrowUp (extension supports forward:false)
+    // v1.7: always face trayecto bearing (POV) before ArrowUp when |Δ| > 20°
     if (Math.abs(turnDelta) > STRONG_TURN_DEG && state.extAvailable) {
-      requestExtStep({ turnDeg: turnDelta, forward: false }).then(function () {
-        // After aligning, one forward step toward waypoint
+      flashPovHud(state.heading, heading);
+      alignPovToBearing(heading).then(function () {
         return smoothStepForward(heading, false);
       }).then(afterStep).catch(function () {
         state.routeBusy = false;
@@ -2248,6 +2424,7 @@
       return;
     }
 
+    if (isFinite(heading)) flashPovHud(state.heading, heading);
     smoothStepForward(heading, true).then(afterStep).catch(function () {
       state.routeBusy = false;
     });
@@ -2612,7 +2789,8 @@
     }
     if (state.route && state.route.status === 'running') {
       var prog = routeProgressLabel(state.route);
-      badge.textContent = (state.route.paused ? '⏸ ' : '▶ ') + prog + (state.extAvailable ? '' : ' · SIN EXT');
+      var povB = (state.povHud && state.povHudUntil && Date.now() < state.povHudUntil) ? (' · ' + state.povHud) : '';
+      badge.textContent = (state.route.paused ? '⏸ ' : '▶ ') + prog + povB + (state.extAvailable ? '' : ' · SIN EXT');
       badge.className = 'badge ' + (state.route.paused ? 'warn' : 'on');
     } else if (state.inSV) {
       badge.textContent = state.autoWalk ? 'SV · auto ▶ · ext' : 'Street View · ext';
@@ -2629,7 +2807,13 @@
       extra = ' · ' + state.route.name + ' ' + Math.min(state.route.i, state.route.points.length) + '/' + state.route.points.length;
       if (state.route.skipped) extra += ' skip' + state.route.skipped;
     }
-    meta.textContent = lat + ', ' + lng + ' · h ' + h + ' · ' + state.sessionPins.length + ' pin(es)' + extra;
+    var pov = '';
+    if (state.povHud && state.povHudUntil && Date.now() < state.povHudUntil) {
+      pov = ' · ' + state.povHud;
+    } else if (state.povHud && state.povHudUntil && Date.now() >= state.povHudUntil) {
+      state.povHud = null;
+    }
+    meta.textContent = lat + ', ' + lng + ' · h ' + h + pov + ' · ' + state.sessionPins.length + ' pin(es)' + extra;
     if (link && state.lat != null && state.lng != null) {
       link.href = MAP_BASE + '#map=' + Math.max(16, 17) + '/' + state.lat.toFixed(5) + '/' + state.lng.toFixed(5);
     }

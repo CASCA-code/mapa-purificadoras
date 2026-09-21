@@ -1,6 +1,6 @@
 # Scout Userscript (Tampermonkey) — Street View sin billing
 
-Actualizado: 2026-09-21 (**v1.6.0**)
+Actualizado: 2026-09-21 (**v1.7.0**)
 
 > **Camino primario para Nicolás.** Corre **sobre** Google Maps de consumidor (`https://www.google.com/maps` Street View).  
 > **Cero** Google Cloud / Maps Platform API key / hold de facturación.  
@@ -59,8 +59,8 @@ Pulsa **▶ Start trayecto (todas las calles)** (acción principal). El script:
 4. Muestrea waypoints cada ~15 m (cap ~2500 pts en colonias muy grandes; el HUD lo anuncia).
 5. HUD antes de caminar: `Trayecto: N pts · ~X calles · cobertura colonia`.
 6. Entra **1 vez** al inicio con URL (puede flash negro).
-7. Luego **loop automático**: extensión gira Left/Right hacia el waypoint (+ look-ahead) y ArrowUp. En esquinas fuertes (|Δ| > 35°) gira **antes** de avanzar.
-8. Callejón sin salida: si ArrowUp no mueve 2–3 veces → U-turn (~180° Left) y sigue el path (ya incluye el regreso).
+7. Luego **loop automático**: **v1.7 rota el POV hacia el trayecto antes de avanzar** (poll heading URL; luego ArrowUp). En esquinas (|Δ| > 20°) alinea cámara primero.
+8. Callejón sin salida: si ArrowUp no mueve 2–3 veces → U-turn POV ~180° real (sin Up), luego sigue el path.
 9. Componente lejano: solo si el siguiente punto está >90 m **y** falla ≥5 veces → **un** salto `map_action=pano` (“otra calle”), luego vuelve a flecha.
 10. **Space** = pausa/reanuda el trayecto. Si hay colonia elegida y aún no hay ruta → Space arma y arranca el trayecto.
 11. Progreso: `colonia · i/n (p%) · calles`.
@@ -83,6 +83,7 @@ Extensión de usuarios (Tampermonkey) + **extensión Chrome companion (requerida
 - **v1.4:** walk flecha SV in-pano; extensión era fallback opcional (insuficiente: untrusted falla).
 - **v1.5:** extensión = **PRIMARY / requerida**. Cada tick llama extensión primero (`step({turnDeg})`). Trayecto automático de punta a punta. Pace más rápido (~800 ms).
 - **v1.6:** trayecto = **cobertura total de calles** (grafo + Chinese Postman), no “solo ArrowUp en una avenida”. Steering con giros fuertes, U-turn en dead-ends, hop raro entre componentes.
+- **v1.7:** rota el POV hacia el trayecto antes de avanzar (ext 1.5.1: más teclas/°, settle 320 ms, mouse-drag backup).
 
 ## Extensión = requerida (no opcional)
 
@@ -92,7 +93,7 @@ Extensión de usuarios (Tampermonkey) + **extensión Chrome companion (requerida
 | HUD | Rojo «INSTALA extensión» | Verde «ext OK · camina solo» |
 | Banner amarillo Chrome | — | Breve al adjuntar debugger (normal; se suelta tras cada paso) |
 
-API página: `PURIF_SCOUT_EXT.step({turnDeg})`, `stepForward()`, `turnLeft(n)`, `turnRight(n)`, `ping()`.
+API página: `PURIF_SCOUT_EXT.step({turnDeg, forward:false})` (POV-only) / `step({turnDeg})`, `stepForward()`, `turnLeft(n)`, `turnRight(n)`, `ping()`.
 
 ## Hotkeys (igual que Scout SV)
 
