@@ -10,7 +10,7 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 |---|---|
 | `index.html` | Mapa Leaflet offline (score_100, capas, Ubicarme) |
 | `scout-sv.html` | Scout SV embebido (requiere Maps billing; preferir userscript) |
-| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.7** POV→trayecto antes de avanzar + cobertura calles) |
+| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.7.1** HUD slim + POV→trayecto + cobertura calles) |
 | `extension/` + `extension-dist/*.zip` | **REQUERIDA**: ArrowUp/Left/Right vía `chrome.debugger` |
 | `data/roads_zmm.geojson` | Calles OSM prebaked (Escobedo) para trayecto scout |
 | `scripts/prebake_roads_zmm.py` | Regenera `roads_zmm.geojson` vía Overpass |

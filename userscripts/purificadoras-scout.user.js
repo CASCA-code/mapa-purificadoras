@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.7.0
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.7: rota POV hacia el trayecto antes de avanzar; cobertura calles v1.6; auto-walk REQUIERE extensión. NO uses scout-sv.html.
+// @version      1.7.1
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.7.1: HUD slim (hotkeys/colonia/Start/speed/mini-map); v1.7 POV→trayecto; cobertura calles; auto-walk REQUIERE extensión. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -40,6 +40,7 @@
    * v1.5.0: extensión Chrome = PRIMARY (requerida). Ext FIRST cada tick; giro Left/Right + ArrowUp; trayecto auto sin clicks; pace ~800ms.
    * v1.6.0: trayecto = cobertura total calles (grafo + Chinese Postman approx); steering turnDeg; U-turn dead-end; hop raro entre componentes.
    * v1.7.0: rota el POV hacia el bearing del trayecto ANTES de ArrowUp; poll heading URL; U-turn ~180° real; HUD POV cur→target.
+   * v1.7.1: HUD slim left — hotkeys, colonia+Start, speed, progress, Pause/Stop; mini-map route+peg; clutter→⋯ menu.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -50,7 +51,7 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.7.0';
+  var SCRIPT_VERSION = '1.7.1';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -622,7 +623,7 @@
     state.sessionPins.push(feat);
     saveSession();
     persistFeature(feat);
-    paintMiniPins();
+    drawMini();
     toast('📍 ' + (def.label || def.name));
   }
 
@@ -634,7 +635,7 @@
     state.sessionPins.push(feat);
     saveSession();
     persistFeature(feat);
-    paintMiniPins();
+    drawMini();
     toast('💬 Zona guardada');
   }
 
@@ -643,7 +644,7 @@
     var f = state.sessionPins.pop();
     saveSession();
     unpersistFeature(f);
-    paintMiniPins();
+    drawMini();
     toast('Deshecho: ' + ((f.properties && f.properties.name) || 'pin'));
   }
 
@@ -2567,48 +2568,68 @@
       '#purif-scout-root{all:initial;position:fixed;z-index:2147483646;pointer-events:none;',
       'font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1f1a14}',
       '#purif-scout-root *{box-sizing:border-box;font-family:inherit}',
-      '#purif-scout-hud{position:fixed;top:72px;left:12px;pointer-events:auto;',
-      'background:rgba(33,29,23,.92);color:#efe9db;padding:10px 12px;border-radius:12px;',
-      'font-size:12px;line-height:1.35;max-width:300px;box-shadow:0 8px 24px rgba(0,0,0,.35);',
-      'backdrop-filter:blur(6px)}',
-      '#purif-scout-hud b{color:#fff}',
-      '#purif-scout-hud .row{margin:2px 0}',
-      '#purif-scout-hud kbd{display:inline-block;min-width:1.4em;text-align:center;',
-      'padding:1px 5px;margin-right:4px;border-radius:4px;background:#7a0177;color:#fff;',
-      'font:700 11px/1.4 ui-monospace,Menlo,monospace}',
+      '#purif-scout-left{position:fixed;top:64px;left:10px;width:240px;max-width:240px;',
+      'display:flex;flex-direction:column;gap:6px;pointer-events:none}',
+      '#purif-scout-hud{pointer-events:auto;background:rgba(28,25,23,.9);color:#e7e5e4;',
+      'padding:8px 9px;border-radius:10px;font-size:11px;line-height:1.3;',
+      'box-shadow:0 6px 18px rgba(0,0,0,.32);backdrop-filter:blur(5px);',
+      'border:1px solid rgba(255,255,255,.06)}',
+      '#purif-scout-hud b{color:#fff;font-weight:700}',
+      '#purif-scout-hud .top{display:flex;align-items:center;justify-content:space-between;',
+      'gap:6px;margin-bottom:4px}',
+      '#purif-scout-hud .ext-dot{display:inline-flex;align-items:center;gap:5px;',
+      'font:600 10px/1 system-ui;opacity:.9}',
+      '#purif-scout-hud .ext-dot i{width:8px;height:8px;border-radius:50%;display:inline-block;',
+      'box-shadow:0 0 0 2px rgba(0,0,0,.25)}',
+      '#purif-scout-hud .ext-dot.ok i{background:#22c55e}',
+      '#purif-scout-hud .ext-dot.bad i{background:#ef4444;animation:purif-pulse 1.4s ease infinite}',
+      '@keyframes purif-pulse{0%,100%{opacity:1}50%{opacity:.55}}',
+      '#purif-scout-hud .menu-wrap{position:relative}',
+      '#purif-scout-hud .menu-btn{border:0;background:transparent;color:#a8a29e;cursor:pointer;',
+      'font:700 14px/1 system-ui;padding:2px 6px;border-radius:6px}',
+      '#purif-scout-hud .menu-btn:hover{background:rgba(255,255,255,.08);color:#fff}',
+      '#purif-scout-hud .menu{display:none;position:absolute;right:0;top:100%;margin-top:2px;',
+      'min-width:132px;background:#1c1917;border:1px solid #44403c;border-radius:8px;',
+      'padding:4px;box-shadow:0 8px 20px rgba(0,0,0,.45);z-index:5}',
+      '#purif-scout-hud .menu.open{display:block}',
+      '#purif-scout-hud .menu button{display:block;width:100%;text-align:left;border:0;',
+      'background:transparent;color:#e7e5e4;padding:7px 8px;border-radius:6px;',
+      'font:600 11px/1.2 system-ui;cursor:pointer}',
+      '#purif-scout-hud .menu button:hover{background:rgba(255,255,255,.08)}',
+      '#purif-scout-hud .keys{margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08)}',
+      '#purif-scout-hud .row{margin:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '#purif-scout-hud kbd{display:inline-block;min-width:1.25em;text-align:center;',
+      'padding:0 4px;margin-right:3px;border-radius:3px;background:#7a0177;color:#fff;',
+      'font:700 10px/1.35 ui-monospace,Menlo,monospace}',
       '#purif-scout-hud kbd.sec{background:#44403c}',
-      '#purif-scout-hud .meta{opacity:.75;font-size:11px;margin-top:6px}',
-      '#purif-scout-hud .badge{display:inline-block;padding:2px 7px;border-radius:999px;',
-      'font-size:10px;font-weight:700;margin-bottom:6px}',
-      '#purif-scout-hud .badge.on{background:#0f766e;color:#fff}',
-      '#purif-scout-hud .badge.off{background:#57534e;color:#e7e5e4}',
-      '#purif-scout-hud .badge.warn{background:#b45309;color:#fff}',
-      '#purif-scout-ext-status{display:block;margin:6px 0 8px;padding:8px 10px;border-radius:10px;',
-      'font:700 13px/1.25 system-ui;text-align:center}',
-      '#purif-scout-ext-status.ok{background:#14532d;color:#bbf7d0;border:1px solid #22c55e}',
-      '#purif-scout-ext-status.bad{background:#7f1d1d;color:#fecaca;border:1px solid #ef4444;',
-      'animation:purif-pulse 1.4s ease infinite}',
-      '@keyframes purif-pulse{0%,100%{opacity:1}50%{opacity:.72}}',
-      '#purif-scout-hud .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}',
-      '#purif-scout-hud button{pointer-events:auto;cursor:pointer;border:0;border-radius:8px;',
-      'padding:6px 8px;font:600 11px/1 system-ui;background:#f5efe3;color:#1f1a14}',
-      '#purif-scout-hud button:hover{filter:brightness(1.06)}',
-      '#purif-scout-hud button.primary{background:#7a0177;color:#fff}',
-      '#purif-scout-hud button.danger{background:#9f1239;color:#fff}',
-      '#purif-scout-hud .tray{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12)}',
-      '#purif-scout-hud .tray label{display:block;font-size:10px;opacity:.8;margin:4px 0 2px}',
+      '#purif-scout-hud .tray label{display:block;font-size:9px;opacity:.7;margin:3px 0 2px;',
+      'text-transform:uppercase;letter-spacing:.03em}',
       '#purif-scout-hud input[type="search"],#purif-scout-hud select,#purif-scout-hud input[type="range"]{',
-      'width:100%;border-radius:8px;border:1px solid #57534e;background:#1c1917;color:#efe9db;',
-      'padding:6px 8px;font:12px/1.2 system-ui}',
-      '#purif-scout-hud input[type="range"]{padding:0;height:22px}',
-      '#purif-scout-hud .route-status{font-size:11px;margin-top:6px;color:#f9a8d4;min-height:1.2em}',
-      '#purif-scout-mini{position:fixed;left:12px;bottom:12px;width:200px;height:168px;',
-      'pointer-events:auto;border-radius:12px;overflow:hidden;',
-      'box-shadow:0 8px 28px rgba(0,0,0,.4);border:2px solid #fffdf8;background:#e7e2d7}',
+      'width:100%;border-radius:7px;border:1px solid #44403c;background:#0c0a09;color:#e7e5e4;',
+      'padding:5px 7px;font:11px/1.2 system-ui;margin-bottom:3px}',
+      '#purif-scout-hud input[type="range"]{padding:0;height:18px;margin:2px 0 4px}',
+      '#purif-scout-hud button.primary{pointer-events:auto;cursor:pointer;border:0;border-radius:8px;',
+      'padding:9px 10px;font:700 12px/1.2 system-ui;background:#7a0177;color:#fff;width:100%;margin:4px 0 2px}',
+      '#purif-scout-hud button.primary:hover{filter:brightness(1.07)}',
+      '#purif-scout-hud .speed-row{display:flex;align-items:center;gap:6px;margin:2px 0}',
+      '#purif-scout-hud .speed-row label{margin:0;flex:0 0 auto;text-transform:none;',
+      'letter-spacing:0;font-size:10px;opacity:.8}',
+      '#purif-scout-hud .speed-row input{flex:1;margin:0}',
+      '#purif-scout-hud .speed-row span{flex:0 0 auto;font:600 10px/1 ui-monospace,Menlo,monospace;opacity:.85;min-width:2.4em}',
+      '#purif-scout-hud .route-status{font-size:10px;margin:4px 0 2px;color:#f9a8d4;',
+      'min-height:1.15em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '#purif-scout-hud .acts{display:flex;gap:5px;margin-top:2px}',
+      '#purif-scout-hud .acts button{pointer-events:auto;cursor:pointer;border:0;border-radius:7px;',
+      'padding:5px 8px;font:600 10px/1 system-ui;background:#292524;color:#e7e5e4;flex:1}',
+      '#purif-scout-hud .acts button:hover{filter:brightness(1.08)}',
+      '#purif-scout-hud .acts button.danger{background:#7f1d1d;color:#fecaca}',
+      '#purif-scout-mini{pointer-events:auto;width:100%;height:150px;border-radius:10px;',
+      'overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.32);',
+      'border:1px solid rgba(255,255,255,.08);background:#d6d0c2}',
       '#purif-scout-mini .head{display:flex;align-items:center;justify-content:space-between;',
-      'padding:4px 8px;background:rgba(33,29,23,.88);color:#efe9db;font:600 10px/1.2 system-ui}',
+      'padding:3px 7px;background:rgba(28,25,23,.9);color:#e7e5e4;font:600 9px/1.2 system-ui}',
       '#purif-scout-mini .head a{color:#f9a8d4;text-decoration:none;font-weight:700}',
-      '#purif-scout-mini canvas{display:block;width:100%;height:calc(100% - 22px);background:#d6d0c2}',
+      '#purif-scout-mini canvas{display:block;width:100%;height:calc(100% - 18px);background:#d6d0c2}',
       '#purif-scout-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(12px);',
       'background:rgba(33,29,23,.94);color:#fff;padding:10px 16px;border-radius:999px;',
       'font:600 13px/1.2 system-ui;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;',
@@ -2628,8 +2649,7 @@
       'font:600 13px system-ui}',
       '#purif-scout-comment .ok{background:#7a0177;color:#fff}',
       '#purif-scout-comment .cancel{background:#ebe5d8;color:#1f1a14}',
-      '#purif-scout-root.hidden-ui #purif-scout-hud,',
-      '#purif-scout-root.hidden-ui #purif-scout-mini{display:none}'
+      '#purif-scout-root.hidden-ui #purif-scout-left{display:none}'
     ].join('');
     (document.head || document.documentElement).appendChild(css);
   }
@@ -2640,40 +2660,48 @@
     var root = document.createElement('div');
     root.id = 'purif-scout-root';
     root.innerHTML = [
-      '<div id="purif-scout-hud">',
-      '  <div class="badge off" id="purif-scout-badge">Mapa</div>',
-      '  <div id="purif-scout-ext-status" class="bad">INSTALA extensión — sin ella no se mueve</div>',
-      '  <div class="meta" id="purif-scout-nokey" style="margin:0 0 6px;color:#86efac;font-weight:600">v' + SCRIPT_VERSION + ' · walk=ext · google.com/maps (NO scout-sv)</div>',
-      '  <div class="row"><kbd>M</kbd><b>Modelorama</b></div>',
-      '  <div class="row"><kbd>S</kbd><b>Semáforo</b></div>',
-      '  <div class="row"><kbd class="sec">Y</kbd>Comp · <kbd class="sec">E</kbd>Express · <kbd class="sec">P</kbd>Iglesia</div>',
-      '  <div class="row"><kbd class="sec">I</kbd>Escuela · <kbd class="sec">H</kbd>Hospital · <kbd>C</kbd>Comentario</div>',
-      '  <div class="row"><kbd class="sec">Space</kbd>Pausa trayecto / Start · <kbd class="sec">Z</kbd>Deshacer</div>',
-      '  <div class="meta" id="purif-scout-meta">—</div>',
-      '  <div class="tray">',
-      '    <label>Colonia (Escobedo + ZMM)</label>',
-      '    <input type="search" id="purif-scout-col-filter" placeholder="Buscar colonia…" autocomplete="off" />',
-      '    <select id="purif-scout-colonia"><option value="">— cargando… —</option></select>',
-      '    <button type="button" class="primary" id="purif-scout-start-route" style="font-size:15px;padding:12px 14px;width:100%;margin-top:8px">▶ Start trayecto (todas las calles)</button>',
-      '    <label>Velocidad auto / trayecto: <span id="purif-scout-speed-label">0.8s</span></label>',
-      '    <input type="range" id="purif-scout-speed" min="700" max="2500" step="100" value="' + state.autoMs + '" />',
-      '    <div class="acts">',
-      '      <button type="button" id="purif-scout-pause-route">Pausa</button>',
-      '      <button type="button" class="danger" id="purif-scout-stop-route">Stop</button>',
-      '      <button type="button" id="purif-scout-next">▶ Siguiente</button>',
-      '      <button type="button" id="purif-scout-retry-route" style="display:none;background:#b45309;color:#fff">Reintentar</button>',
+      '<div id="purif-scout-left">',
+      '  <div id="purif-scout-hud">',
+      '    <div class="top">',
+      '      <span class="ext-dot bad" id="purif-scout-ext-status" title="Estado extensión"><i></i><span>ext</span></span>',
+      '      <div class="menu-wrap">',
+      '        <button type="button" class="menu-btn" id="purif-scout-more" title="Más" aria-haspopup="true">⋯</button>',
+      '        <div class="menu" id="purif-scout-menu" role="menu">',
+      '          <button type="button" id="purif-scout-export" role="menuitem">Export</button>',
+      '          <button type="button" id="purif-scout-sync" role="menuitem">Sync ntfy</button>',
+      '          <button type="button" id="purif-scout-next" role="menuitem">Paso ▶</button>',
+      '          <button type="button" id="purif-scout-retry-route" role="menuitem" style="display:none">Reintentar</button>',
+      '          <button type="button" id="purif-scout-hide" role="menuitem">Ocultar</button>',
+      '        </div>',
+      '      </div>',
       '    </div>',
-      '    <div class="route-status" id="purif-scout-route-status"></div>',
+      '    <div class="keys">',
+      '      <div class="row"><kbd>M</kbd><b>Modelorama</b> · <kbd>S</kbd><b>Semáforo</b></div>',
+      '      <div class="row"><kbd class="sec">Y</kbd>Comp · <kbd class="sec">E</kbd>Express · <kbd class="sec">P</kbd>Iglesia</div>',
+      '      <div class="row"><kbd class="sec">I</kbd>Escuela · <kbd class="sec">H</kbd>Hosp · <kbd>C</kbd>Coment</div>',
+      '      <div class="row"><kbd class="sec">Space</kbd>Pausa/Start · <kbd class="sec">Z</kbd>Undo</div>',
+      '    </div>',
+      '    <div class="tray">',
+      '      <label>Colonia</label>',
+      '      <input type="search" id="purif-scout-col-filter" placeholder="Buscar colonia…" autocomplete="off" />',
+      '      <select id="purif-scout-colonia"><option value="">— cargando… —</option></select>',
+      '      <button type="button" class="primary" id="purif-scout-start-route">▶ Start trayecto</button>',
+      '      <div class="speed-row">',
+      '        <label>Velocidad</label>',
+      '        <input type="range" id="purif-scout-speed" min="700" max="2500" step="100" value="' + state.autoMs + '" />',
+      '        <span id="purif-scout-speed-label">0.8s</span>',
+      '      </div>',
+      '      <div class="route-status" id="purif-scout-route-status"></div>',
+      '      <div class="acts">',
+      '        <button type="button" id="purif-scout-pause-route">Pausa</button>',
+      '        <button type="button" class="danger" id="purif-scout-stop-route">Stop</button>',
+      '      </div>',
+      '    </div>',
       '  </div>',
-      '  <div class="acts">',
-      '    <button type="button" id="purif-scout-export" title="Descargar JSON sesión">Export</button>',
-      '    <button type="button" id="purif-scout-sync" title="Reenviar upserts ntfy">Sync ntfy</button>',
-      '    <button type="button" id="purif-scout-hide" title="Ocultar HUD">Ocultar</button>',
+      '  <div id="purif-scout-mini">',
+      '    <div class="head"><span>Recorrido</span><a id="purif-scout-openmap" href="' + MAP_BASE + '" target="_blank" rel="noopener">mapa</a></div>',
+      '    <canvas id="purif-scout-canvas" width="220" height="132"></canvas>',
       '  </div>',
-      '</div>',
-      '<div id="purif-scout-mini">',
-      '  <div class="head"><span>Scout peg</span><a id="purif-scout-openmap" href="' + MAP_BASE + '" target="_blank" rel="noopener">Abrir mapa</a></div>',
-      '  <canvas id="purif-scout-canvas" width="196" height="146"></canvas>',
       '</div>',
       '<div id="purif-scout-toast" role="status" aria-live="polite"></div>',
       '<div id="purif-scout-comment" role="dialog" aria-modal="true">',
@@ -2690,14 +2718,27 @@
     ].join('');
     document.documentElement.appendChild(root);
 
+    var menu = document.getElementById('purif-scout-menu');
+    var moreBtn = document.getElementById('purif-scout-more');
+    function closeMenu() { if (menu) menu.classList.remove('open'); }
+    moreBtn.addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      menu.classList.toggle('open');
+    });
+    document.addEventListener('click', function (e) {
+      if (!menu || !menu.classList.contains('open')) return;
+      if (menu.contains(e.target) || moreBtn.contains(e.target)) return;
+      closeMenu();
+    }, true);
+
     document.getElementById('purif-scout-export').addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation(); downloadExport();
+      e.preventDefault(); e.stopPropagation(); closeMenu(); downloadExport();
     });
     document.getElementById('purif-scout-sync').addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation(); syncAllNtfy();
+      e.preventDefault(); e.stopPropagation(); closeMenu(); syncAllNtfy();
     });
     document.getElementById('purif-scout-hide').addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopPropagation(); closeMenu();
       root.classList.add('hidden-ui');
       toast('HUD oculto — recarga o F5 para verlo');
     });
@@ -2716,11 +2757,11 @@
       buildTrayectoForSelection();
     });
     document.getElementById('purif-scout-next').addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopPropagation(); closeMenu();
       advanceOneStep();
     });
     document.getElementById('purif-scout-retry-route').addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopPropagation(); closeMenu();
       setRetryVisible(false);
       buildTrayectoForSelection();
     });
@@ -2761,66 +2802,46 @@
   }
 
   function updateHud() {
-    var badge = document.getElementById('purif-scout-badge');
-    var meta = document.getElementById('purif-scout-meta');
-    var link = document.getElementById('purif-scout-openmap');
-    var nokey = document.getElementById('purif-scout-nokey');
-    if (!badge || !meta) return;
     var extEl = document.getElementById('purif-scout-ext-status');
-    if (extEl) {
-      if (state.extAvailable) {
-        extEl.className = 'ok';
-        extEl.textContent = 'ext OK · camina solo';
-      } else {
-        extEl.className = 'bad';
-        extEl.textContent = 'INSTALA extensión — sin ella no se mueve';
-      }
+    var link = document.getElementById('purif-scout-openmap');
+    var pauseBtn = document.getElementById('purif-scout-pause-route');
+    if (!extEl) return;
+
+    if (state.extAvailable) {
+      extEl.className = 'ext-dot ok';
+      extEl.title = 'ext OK · camina solo';
+      extEl.innerHTML = '<i></i><span>ext OK</span>';
+    } else {
+      extEl.className = 'ext-dot bad';
+      extEl.title = 'INSTALA extensión — sin ella no se mueve';
+      extEl.innerHTML = '<i></i><span>ext</span>';
     }
 
-    if (nokey) {
-      var meth = (state.extAvailable ? 'flecha SV+ext' : (state.walkMethod || WALK_MODE || 'flecha SV'));
-      nokey.textContent = 'v' + SCRIPT_VERSION + ' · ' + meth + ' · google.com/maps (NO scout-sv)';
-      if (/scout-sv\.html/i.test(location.href)) {
-        nokey.style.color = '#fca5a5';
-        nokey.textContent = '⚠ Estás en scout-sv.html. Abre google.com/maps + peoncito (este script no corre ahí).';
-      } else {
-        nokey.style.color = '#86efac';
-      }
-    }
-    if (state.route && state.route.status === 'running') {
+    // One-line progress only (no badge / POV / lat spam)
+    var rs = document.getElementById('purif-scout-route-status');
+    if (rs && state.route && state.route.status === 'running') {
       var prog = routeProgressLabel(state.route);
-      var povB = (state.povHud && state.povHudUntil && Date.now() < state.povHudUntil) ? (' · ' + state.povHud) : '';
-      badge.textContent = (state.route.paused ? '⏸ ' : '▶ ') + prog + povB + (state.extAvailable ? '' : ' · SIN EXT');
-      badge.className = 'badge ' + (state.route.paused ? 'warn' : 'on');
-    } else if (state.inSV) {
-      badge.textContent = state.autoWalk ? 'SV · auto ▶ · ext' : 'Street View · ext';
-      badge.className = 'badge on';
-    } else {
-      badge.textContent = 'No SV — peoncito / ▶ Siguiente';
-      badge.className = 'badge warn';
+      rs.textContent = (state.route.paused ? '⏸ ' : '▶ ') + prog + (state.extAvailable ? '' : ' · sin ext');
+    } else if (rs && state.route && state.route.status === 'stopped') {
+      if (!rs.textContent) rs.textContent = 'Detenido';
+    } else if (rs && !state.route && !state.trayectoBuilding && !state.lastTrayectoError) {
+      if (!state.inSV) rs.textContent = 'Peoncito → Street View';
+      else if (!rs.textContent || rs.textContent.indexOf('Peoncito') === 0) rs.textContent = '';
     }
-    var lat = state.lat != null ? state.lat.toFixed(6) : '—';
-    var lng = state.lng != null ? state.lng.toFixed(6) : '—';
-    var h = (state.heading != null && isFinite(state.heading)) ? Math.round(state.heading) + '°' : '—';
-    var extra = '';
-    if (state.route) {
-      extra = ' · ' + state.route.name + ' ' + Math.min(state.route.i, state.route.points.length) + '/' + state.route.points.length;
-      if (state.route.skipped) extra += ' skip' + state.route.skipped;
+
+    if (pauseBtn && state.route) {
+      pauseBtn.textContent = state.route.paused ? 'Reanudar' : 'Pausa';
+    } else if (pauseBtn) {
+      pauseBtn.textContent = 'Pausa';
     }
-    var pov = '';
-    if (state.povHud && state.povHudUntil && Date.now() < state.povHudUntil) {
-      pov = ' · ' + state.povHud;
-    } else if (state.povHud && state.povHudUntil && Date.now() >= state.povHudUntil) {
-      state.povHud = null;
-    }
-    meta.textContent = lat + ', ' + lng + ' · h ' + h + pov + ' · ' + state.sessionPins.length + ' pin(es)' + extra;
+
     if (link && state.lat != null && state.lng != null) {
       link.href = MAP_BASE + '#map=' + Math.max(16, 17) + '/' + state.lat.toFixed(5) + '/' + state.lng.toFixed(5);
     }
-    paintMiniPins();
+    drawMini();
   }
 
-  function paintMiniPins() {
+  function drawMini() {
     var canvas = document.getElementById('purif-scout-canvas');
     if (!canvas || !canvas.getContext) return;
     var ctx = canvas.getContext('2d');
@@ -2831,14 +2852,44 @@
 
     var clat = state.lat != null ? state.lat : 25.836;
     var clng = state.lng != null ? state.lng : -100.371;
-    var span = 0.004;
+    var spanLat = 0.0035;
+    var spanLng = 0.0035;
+
+    // Fit to trayecto route when active (wire state.route.points)
+    var pts = (state.route && state.route.points) ? state.route.points : null;
+    if (pts && pts.length) {
+      var minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+      for (var i = 0; i < pts.length; i++) {
+        var p0 = pts[i];
+        if (p0.lat < minLat) minLat = p0.lat;
+        if (p0.lat > maxLat) maxLat = p0.lat;
+        if (p0.lng < minLng) minLng = p0.lng;
+        if (p0.lng > maxLng) maxLng = p0.lng;
+      }
+      if (state.lat != null) {
+        if (state.lat < minLat) minLat = state.lat;
+        if (state.lat > maxLat) maxLat = state.lat;
+        if (state.lng < minLng) minLng = state.lng;
+        if (state.lng > maxLng) maxLng = state.lng;
+      }
+      var pad = 0.0004;
+      minLat -= pad; maxLat += pad; minLng -= pad; maxLng += pad;
+      clat = (minLat + maxLat) / 2;
+      clng = (minLng + maxLng) / 2;
+      spanLat = Math.max((maxLat - minLat) / 2, 0.0008);
+      spanLng = Math.max((maxLng - minLng) / 2, 0.0008);
+      var aspect = w / h;
+      if (spanLng / spanLat < aspect) spanLng = spanLat * aspect;
+      else spanLat = spanLng / aspect;
+    }
+
     function xy(lat, lng) {
-      var x = ((lng - (clng - span)) / (2 * span)) * w;
-      var y = ((clat + span - lat) / (2 * span)) * h;
+      var x = ((lng - (clng - spanLng)) / (2 * spanLng)) * w;
+      var y = ((clat + spanLat - lat) / (2 * spanLat)) * h;
       return { x: x, y: y };
     }
 
-    ctx.strokeStyle = 'rgba(0,0,0,.08)';
+    ctx.strokeStyle = 'rgba(0,0,0,.07)';
     ctx.lineWidth = 1;
     for (var g = 1; g < 4; g++) {
       ctx.beginPath();
@@ -2847,17 +2898,30 @@
       ctx.moveTo(0, (h / 4) * g); ctx.lineTo(w, (h / 4) * g); ctx.stroke();
     }
 
-    // route preview
-    if (state.route && state.route.points && state.route.points.length) {
+    if (pts && pts.length) {
       ctx.beginPath();
-      state.route.points.forEach(function (pt, i) {
-        var pxy = xy(pt.lat, pt.lng);
-        if (i === 0) ctx.moveTo(pxy.x, pxy.y); else ctx.lineTo(pxy.x, pxy.y);
-      });
-      ctx.strokeStyle = 'rgba(122,1,119,.45)';
+      for (var j = 0; j < pts.length; j++) {
+        var pxy = xy(pts[j].lat, pts[j].lng);
+        if (j === 0) ctx.moveTo(pxy.x, pxy.y); else ctx.lineTo(pxy.x, pxy.y);
+      }
+      ctx.strokeStyle = 'rgba(122,1,119,.55)';
       ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
       ctx.stroke();
-      var cur = state.route.points[Math.min(state.route.i, state.route.points.length - 1)];
+
+      var ki = Math.min(state.route.i, pts.length - 1);
+      if (ki > 0) {
+        ctx.beginPath();
+        for (var k = 0; k <= ki; k++) {
+          var dxy = xy(pts[k].lat, pts[k].lng);
+          if (k === 0) ctx.moveTo(dxy.x, dxy.y); else ctx.lineTo(dxy.x, dxy.y);
+        }
+        ctx.strokeStyle = 'rgba(122,1,119,.9)';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+
+      var cur = pts[ki];
       if (cur) {
         var cxy = xy(cur.lat, cur.lng);
         ctx.beginPath();
@@ -2875,9 +2939,9 @@
         var coords = g2.coordinates || [];
         if (coords.length < 2) return;
         ctx.beginPath();
-        coords.forEach(function (c, i) {
+        coords.forEach(function (c, ii) {
           var pt = xy(c[1], c[0]);
-          if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+          if (ii === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
         });
         ctx.strokeStyle = COMMENT_COLOR;
         ctx.lineWidth = 3;
@@ -2886,9 +2950,9 @@
         var c = g2.coordinates;
         var pt = xy(c[1], c[0]);
         var col = '#64748b';
-        for (var k in SCOUT_HOTKEYS) {
-          if (k === 'U') continue;
-          var hk = SCOUT_HOTKEYS[k];
+        for (var key in SCOUT_HOTKEYS) {
+          if (key === 'U') continue;
+          var hk = SCOUT_HOTKEYS[key];
           if (hk.kind === p.kind && hk.layer === p.layer) {
             if (p.kind === 'otro' && hk.nota_raw && p.nota_raw === hk.nota_raw) { col = hk.color; break; }
             if (p.kind !== 'otro') { col = hk.color; break; }
@@ -2896,30 +2960,32 @@
         }
         if (p.layer === 'competencia') col = '#0f766e';
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+        ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
         ctx.fillStyle = col;
         ctx.fill();
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.2;
         ctx.stroke();
       }
     });
 
+    // Current peg + heading
     var peg = xy(clat, clng);
+    if (state.lat != null && state.lng != null) peg = xy(state.lat, state.lng);
     var rad = ((state.heading || 0) - 90) * Math.PI / 180;
     ctx.save();
     ctx.translate(peg.x, peg.y);
     ctx.rotate(rad + Math.PI / 2);
     ctx.beginPath();
-    ctx.moveTo(0, -10);
-    ctx.lineTo(7, 8);
-    ctx.lineTo(0, 4);
-    ctx.lineTo(-7, 8);
+    ctx.moveTo(0, -9);
+    ctx.lineTo(6, 7);
+    ctx.lineTo(0, 3.5);
+    ctx.lineTo(-6, 7);
     ctx.closePath();
     ctx.fillStyle = '#7a0177';
     ctx.fill();
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.4;
     ctx.stroke();
     ctx.restore();
   }

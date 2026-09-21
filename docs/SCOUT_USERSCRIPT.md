@@ -1,6 +1,6 @@
 # Scout Userscript (Tampermonkey) — Street View sin billing
 
-Actualizado: 2026-09-21 (**v1.7.0**)
+Actualizado: 2026-09-21 (**v1.7.1**)
 
 > **Camino primario para Nicolás.** Corre **sobre** Google Maps de consumidor (`https://www.google.com/maps` Street View).  
 > **Cero** Google Cloud / Maps Platform API key / hold de facturación.  
@@ -26,7 +26,7 @@ Los clicks/teclas sintéticos del userscript son *untrusted* y Maps los ignora. 
 2. Descomprime en una carpeta fija.
 3. Chrome → `chrome://extensions` → **Modo de desarrollador** ON.
 4. **Cargar descomprimida** → elige esa carpeta (debe verse `manifest.json`).
-5. Abre Maps → Street View. El HUD debe ponerse **verde: «ext OK · camina solo»**. Si está rojo, la extensión no está activa.
+5. Abre Maps → Street View. El HUD muestra un **punto verde «ext OK»** (o rojo si falta la extensión).
 
 Detalle: [`extension/README.md`](../extension/README.md).
 
@@ -36,8 +36,9 @@ Detalle: [`extension/README.md`](../extension/README.md).
 2. **Utilidades** → **Instalar desde URL**:
 
    ```
-   https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js
+   https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js?v=171
    ```
+   Si Tampermonkey no toma el cambio: **Reinstall** desde esa URL (no solo Update).
 
 3. Confirma permisos (`ntfy.sh`, Maps, Pages, Overpass, raw GitHub).
 
@@ -51,7 +52,7 @@ En el HUD: busca / elige colonia (prioriza **General Escobedo**).
 
 ### 5) Start trayecto — cubre **todas** las calles
 
-Pulsa **▶ Start trayecto (todas las calles)** (acción principal). El script:
+Pulsa **▶ Start trayecto** (acción principal). El script:
 
 1. Carga calles prebaked (`data/roads_zmm.geojson`) recortadas al polígono de la colonia (Overpass / rejilla solo si falta).
 2. Arma un **grafo** de tramos (nodos en intersecciones / extremos).
@@ -84,13 +85,14 @@ Extensión de usuarios (Tampermonkey) + **extensión Chrome companion (requerida
 - **v1.5:** extensión = **PRIMARY / requerida**. Cada tick llama extensión primero (`step({turnDeg})`). Trayecto automático de punta a punta. Pace más rápido (~800 ms).
 - **v1.6:** trayecto = **cobertura total de calles** (grafo + Chinese Postman), no “solo ArrowUp en una avenida”. Steering con giros fuertes, U-turn en dead-ends, hop raro entre componentes.
 - **v1.7:** rota el POV hacia el trayecto antes de avanzar (ext 1.5.1: más teclas/°, settle 320 ms, mouse-drag backup).
+- **v1.7.1:** HUD slim (hotkeys → colonia → Start → speed → progress → Pause/Stop + mini-mapa del recorrido; Export/Sync en ⋯).
 
 ## Extensión = requerida (no opcional)
 
 | | Userscript solo | Userscript + extensión |
 |---|---|---|
 | Auto-walk / trayecto | ❌ Maps ignora teclas/clicks sintéticos | ✅ ArrowUp/Left/Right confiables |
-| HUD | Rojo «INSTALA extensión» | Verde «ext OK · camina solo» |
+| HUD | Punto rojo «ext» | Punto verde «ext OK» |
 | Banner amarillo Chrome | — | Breve al adjuntar debugger (normal; se suelta tras cada paso) |
 
 API página: `PURIF_SCOUT_EXT.step({turnDeg, forward:false})` (POV-only) / `step({turnDeg})`, `stepForward()`, `turnLeft(n)`, `turnRight(n)`, `ping()`.
