@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.7.3
+// @version      1.7.4
 // @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.7.3: speed −/+ (sin range); sin blur HUD; routeBusy watchdog + destrabado; look-ahead cruce POV→salida; cobertura calles; auto-walk REQUIERE extensión. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
@@ -53,7 +53,7 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.7.3';
+  var SCRIPT_VERSION = '1.7.4';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -2792,6 +2792,7 @@ function waysToCoveragePoints(elements, geom) {
       'box-shadow:0 0 0 2px rgba(0,0,0,.25)}',
       '#purif-scout-hud .ext-dot.ok i{background:#22c55e}',
       '#purif-scout-hud .ext-dot.bad i{background:#ef4444;animation:purif-pulse 1.4s ease infinite}',
+      '#purif-scout-ver{font:700 10px/1 ui-monospace,Menlo,monospace;color:#a78bfa;opacity:.95;letter-spacing:.02em}',
       '@keyframes purif-pulse{0%,100%{opacity:1}50%{opacity:.55}}',
       '#purif-scout-hud .menu-wrap{position:relative}',
       '#purif-scout-hud .menu-btn{border:0;background:transparent;color:#a8a29e;cursor:pointer;',
@@ -2875,6 +2876,7 @@ function waysToCoveragePoints(elements, geom) {
       '  <div id="purif-scout-hud">',
       '    <div class="top">',
       '      <span class="ext-dot bad" id="purif-scout-ext-status" title="Estado extensión"><i></i><span>ext</span></span>',
+      '      <span id="purif-scout-ver" title="Versión del userscript">v' + SCRIPT_VERSION + '</span>',
       '      <div class="menu-wrap">',
       '        <button type="button" class="menu-btn" id="purif-scout-more" title="Más" aria-haspopup="true">⋯</button>',
       '        <div class="menu" id="purif-scout-menu" role="menu">',
