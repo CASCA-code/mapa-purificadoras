@@ -2314,6 +2314,50 @@
         "status": "inbox",
         "layer": "ancla_campo"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3902719,
+          25.8482031
+        ]
+      },
+      "properties": {
+        "id": "ancla_mubr13hs_eskpx3",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-21T21:20:08.944Z",
+        "fuente": "scout_userscript",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.359662,
+          25.8082599
+        ]
+      },
+      "properties": {
+        "id": "ancla_mubrhb2c_amupov",
+        "kind": "escuela",
+        "name": "Escuela",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-21T21:32:45.252Z",
+        "fuente": "scout_userscript",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": null
+      }
     }
   ]
 }
