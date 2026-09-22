@@ -10,7 +10,7 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 |---|---|
 | `index.html` | Mapa Leaflet offline (score_100, capas, Ubicarme) |
 | `scout-sv.html` | Scout SV embebido (requiere Maps billing; preferir userscript) |
-| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.8.0** postMessage-only bridge, routeBusy finally+15s, corner m look-ahead, oneway/service, alreadyAligned, soft-ok heading) |
+| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.8.1** giros predeterminados del trayecto, exitBearing 80–120 m, turn-only si desalineado, HUD próx turno) |
 | `extension/` + `extension-dist/*.zip` | **REQUERIDA**: ArrowUp/Left/Right vía `chrome.debugger` |
 | `data/roads_zmm.geojson` | Calles OSM prebaked (Escobedo) para trayecto scout |
 | `scripts/prebake_roads_zmm.py` | Regenera `roads_zmm.geojson` vía Overpass |
@@ -49,7 +49,7 @@ Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
 **Primario (sin billing):** userscript Tampermonkey sobre Maps de consumidor — [`docs/SCOUT_USERSCRIPT.md`](docs/SCOUT_USERSCRIPT.md) · instalar desde  
 `https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js`  
 Elige colonia (Escobedo + ZMM) → **Start trayecto** cubre **todas** las calles OSM del polígono (Chinese Postman; sin Maps billing) → marca pines con hotkeys.  
-`scout-sv.html` (Maps JS embebido) sigue en Pages pero **requiere Google Cloud billing** — **no usarla**; no pedir key a Nicolás. Camino correcto: userscript **v1.8.0+** + extensión (extensión = pasito; script = mapa de calles + giros; Space = pausa / Start) en `google.com/maps`; extensión **requerida** (`extension/` / `extension-dist/*.zip`). Mapillary abandonado. Legacy: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).
+`scout-sv.html` (Maps JS embebido) sigue en Pages pero **requiere Google Cloud billing** — **no usarla**; no pedir key a Nicolás. Camino correcto: userscript **v1.8.1+** + extensión (extensión = pasito; script = mapa de calles + giros; Space = pausa / Start) en `google.com/maps`; extensión **requerida** (`extension/` / `extension-dist/*.zip`). Mapillary abandonado. Legacy: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).
 
 ## Tránsito OSM (semáforos / altos)
 Capas gratuitas de OpenStreetMap en el panel **Anclas → Tránsito**: **Semáforos** y **Altos / stops**.

@@ -1,3 +1,8 @@
+## 2026-09-21 (scout v1.8.1 — giros predeterminados)
+
+- Nicolás: walk se trababa en cruces — decisiones L/R reactivas en el nodo SV.
+- Fix: annotate robusto (bearing de path ~STEP_M); steering **siempre** `exitBearing` del próximo corner; look-ahead ~100 m + align@40 m; turn-only si |Δ|>25° (sin ↑ / sin U-turn falso); HUD `próx ↰ 90° en 80m`. Extensión 1.6.0 sin cambio. Reinstall `?v=181`.
+
 ## 2026-09-21 (scout v1.8.0 — audit Nicolás)
 
 - Bridge: `extPost` = **postMessage only** (quitó CustomEvent + `PURIF_SCOUT_EXT.step` double-fire). Extensión **1.6.0** (reload).

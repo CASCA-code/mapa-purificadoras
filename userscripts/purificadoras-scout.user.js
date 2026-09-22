@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.8.0
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.8.0: bridge postMessage-only; routeBusy finally+15s; corner look-ahead por metros; oneway/service; soft-ok heading; alreadyAligned; docs ?v=180. NO uses scout-sv.html.
+// @version      1.8.1
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.8.1: giros predeterminados del trayecto; exitBearing 80–120 m antes; turn-only si desalineado; HUD próx turno en Xm; docs ?v=181. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -43,6 +43,7 @@
    * v1.7.2: speed no auto-acelera (blur/ignore Arrow* en slider ante ext); look-ahead esquina |turn|≥35° → POV a bearing de SALIDA ~50 m antes; HUD ↳/↰.
    * v1.7.3: sin blur/restore HUD; speed = botones −/+ (nada focusable con Arrow*); routeBusy watchdog ~5s; POV hard timeout; destrabado si pose no cambia.
    * v1.8.0: bridge postMessage-only; routeBusy finally+15s; alreadyAligned; corner m look-ahead; oneway/service; soft-ok heading; shared recovery; docs ?v=180.
+   * v1.8.1: turns fully predetermined from trayecto; CORNER_LOOKAHEAD ~100 m + align@40 m; never re-pick L/R at SV node; turn-only if |Δ|>25°; HUD próx ↰ en Xm; docs ?v=181.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -53,7 +54,7 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.8.0';
+  var SCRIPT_VERSION = '1.8.1';
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -89,10 +90,13 @@
   var CONSEC_SV_FAILS = 3;
   var URL_RECOVERY_EVERY = 8; // rare URL jump after N flecha failures
   var NEAR_WP_M = 28; // haversine to advance trayecto index
-  var LOOKAHEAD_NEAR_M = 22; // soft steer toward WP+1 when this close (legacy)
-  var CORNER_LOOKAHEAD_M = 70; // v1.8.0: commit exit bearing ~55–80 m before corner (accumulated m)
+  var LOOKAHEAD_NEAR_M = 22; // soft steer toward WP+1 when this close (legacy / straight only)
+  var CORNER_LOOKAHEAD_M = 100; // v1.8.1: commit exit bearing 80–120 m before corner
+  var CORNER_ALIGN_NEAR_M = 40; // v1.8.1: second strong POV align ~40 m before corner
+  var CORNER_FINAL_M = 28; // v1.8.1: last 1–2 steps — must be aligned before ↑ into node
   var CORNER_TURN_DEG = 35; // |turnDeg| at WP ≥ this → corner / multi-link
   var CORNER_EXTRA_BURSTS = 2; // stronger POV align at crossroads
+  var TURN_ONLY_MISALIGN_DEG = 25; // v1.8.1: if |heading−exit| > this → turn-only (no ↑)
   var EXT_TURN_THRESH = 18; // deg — ask extension to turn if |delta| above this
   var STRONG_TURN_DEG = 20; // |delta| above this → align POV before ArrowUp (v1.7)
   var POV_ALIGN_DEG = 20; // same threshold for alignPovToBearing
@@ -158,7 +162,8 @@
     povHud: null, // brief 'POV 120°→85°'
     povHudUntil: 0,
     targetBearing: null,
-    nextTurnHud: null, // '↳ der 90°' / '↰ izq'
+    nextTurnHud: null, // 'próx ↰ 90° en 80m'
+    upcomingCorner: null, // { corner, distM, index } planned turn
     _routeBusyTimer: null,
     _lastUnstickToast: 0,
     _lastRecoveryAt: 0,
@@ -242,6 +247,8 @@
       var r = typeof raw === 'string' ? JSON.parse(raw) : raw;
       if (!r || !Array.isArray(r.points) || !r.points.length) return null;
       if (r.savedAt && (Date.now() - r.savedAt) > 6 * 60 * 60 * 1000) return null; // stale
+      // v1.8.1: refresh turnDeg/exitBearing/isCorner from path (saved routes may lack them)
+      annotateRouteTurns(r.points);
       return r;
     } catch (e) { return null; }
   }
@@ -1900,16 +1907,47 @@
    * Returns { points, streetCount, edgeCount, capped }.
    */
   
-  /** Precompute turnDeg / exitBearing at each WP (bearing in→out). Deterministic steering. */
+  /**
+   * Bearing along route path starting at index i, walking dir (+1/-1) until ≥ minM.
+   * Avoids micro-wiggle bearings from dense samples.
+   */
+  function pathBearingFrom(points, i, dir, minM) {
+    if (!points || !points.length || i < 0 || i >= points.length) return null;
+    var need = (minM != null && isFinite(minM)) ? minM : Math.max(10, STEP_M * 0.75);
+    var acc = 0;
+    var a = points[i];
+    var j = i;
+    var b = null;
+    while (true) {
+      var nj = j + dir;
+      if (nj < 0 || nj >= points.length) break;
+      var nxt = points[nj];
+      acc += haversineM(points[j].lat, points[j].lng, nxt.lat, nxt.lng);
+      b = nxt;
+      j = nj;
+      if (acc >= need) break;
+    }
+    if (!b || !a) return null;
+    if (dir > 0) return bearingDeg(a.lat, a.lng, b.lat, b.lng);
+    return bearingDeg(b.lat, b.lng, a.lat, a.lng);
+  }
+
+  /** Precompute turnDeg / exitBearing / isCorner from path geometry (deterministic). */
   function annotateRouteTurns(points) {
     if (!points || points.length < 2) return points;
+    var baseM = Math.max(12, STEP_M * 0.8);
     for (var i = 0; i < points.length; i++) {
-      var prev = points[i - 1];
       var cur = points[i];
-      var nxt = points[i + 1];
-      var inB = null, outB = null, turn = 0;
-      if (prev) inB = bearingDeg(prev.lat, prev.lng, cur.lat, cur.lng);
-      if (nxt) outB = bearingDeg(cur.lat, cur.lng, nxt.lat, nxt.lng);
+      var inB = pathBearingFrom(points, i, -1, baseM);
+      var outB = pathBearingFrom(points, i, +1, baseM);
+      // Fallback to immediate neighbors if path walk failed
+      if (inB == null && i > 0) {
+        inB = bearingDeg(points[i - 1].lat, points[i - 1].lng, cur.lat, cur.lng);
+      }
+      if (outB == null && i + 1 < points.length) {
+        outB = bearingDeg(cur.lat, cur.lng, points[i + 1].lat, points[i + 1].lng);
+      }
+      var turn = 0;
       if (inB != null && outB != null) turn = angleDiffDeg(outB, inB);
       cur.turnDeg = turn;
       cur.inBearing = inB;
@@ -1919,11 +1957,17 @@
     return points;
   }
 
-  function formatNextTurnHud(turnDeg) {
+  function formatNextTurnHud(turnDeg, distM) {
     if (turnDeg == null || !isFinite(turnDeg) || Math.abs(turnDeg) < CORNER_TURN_DEG) return null;
     var abs = Math.round(Math.abs(turnDeg));
-    if (turnDeg > 0) return '↳ der ' + abs + '°';
-    return '↰ izq ' + abs + '°';
+    var arrow = turnDeg > 0 ? '↳' : '↰';
+    var side = turnDeg > 0 ? 'der' : 'izq';
+    var core = arrow + ' ' + abs + '°';
+    if (distM != null && isFinite(distM) && distM < 500) {
+      var dm = Math.max(0, Math.round(distM / 5) * 5); // ~5 m buckets
+      return 'próx ' + arrow + ' ' + abs + '° en ' + dm + 'm';
+    }
+    return 'próx ' + core + ' ' + side;
   }
 
 function waysToCoveragePoints(elements, geom) {
@@ -2259,10 +2303,13 @@ function waysToCoveragePoints(elements, geom) {
       last = pt;
     }
 
+    // Annotate before thin so isCorner survives stride cull; re-annotate after geometry change
+    annotateRouteTurns(points);
+
     var capped = false;
     if (points.length > MAX_ROUTE_PTS) {
       capped = true;
-      // v1.8.0: prefer keeping corners + per-edge minimum samples, not only global stride
+      // v1.8.0/1.8.1: prefer keeping corners + per-edge minimum samples, not only global stride
       var stride = Math.ceil(points.length / MAX_ROUTE_PTS);
       var thinned = [];
       var sinceKeep = 0;
@@ -2280,9 +2327,8 @@ function waysToCoveragePoints(elements, geom) {
         thinned.push(lastPt);
       }
       points = thinned;
+      annotateRouteTurns(points);
     }
-
-    annotateRouteTurns(points);
 
     return {
       points: points,
@@ -2423,63 +2469,71 @@ function waysToCoveragePoints(elements, geom) {
     return (r.name || 'colonia') + ' · ' + i + '/' + n + ' (' + pct + '%) · ' + calles;
   }
 
+  /**
+   * Find next planned corner along trayecto within CORNER_LOOKAHEAD_M (path + haversine).
+   * Returns { corner, distM, index, pathAcc } or null. Never uses live SV links.
+   */
+  function findUpcomingCorner(r) {
+    if (!r || !r.points || !r.points.length || state.lat == null) return null;
+    var startI = (r.i != null ? r.i : 0);
+    var best = null;
+    var bestDist = Infinity;
+    var acc = 0;
+    var prevPt = r.points[startI];
+    // Also consider current WP if we already advanced onto a corner
+    for (var k = startI; k < r.points.length; k++) {
+      var cand = r.points[k];
+      if (!cand) break;
+      if (k > startI && prevPt) {
+        acc += haversineM(prevPt.lat, prevPt.lng, cand.lat, cand.lng);
+      }
+      prevPt = cand;
+      if (acc > CORNER_LOOKAHEAD_M + 20 && k > startI) break;
+      if (!cand.isCorner || cand.exitBearing == null || !isFinite(cand.exitBearing)) continue;
+      var d = haversineM(state.lat, state.lng, cand.lat, cand.lng);
+      // Prefer first corner within lookahead (path order), not nearest sideways
+      if (d <= CORNER_LOOKAHEAD_M && acc <= CORNER_LOOKAHEAD_M + 15) {
+        if (!best || k < best.index) {
+          best = { corner: cand, distM: d, index: k, pathAcc: acc };
+          bestDist = d;
+        }
+        break; // first planned corner ahead wins — predetermined
+      }
+    }
+    return best;
+  }
+
+  /**
+   * v1.8.1: ALWAYS follow precomputed exitBearing of upcoming corner.
+   * Never re-decide left/right from live SV chevrons / toward-WP oscillation.
+   */
   function routeSteerHeading(r, pt, next) {
-    // v1.7.2: prefer EXIT bearing of upcoming corner (commit turn early), not "toward next point"
-    // which oscillates between left/right link options at SV intersections.
-    var heading;
-    var corner = null;
-    var cornerDist = Infinity;
-    if (r && r.points && state.lat != null) {
-      // v1.8.0: look ahead by accumulated meters (~CORNER_LOOKAHEAD_M), not fixed i+3
-      var startI = (r.i != null ? r.i : 0);
-      var acc = 0;
-      var prevPt = r.points[startI];
-      for (var k = startI; k < r.points.length; k++) {
-        var cand = r.points[k];
-        if (!cand) break;
-        if (k > startI && prevPt) {
-          acc += haversineM(prevPt.lat, prevPt.lng, cand.lat, cand.lng);
-        }
-        prevPt = cand;
-        if (acc > CORNER_LOOKAHEAD_M && k > startI) break;
-        if (!cand.isCorner) continue;
-        var d = haversineM(state.lat, state.lng, cand.lat, cand.lng);
-        if (d <= CORNER_LOOKAHEAD_M && d < cornerDist) {
-          corner = cand;
-          cornerDist = d;
-        }
-      }
+    state.upcomingCorner = null;
+    state.nextTurnHud = null;
+
+    var upcoming = findUpcomingCorner(r);
+    if (upcoming && upcoming.corner && upcoming.corner.exitBearing != null &&
+        isFinite(upcoming.corner.exitBearing)) {
+      state.upcomingCorner = upcoming;
+      state.nextTurnHud = formatNextTurnHud(upcoming.corner.turnDeg, upcoming.distM);
+      return upcoming.corner.exitBearing;
     }
-    if (corner && corner.exitBearing != null && isFinite(corner.exitBearing)) {
-      state.nextTurnHud = formatNextTurnHud(corner.turnDeg);
-      return corner.exitBearing;
-    }
-    // Precomputed exit on current WP when close
-    if (pt && pt.exitBearing != null && isFinite(pt.exitBearing) && state.lat != null) {
-      var distPt = haversineM(state.lat, state.lng, pt.lat, pt.lng);
-      if (distPt < CORNER_LOOKAHEAD_M && pt.isCorner) {
-        state.nextTurnHud = formatNextTurnHud(pt.turnDeg);
-        return pt.exitBearing;
+
+    // Straight: follow path exitBearing of current WP (geometry), not peg→WP live bearing
+    if (pt && pt.exitBearing != null && isFinite(pt.exitBearing)) {
+      if (pt.isCorner) {
+        state.nextTurnHud = formatNextTurnHud(pt.turnDeg,
+          state.lat != null ? haversineM(state.lat, state.lng, pt.lat, pt.lng) : null);
       }
-      if (distPt < LOOKAHEAD_NEAR_M && next) {
-        state.nextTurnHud = formatNextTurnHud(pt.turnDeg);
-        return (pt.exitBearing != null) ? pt.exitBearing : bearingDeg(state.lat, state.lng, next.lat, next.lng);
-      }
+      return pt.exitBearing;
     }
-    state.nextTurnHud = (pt && pt.isCorner) ? formatNextTurnHud(pt.turnDeg) : null;
-    if (state.lat != null) {
-      var dist = haversineM(state.lat, state.lng, pt.lat, pt.lng);
-      if (dist < LOOKAHEAD_NEAR_M && next) {
-        heading = bearingDeg(state.lat, state.lng, next.lat, next.lng);
-      } else {
-        heading = bearingDeg(state.lat, state.lng, pt.lat, pt.lng);
-      }
-    } else if (next) {
-      heading = bearingDeg(pt.lat, pt.lng, next.lat, next.lng);
-    } else {
-      heading = state.heading || 0;
+    if (next && pt) {
+      return bearingDeg(pt.lat, pt.lng, next.lat, next.lng);
     }
-    return heading;
+    if (state.lat != null && pt) {
+      return bearingDeg(state.lat, state.lng, pt.lat, pt.lng);
+    }
+    return state.heading || 0;
   }
 
   /** U-turn ~180° POV change via extension (no ArrowUp), then ready for forward. */
@@ -2688,35 +2742,48 @@ function waysToCoveragePoints(elements, geom) {
       }
     }
 
-    // v1.7.2: face EXIT bearing early at corners; stronger bursts at multi-link turns
-    var cornerCommit = false;
+    // v1.8.1: heading already = precomputed exitBearing when corner ahead (routeSteerHeading).
+    // Never re-pick L/R from live SV at the node. Align early (100 m) + again (~40 m).
+    var upcoming = state.upcomingCorner;
+    var cornerDist = upcoming ? upcoming.distM : Infinity;
+    var cornerCommit = !!(upcoming && upcoming.corner && cornerDist <= CORNER_LOOKAHEAD_M);
     var extra = POV_EXTRA_BURSTS;
-    if (state.lat != null && pt) {
-      var dCorner = haversineM(state.lat, state.lng, pt.lat, pt.lng);
-      if (pt.isCorner && Math.abs(pt.turnDeg || 0) >= CORNER_TURN_DEG && dCorner <= CORNER_LOOKAHEAD_M) {
-        cornerCommit = true;
+    if (cornerCommit) {
+      // Stronger bursts near the corner (~40 m) and on final approach
+      if (cornerDist <= CORNER_ALIGN_NEAR_M) {
         extra = POV_EXTRA_BURSTS + CORNER_EXTRA_BURSTS;
-        if (pt.exitBearing != null && isFinite(pt.exitBearing)) heading = pt.exitBearing;
-        state.nextTurnHud = formatNextTurnHud(pt.turnDeg);
-      } else if (next && next.isCorner && Math.abs(next.turnDeg || 0) >= CORNER_TURN_DEG) {
-        var dNext = haversineM(state.lat, state.lng, next.lat, next.lng);
-        if (dNext <= CORNER_LOOKAHEAD_M) {
-          cornerCommit = true;
-          extra = POV_EXTRA_BURSTS + CORNER_EXTRA_BURSTS;
-          if (next.exitBearing != null && isFinite(next.exitBearing)) heading = next.exitBearing;
-          state.nextTurnHud = formatNextTurnHud(next.turnDeg);
-        }
       }
+      if (upcoming.corner.exitBearing != null && isFinite(upcoming.corner.exitBearing)) {
+        heading = upcoming.corner.exitBearing; // lock — no competing toward-WP bearing
+      }
+      state.nextTurnHud = formatNextTurnHud(upcoming.corner.turnDeg, cornerDist);
     }
     if (state.heading != null && isFinite(state.heading) && isFinite(heading)) {
       turnDelta = angleDiffDeg(heading, state.heading);
     }
 
+    var misalign = Math.abs(turnDelta);
+    // Turn-only (no ↑): misaligned >25° on approach, or final 1–2 steps into node not aligned
+    var turnOnly = false;
+    if (state.extAvailable && isFinite(heading)) {
+      if (cornerCommit && misalign > TURN_ONLY_MISALIGN_DEG) turnOnly = true;
+      if (cornerCommit && cornerDist <= CORNER_FINAL_M && misalign > POV_ALIGN_DEG) turnOnly = true;
+      if (!cornerCommit && misalign > TURN_ONLY_MISALIGN_DEG + 10) turnOnly = true; // hard skew on straight
+    }
+
     var stepPromise;
-    if ((cornerCommit || Math.abs(turnDelta) > STRONG_TURN_DEG) && state.extAvailable) {
+    if (turnOnly) {
+      flashPovHud(state.heading, heading);
+      // Align POV only — do NOT count as failed forward (avoids spurious U-turns)
+      stepPromise = alignPovToBearing(heading, extra).then(function () {
+        refreshPose();
+        saveRoute();
+        updateHud();
+        return 'turn-only';
+      });
+    } else if ((cornerCommit || misalign > STRONG_TURN_DEG) && state.extAvailable) {
       flashPovHud(state.heading, heading);
       stepPromise = alignPovToBearing(heading, extra).then(function () {
-        // POV may have timed out — still attempt one ↑; skip second align
         return smoothStepForward(heading, false, { alreadyAligned: true });
       });
     } else {
@@ -2724,7 +2791,10 @@ function waysToCoveragePoints(elements, geom) {
       stepPromise = smoothStepForward(heading, true, { alreadyAligned: false });
     }
     // v1.8.0: clear busy only in finally of full align+step chain (watchdog ≥15s backup)
-    stepPromise.then(afterStep).catch(function () {
+    stepPromise.then(function (moved) {
+      if (moved === 'turn-only') return null; // aligned; next tick may ↑
+      return afterStep(moved);
+    }).catch(function () {
       return null;
     }).then(function () {
       clearRouteBusy();
