@@ -23,3 +23,8 @@ Actualizado: 2026-09-15 — dock ★/＋/Comp + ntfy sync sigue vigente post-sli
 - Sin red al guardar: queda en localStorage; el próximo save con red / merge no lo recupera solo — por eso el auto-push al guardar importa.
 - Plan B (botón “Subir mis pines”) si hace falta más adelante.
 - Liked zones vs favoritos campo: si mismo `id` o mismas coords (~5 dec), el mapa no pinta el liked encima del favorito de `field_adds`.
+
+## Tránsito OSM (contexto)
+Las capas Semáforos / Altos del mapa vienen de OSM (`data/semaforos_zmm.geojson`, `data/stops_zmm.geojson`) y son **independientes** de field_adds / ntfy / Scout sync.
+Cobertura incompleta; Scout **S** sigue siendo la vía para altos/semáforos vistos en campo. Regenerar: `python3 scripts/fetch_osm_traffic.py`.
+

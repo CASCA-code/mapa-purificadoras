@@ -14,6 +14,9 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 | `extension/` + `extension-dist/*.zip` | **REQUERIDA**: ArrowUp/Left/Right vía `chrome.debugger` |
 | `data/roads_zmm.geojson` | Calles OSM prebaked (Escobedo) para trayecto scout |
 | `scripts/prebake_roads_zmm.py` | Regenera `roads_zmm.geojson` vía Overpass |
+| `data/semaforos_zmm.geojson` | Semáforos OSM (ZMM) — capa contexto |
+| `data/stops_zmm.geojson` | Altos / yield OSM (ZMM) — capa contexto |
+| `scripts/fetch_osm_traffic.py` | Regenera semáforos + stops vía Overpass |
 | `docs/` | Notas operativas (anclas, GPS, SADM, bitácora) |
 | `README.md` | Este archivo |
 
@@ -47,3 +50,9 @@ Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
 `https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js`  
 Elige colonia (Escobedo + ZMM) → **Start trayecto** cubre **todas** las calles OSM del polígono (Chinese Postman; sin Maps billing) → marca pines con hotkeys.  
 `scout-sv.html` (Maps JS embebido) sigue en Pages pero **requiere Google Cloud billing** — **no usarla**; no pedir key a Nicolás. Camino correcto: userscript **v1.8.0+** + extensión (extensión = pasito; script = mapa de calles + giros; Space = pausa / Start) en `google.com/maps`; extensión **requerida** (`extension/` / `extension-dist/*.zip`). Mapillary abandonado. Legacy: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).
+
+## Tránsito OSM (semáforos / altos)
+Capas gratuitas de OpenStreetMap en el panel **Anclas → Tránsito**: **Semáforos** y **Altos / stops**.
+No son cobertura completa (OSM incompleto en ZMM); no puntúan. Para marcas manuales en campo sigue usando Scout **S**.
+Refrescar datos: `python3 scripts/fetch_osm_traffic.py` → commit de `data/semaforos_zmm.geojson` + `data/stops_zmm.geojson`.
+

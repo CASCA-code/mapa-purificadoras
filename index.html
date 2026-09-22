@@ -841,6 +841,15 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <button class="tbtn ctx " data-l="anclas_banco_azteca" aria-pressed="false"><i aria-hidden="true" style="background:#2f855a;border-color:#276749;color:#fff;font-size:9px;font-weight:700">Z</i><span>Banco Azteca (22)</span></button>
      </div>
     </div>
+    <p class="eyebrow" style="margin-top:10px">Tránsito (OSM)</p>
+    <button class="tbtn ctx " data-l="semaforos" aria-pressed="false" title="Semáforos OSM — cobertura incompleta">
+      <i aria-hidden="true" style="background:#ecc94b;border-color:#975a16;color:#1a202c;font-size:10px;font-weight:700">🚦</i>
+      <span>Semáforos</span>
+    </button>
+    <button class="tbtn ctx " data-l="stops" aria-pressed="false" title="Altos / yield OSM — cobertura incompleta; Scout S para marcas manuales">
+      <i aria-hidden="true" style="background:#e53e3e;border-color:#9b2c2c;color:#fff;font-size:9px;font-weight:700;border-radius:2px">■</i>
+      <span>Altos / stops</span>
+    </button>
     <button type="button" class="tbtn ctx on" id="likedZonesToggle" aria-pressed="true" title="Zonas que a Nicolás le gustaron para volver">
       <i aria-hidden="true" style="background:#fbbf24;border-color:#b45309;color:#78350f;font-size:11px;font-weight:700">★</i>
       <span>★ Me gustó (volver)</span>
@@ -876,6 +885,8 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <div class="row"><span class="sw ico" title="Cerveza" style="background:#d69e2e;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">C</span> Modelorama / Six / cerveza</div>
     <div class="row"><span class="sw ico" title="Bienestar" style="background:#38a169;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">B</span> Banco del Bienestar</div>
     <div class="row"><span class="sw ico" title="Azteca" style="background:#2f855a;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">Z</span> Banco Azteca</div>
+    <div class="row"><span class="sw ico" title="Semáforo" style="background:#ecc94b;border-radius:50%;border:1px solid #975a16"></span> semáforo (OSM · cobertura incompleta)</div>
+    <div class="row"><span class="sw ico" title="Alto" style="background:#e53e3e;border-radius:2px;color:#fff;font:700 8px/16px sans-serif;text-align:center">A</span> alto / yield (OSM · Scout S manual)</div>
     <div class="row"><span class="sw ico" title="Me gustó" style="background:#fbbf24;border-radius:50%;color:#78350f;font:700 11px/16px sans-serif;text-align:center">★</span> zona me gustó (volver)</div>
     <div class="row"><span class="sw ring"></span> contexto: anillos 5/10/15 km</div>
     <div class="row"><span class="sw line"></span> límite de municipio · <span style="opacity:.6">— — San Pedro (excluido)</span></div>
@@ -925,7 +936,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260916-exportar-ls';
+window.__PURIF_BUILD = '20260921-osm-transito';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -964,7 +975,7 @@ window.map.on('dragstart', function(){
 
 
 map.attributionControl.setPrefix(false);
-map.attributionControl.addAttribution('CONAPO IMC 2020 · DENUE/INEGI · Censo 2020 · anclas OSM');
+map.attributionControl.addAttribution('CONAPO IMC 2020 · DENUE/INEGI · Censo 2020 · anclas OSM · tránsito OSM');
 
 const mq = window.matchMedia('(prefers-color-scheme: dark)');
 function isDark(){
@@ -1215,7 +1226,64 @@ RETAIL_SUBS.forEach(s => { anclasRetailBySub[s] = L.layerGroup(); });
 /* default off: retail/bancos */
 let retailMasterOn = true;
 
-
+/* ---------- TRÁNSITO OSM (semáforos + altos) — contexto, no puntúa ---------- */
+const semaforosLayer = L.layerGroup();
+const stopsLayer = L.layerGroup();
+const trafficCanvas = L.canvas({ padding: 0.4 });
+function trafficPopup(p, label){
+  const nm = p.name ? '<b>'+p.name+'</b><br>' : '';
+  return nm+'<span class="p-sub">'+label+' · OSM (cobertura incompleta)'+
+    '<br>fuente: '+(p.fuente||'osm')+(p.osm_id?' · '+p.osm_id:'')+
+    (p.highway?' · '+p.highway:'')+'</span>';
+}
+function paintSemaforos(fc){
+  (fc.features||[]).forEach(function(ft){
+    const c = ft.geometry && ft.geometry.coordinates; if (!c) return;
+    const p = ft.properties || {};
+    const m = L.circleMarker([c[1], c[0]], {
+      radius: 4, weight: 1, color: '#744210', fillColor: '#ecc94b', fillOpacity: 0.9,
+      renderer: trafficCanvas, interactive: true
+    });
+    m.bindPopup(trafficPopup(p, 'Semáforo'), { maxWidth: 240, autoPan: false });
+    m.addTo(semaforosLayer);
+  });
+}
+function stopIcon(){
+  return L.divIcon({
+    className: 'stop-osm-icon',
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+    popupAnchor: [0, -8],
+    html: '<span aria-hidden="true" style="display:block;width:14px;height:14px;background:#e53e3e;border:1.5px solid #fff;box-shadow:0 0 0 1px #9b2c2c;border-radius:2px;box-sizing:border-box"></span>'
+  });
+}
+function paintStops(fc){
+  (fc.features||[]).forEach(function(ft){
+    const c = ft.geometry && ft.geometry.coordinates; if (!c) return;
+    const p = ft.properties || {};
+    const label = (p.highway === 'give_way') ? 'Ceda el paso (give_way)' : 'Alto (stop)';
+    const m = L.marker([c[1], c[0]], { icon: stopIcon(), keyboard: false, interactive: true });
+    m.bindPopup(trafficPopup(p, label), { maxWidth: 240, autoPan: false });
+    m.addTo(stopsLayer);
+  });
+}
+(function loadTrafficOsm(){
+  const bust = window.__PURIF_BUILD || String(Date.now());
+  const opt = { cache: 'no-store' };
+  Promise.all([
+    fetch('data/semaforos_zmm.geojson?v=' + encodeURIComponent(bust), opt).then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch('data/stops_zmm.geojson?v=' + encodeURIComponent(bust), opt).then(r => r.ok ? r.json() : null).catch(() => null)
+  ]).then(function(pair){
+    if (pair[0]) paintSemaforos(pair[0]);
+    if (pair[1]) paintStops(pair[1]);
+    const nS = (pair[0] && pair[0].features) ? pair[0].features.length : 0;
+    const nT = (pair[1] && pair[1].features) ? pair[1].features.length : 0;
+    const bs = document.querySelector('.tbtn[data-l="semaforos"] span');
+    const bt = document.querySelector('.tbtn[data-l="stops"] span');
+    if (bs && nS) bs.textContent = 'Semáforos (' + nS + ')';
+    if (bt && nT) bt.textContent = 'Altos / stops (' + nT + ')';
+  }).catch(function(){});
+})();
 
 /* ---------- sidebar ---------- */
 function star(x){ const n = Number(x); return (isFinite(n)?n:0).toFixed(3); }
@@ -1398,7 +1466,7 @@ if (searchEl) searchEl.addEventListener('input', ()=> renderToplist(searchEl.val
 })();
 
 /* ---------- layer toggles (live inside the Puntúan / Contexto panels) ---------- */
-const LAYERS = {colonias:colLayer, comp_rec:compRec, comp_ind:compInd, estaciones:estLayer, calor:heat, anillos:rings, etiquetas:labels, anclas_iglesia:anclasIglesia, anclas_hospital:anclasHospital};
+const LAYERS = {colonias:colLayer, comp_rec:compRec, comp_ind:compInd, estaciones:estLayer, calor:heat, anillos:rings, etiquetas:labels, anclas_iglesia:anclasIglesia, anclas_hospital:anclasHospital, semaforos:semaforosLayer, stops:stopsLayer};
 ESC_SUBS.forEach(s => { LAYERS['anclas_escuela_'+s] = anclasEscuelaBySub[s]; });
 RETAIL_SUBS.forEach(s => { LAYERS['anclas_'+s] = anclasRetailBySub[s]; });
 
