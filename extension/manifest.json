@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Purificadoras Scout — flecha SV",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "REQUERIDA para auto-walk Scout: ArrowUp/Left/Right confiables vía chrome.debugger en Google Maps Street View. Companion de casca-code/mapa-purificadoras.",
   "permissions": ["debugger", "activeTab", "scripting"],
   "host_permissions": [

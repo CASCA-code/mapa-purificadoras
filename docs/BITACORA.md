@@ -1,3 +1,10 @@
+## 2026-09-21 (scout v1.8.2 — HUD ext + walk estable)
+
+- Nicolás: Scout sticks / U-turns/spins innecesarios; falta ver si extensión está al día en HUD.
+- HUD: chip `v1.8.2 · ext 1.6.1` (rojo `ext —`; amarillo `ext vieja — recarga zip` si < EXPECT_EXT 1.6.1).
+- Walk: U-turn solo en dead-end del path; stuck → skip 2–3 WP; 1 align/tick luego ↑; turn-only |Δ|≥40° (salvo ≤25 m esquina); cooldown 9 s U-turn/hop. exitBearing 1.8.1 se mantiene.
+- Extensión **1.6.1** (bump para version check) + zip refresh. Reinstall `?v=182`. Hotkeys/ntfy sin cambio. Sin billing.
+
 ## 2026-09-21 (scout v1.8.1 — giros predeterminados)
 
 - Nicolás: walk se trababa en cruces — decisiones L/R reactivas en el nodo SV.

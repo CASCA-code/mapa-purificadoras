@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.8.1
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.8.1: giros predeterminados del trayecto; exitBearing 80–120 m antes; turn-only si desalineado; HUD próx turno en Xm; docs ?v=181. NO uses scout-sv.html.
+// @version      1.8.2
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.8.2: HUD ext version; menos U-turns/thrash; turn-only ≥40° (salvo ≤25 m esquina); 1 align/tick + ↑; skip 2–3 WP; docs ?v=182. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -44,6 +44,7 @@
    * v1.7.3: sin blur/restore HUD; speed = botones −/+ (nada focusable con Arrow*); routeBusy watchdog ~5s; POV hard timeout; destrabado si pose no cambia.
    * v1.8.0: bridge postMessage-only; routeBusy finally+15s; alreadyAligned; corner m look-ahead; oneway/service; soft-ok heading; shared recovery; docs ?v=180.
    * v1.8.1: turns fully predetermined from trayecto; CORNER_LOOKAHEAD ~100 m + align@40 m; never re-pick L/R at SV node; turn-only if |Δ|>25°; HUD próx ↰ en Xm; docs ?v=181.
+   * v1.8.2: HUD shows userscript + ext version (yellow if ext < EXPECT_EXT); U-turn only at path dead-end; prefer skip/hop; max 1 POV align/tick then ↑; turn-only thrash |Δ|<40° ignored unless ≤25 m corner; recovery cooldown on hop; failStreak→skip 2–3 WP; docs ?v=182.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -54,7 +55,8 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.8.1';
+  var SCRIPT_VERSION = '1.8.2';
+  var EXPECT_EXT = '1.6.1'; // min extension version shown green in HUD
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -96,12 +98,14 @@
   var CORNER_FINAL_M = 28; // v1.8.1: last 1–2 steps — must be aligned before ↑ into node
   var CORNER_TURN_DEG = 35; // |turnDeg| at WP ≥ this → corner / multi-link
   var CORNER_EXTRA_BURSTS = 2; // stronger POV align at crossroads
-  var TURN_ONLY_MISALIGN_DEG = 25; // v1.8.1: if |heading−exit| > this → turn-only (no ↑)
+  var TURN_ONLY_MISALIGN_DEG = 40; // v1.8.2: ignore smaller thrash unless near corner
+  var TURN_ONLY_NEAR_CORNER_M = 25; // within this of corner, allow turn-only at lower thresh
+  var TURN_ONLY_NEAR_DEG = 25; // near-corner misalign that still warrants turn-only
   var EXT_TURN_THRESH = 18; // deg — ask extension to turn if |delta| above this
   var STRONG_TURN_DEG = 20; // |delta| above this → align POV before ArrowUp (v1.7)
   var POV_ALIGN_DEG = 20; // same threshold for alignPovToBearing
   var POV_POLL_MS = 800; // wait/poll URL heading after turn-only burst
-  var POV_EXTRA_BURSTS = 2; // extra turn bursts if heading URL doesn't update
+  var POV_EXTRA_BURSTS = 2; // legacy max extras (routeTick caps to 0 = one burst)
   var POV_CLOSE_DEG = 18; // stop aligning when |diff| under this
   var POV_HARD_TIMEOUT_MS = 3200; // v1.7.3: never hang forever waiting heading
   // Shared with extension budget: attach(~0.5s) + turn keys(~24*45ms) + settle(320) + Up + margin
@@ -109,7 +113,10 @@
   var EXT_STEP_TIMEOUT_MS = 12000;
   var ROUTE_BUSY_WATCHDOG_MS = 15000; // v1.8.0: clear busy only after full align+step (≥12–15s)
   var STUCK_POSE_N = 3; // unchanged pose after turn+↑ → unstick
-  var RECOVERY_COOLDOWN_MS = 8000; // v1.8.0: single U-turn path for dead-end + stuck-pose
+  var RECOVERY_COOLDOWN_MS = 9000; // v1.8.2: 8–10 s after U-turn OR hop before another
+  var FAIL_SKIP_STREAK = 4; // v1.8.2: high failStreak → skip ahead 2–3 WPs
+  var PATH_DEADEND_TURN_DEG = 150; // |path turnDeg| ≥ this → reverse / cul-de-sac
+  var NEXT_BEHIND_DEG = 120; // next WP bearing vs heading → "behind"
   var MIN_EDGE_SAMPLES = 2; // v1.8.0: prefer per-edge minimum when thinning
   var DRAW_MINI_MIN_MS = 300; // v1.8.0: throttle mini-map ~2–4 Hz
   var SPEED_STEP_MS = 100;
@@ -158,6 +165,7 @@
     urlRecoveryCount: 0,
     hopCount: 0,
     extAvailable: false,
+    extVersion: null, // from extension ping / READY
     routeEntered: false, // first URL jump done for trayecto
     povHud: null, // brief 'POV 120°→85°'
     povHudUntil: 0,
@@ -180,6 +188,21 @@
   } catch (e) {}
 
   /* ---------- utils ---------- */
+  function parseSemverParts(v) {
+    var m = String(v == null ? '' : v).match(/(\d+)\.(\d+)(?:\.(\d+))?/);
+    if (!m) return [0, 0, 0];
+    return [Number(m[1]) || 0, Number(m[2]) || 0, Number(m[3]) || 0];
+  }
+  /** true if a < b (semver major.minor.patch). */
+  function versionLt(a, b) {
+    var A = parseSemverParts(a), B = parseSemverParts(b);
+    for (var i = 0; i < 3; i++) {
+      if (A[i] < B[i]) return true;
+      if (A[i] > B[i]) return false;
+    }
+    return false;
+  }
+
   function uuid(prefix) {
     return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
   }
@@ -1068,9 +1091,10 @@
       } catch (eOrig) {}
       var d = ev && ev.data;
       if (!d || d.source !== 'purif-scout-ext') return;
+      if (d.version) state.extVersion = d.version;
       if (d.type === 'PURIF_SCOUT_EXT_READY') {
         state.extAvailable = true;
-        state.extVersion = d.version || state.extVersion || '1.5';
+        state.extVersion = d.version || state.extVersion || null;
         updateHud();
       }
       if (d.type === 'PURIF_SCOUT_STEP_DONE') {
@@ -1079,15 +1103,23 @@
           state.flechaFailStreak = 0;
           state.walkMethod = 'ext';
         }
+        if (d.version) state.extVersion = d.version;
         if (d.reqId && _extPending[d.reqId]) {
           _extPending[d.reqId]({ ok: !!d.ok, err: d.err || null, detail: d.detail || null, version: d.version || null });
         }
         updateHud();
       }
     });
-    setTimeout(function () { requestExtPing(); }, 400);
-    setTimeout(function () { requestExtPing(); }, 2000);
-    setTimeout(function () { requestExtPing(); }, 5000);
+    function pingExtHud() {
+      requestExtPing().then(function (res) {
+        if (res && res.version) state.extVersion = res.version;
+        if (res && res.ok) state.extAvailable = true;
+        updateHud();
+      });
+    }
+    setTimeout(pingExtHud, 400);
+    setTimeout(pingExtHud, 2000);
+    setTimeout(pingExtHud, 5000);
   }
 
   function flashPovHud(fromH, toH) {
@@ -2565,13 +2597,62 @@ function waysToCoveragePoints(elements, geom) {
   }
 
 
-  /** v1.8.0: single recovery path for dead-end vs stuck-pose (shared cooldown, one U-turn). */
+  /** Path dead-end: next WP behind heading, or path reverse segment (|turnDeg|≈180). */
+  function isPathDeadEnd(r, pt, next) {
+    if (pt && pt.turnDeg != null && isFinite(pt.turnDeg) && Math.abs(pt.turnDeg) >= PATH_DEADEND_TURN_DEG) {
+      return true;
+    }
+    // Upcoming path reverse (Chinese Postman often U-turns at cul-de-sac)
+    if (r && r.points && r.i != null) {
+      for (var k = r.i; k <= Math.min(r.i + 2, r.points.length - 1); k++) {
+        var pk = r.points[k];
+        if (pk && pk.turnDeg != null && Math.abs(pk.turnDeg) >= PATH_DEADEND_TURN_DEG) return true;
+      }
+    }
+    if (next && state.lat != null && state.lng != null && state.heading != null && isFinite(state.heading)) {
+      var toNext = bearingDeg(state.lat, state.lng, next.lat, next.lng);
+      if (Math.abs(angleDiffDeg(toNext, state.heading)) >= NEXT_BEHIND_DEG) return true;
+    }
+    return false;
+  }
+
+  function markRecoveryCooldown() {
+    state._lastRecoveryAt = Date.now();
+  }
+
+  function recoveryOnCooldown() {
+    return (Date.now() - (state._lastRecoveryAt || 0)) < RECOVERY_COOLDOWN_MS;
+  }
+
+  /** Skip ahead N waypoints (prefer over spinning). */
+  function skipAheadWaypoints(r, n, reason) {
+    var maxSkip = Math.max(0, (r.points.length - 1) - r.i);
+    var skip = Math.min(Math.max(1, n || 1), maxSkip || 1);
+    r.skipped = (r.skipped || 0) + skip;
+    r.i = Math.min(r.i + skip, r.points.length);
+    r.flechaFailStreak = 0;
+    r.failStreak = 0;
+    r.deadEndFails = 0;
+    r.hopFails = 0;
+    r.stuckPose = 0;
+    r._unstickUturn = false;
+    toastDestrabado();
+    if (reason) toast(reason);
+    setRouteStatus('destrabado · skip ' + skip + ' · ' + routeProgressLabel(r));
+    saveRoute();
+    updateHud();
+  }
+
+  /**
+   * v1.8.2: U-turn ONLY when clearly at path dead-end.
+   * Stuck pose default = skip WP / soft hop — never spin 180 as first recovery.
+   */
   function trySharedRecovery(r, reason) {
     var now = Date.now();
-    if (now - (state._lastRecoveryAt || 0) < RECOVERY_COOLDOWN_MS) return null;
+    if (recoveryOnCooldown()) return null;
     if (!state.extAvailable) return null;
     if (r._unstickUturn) return null;
-    state._lastRecoveryAt = now;
+    markRecoveryCooldown();
     r._unstickUturn = true;
     r.deadEndFails = 0;
     r.stuckPose = 0;
@@ -2612,6 +2693,12 @@ function waysToCoveragePoints(elements, geom) {
         var npt = r.points[r.i];
         var gap = haversineM(state.lat, state.lng, npt.lat, npt.lng);
         if (gap > HOP_DIST_M) {
+          if (recoveryOnCooldown()) {
+            // Cooldown: skip a couple WPs instead of hop-thrash
+            skipAheadWaypoints(r, 2, null);
+            return;
+          }
+          markRecoveryCooldown();
           r.hopCount = (r.hopCount || 0) + 1;
           state.hopCount = r.hopCount;
           var nh = r.points[r.i + 1]
@@ -2685,28 +2772,28 @@ function waysToCoveragePoints(elements, geom) {
         r.hopFails = (r.hopFails || 0) + 1;
         r.stuckPose = (r.stuckPose || 0) + 1;
 
-        // v1.8.0: single recovery for stuck-pose OR dead-end (shared cooldown, one U-turn)
+        // v1.8.2: stuck/dead-end — U-turn ONLY if path dead-end; else skip (2–3 if failStreak high)
         if (r.stuckPose >= STUCK_POSE_N || r.deadEndFails >= ROUTE_DEAD_END_FAILS) {
-          var recP = trySharedRecovery(r, r.deadEndFails >= ROUTE_DEAD_END_FAILS ? '↩ Calle sin salida — U-turn' : null);
-          if (recP) {
-            return recP;
+          var atDeadEnd = isPathDeadEnd(r, pt, next);
+          if (atDeadEnd) {
+            var recP = trySharedRecovery(r, '↩ Calle sin salida — U-turn');
+            if (recP) return recP;
           }
-          // Already tried U-turn / cooldown — skip waypoint and continue
-          r._unstickUturn = false;
-          r.stuckPose = 0;
-          r.deadEndFails = 0;
-          r.skipped = (r.skipped || 0) + 1;
-          r.i += 1;
-          r.flechaFailStreak = 0;
-          toastDestrabado();
-          setRouteStatus('destrabado · skip · ' + routeProgressLabel(r));
-          saveRoute();
-          updateHud();
+          // Prefer skip ahead over spinning; high failStreak → 2–3 WPs
+          var skipN = 1;
+          if ((r.failStreak || 0) >= FAIL_SKIP_STREAK + 2) skipN = 3;
+          else if ((r.failStreak || 0) >= FAIL_SKIP_STREAK) skipN = 2;
+          skipAheadWaypoints(r, skipN, atDeadEnd ? null : 'Skip (sin giro 180)');
           return;
         }
 
-        // Component hop: next WP far + stuck ≥5 → ONE pano jump
+        // Component hop: next WP far + stuck ≥5 → ONE soft hop (cooldown shared with U-turn)
         if (r.hopFails >= ROUTE_HOP_FAILS && distToWp > HOP_DIST_M) {
+          if (recoveryOnCooldown()) {
+            skipAheadWaypoints(r, 2, 'Skip (hop en cooldown)');
+            return;
+          }
+          markRecoveryCooldown();
           r.hopFails = 0;
           r.deadEndFails = 0;
           r.stuckPose = 0;
@@ -2722,13 +2809,7 @@ function waysToCoveragePoints(elements, geom) {
 
         // Soft skip only after many fails when already close-ish (avoid skipping whole streets)
         if (r.flechaFailStreak >= 10 && distToWp < HOP_DIST_M) {
-          r.skipped = (r.skipped || 0) + 1;
-          r.i += 1;
-          r.flechaFailStreak = 0;
-          r.deadEndFails = 0;
-          r.stuckPose = 0;
-          setRouteStatus('skip · ' + routeProgressLabel(r));
-          toast('Skip punto (flecha no avanza)');
+          skipAheadWaypoints(r, (r.failStreak || 0) >= FAIL_SKIP_STREAK ? 2 : 1, 'Skip punto (flecha no avanza)');
         }
         saveRoute();
         updateHud();
@@ -2742,17 +2823,14 @@ function waysToCoveragePoints(elements, geom) {
       }
     }
 
-    // v1.8.1: heading already = precomputed exitBearing when corner ahead (routeSteerHeading).
-    // Never re-pick L/R from live SV at the node. Align early (100 m) + again (~40 m).
+    // v1.8.1/1.8.2: heading = precomputed exitBearing when corner ahead.
+    // Never re-pick L/R from live SV. Cap: ONE POV align burst per tick, then ↑ along exitBearing.
     var upcoming = state.upcomingCorner;
     var cornerDist = upcoming ? upcoming.distM : Infinity;
     var cornerCommit = !!(upcoming && upcoming.corner && cornerDist <= CORNER_LOOKAHEAD_M);
-    var extra = POV_EXTRA_BURSTS;
+    // v1.8.2: max one align burst/tick (extra=0) — no re-align loop
+    var extra = 0;
     if (cornerCommit) {
-      // Stronger bursts near the corner (~40 m) and on final approach
-      if (cornerDist <= CORNER_ALIGN_NEAR_M) {
-        extra = POV_EXTRA_BURSTS + CORNER_EXTRA_BURSTS;
-      }
       if (upcoming.corner.exitBearing != null && isFinite(upcoming.corner.exitBearing)) {
         heading = upcoming.corner.exitBearing; // lock — no competing toward-WP bearing
       }
@@ -2763,23 +2841,23 @@ function waysToCoveragePoints(elements, geom) {
     }
 
     var misalign = Math.abs(turnDelta);
-    // Turn-only (no ↑): misaligned >25° on approach, or final 1–2 steps into node not aligned
+    // v1.8.2: ignore |Δ|<40° as must-stop turn-only unless within 25 m of corner
     var turnOnly = false;
     if (state.extAvailable && isFinite(heading)) {
-      if (cornerCommit && misalign > TURN_ONLY_MISALIGN_DEG) turnOnly = true;
-      if (cornerCommit && cornerDist <= CORNER_FINAL_M && misalign > POV_ALIGN_DEG) turnOnly = true;
-      if (!cornerCommit && misalign > TURN_ONLY_MISALIGN_DEG + 10) turnOnly = true; // hard skew on straight
+      var nearCorner = cornerCommit && cornerDist <= TURN_ONLY_NEAR_CORNER_M;
+      if (nearCorner && misalign > TURN_ONLY_NEAR_DEG) turnOnly = true;
+      else if (misalign > TURN_ONLY_MISALIGN_DEG) turnOnly = true; // ≥40°
+      // Final meters into node: still insist on align if clearly skewed
+      if (cornerCommit && cornerDist <= CORNER_FINAL_M && misalign > POV_ALIGN_DEG + 5) turnOnly = true;
     }
 
     var stepPromise;
     if (turnOnly) {
       flashPovHud(state.heading, heading);
-      // Align POV only — do NOT count as failed forward (avoids spurious U-turns)
+      // One align burst, then ONE ↑ along exitBearing (do not re-align-loop next tick)
       stepPromise = alignPovToBearing(heading, extra).then(function () {
         refreshPose();
-        saveRoute();
-        updateHud();
-        return 'turn-only';
+        return smoothStepForward(heading, false, { alreadyAligned: true });
       });
     } else if ((cornerCommit || misalign > STRONG_TURN_DEG) && state.extAvailable) {
       flashPovHud(state.heading, heading);
@@ -2792,7 +2870,6 @@ function waysToCoveragePoints(elements, geom) {
     }
     // v1.8.0: clear busy only in finally of full align+step chain (watchdog ≥15s backup)
     stepPromise.then(function (moved) {
-      if (moved === 'turn-only') return null; // aligned; next tick may ↑
       return afterStep(moved);
     }).catch(function () {
       return null;
@@ -2953,7 +3030,9 @@ function waysToCoveragePoints(elements, geom) {
       'box-shadow:0 0 0 2px rgba(0,0,0,.25)}',
       '#purif-scout-hud .ext-dot.ok i{background:#22c55e}',
       '#purif-scout-hud .ext-dot.bad i{background:#ef4444;animation:purif-pulse 1.4s ease infinite}',
-      '#purif-scout-ver{font:700 10px/1 ui-monospace,Menlo,monospace;color:#a78bfa;opacity:.95;letter-spacing:.02em}',
+      '#purif-scout-ver{font:700 10px/1 ui-monospace,Menlo,monospace;color:#a78bfa;opacity:.95;letter-spacing:.02em;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '#purif-scout-ver.warn{color:#fbbf24}',
+      '#purif-scout-ver.bad{color:#f87171}',
       '@keyframes purif-pulse{0%,100%{opacity:1}50%{opacity:.55}}',
       '#purif-scout-hud .menu-wrap{position:relative}',
       '#purif-scout-hud .menu-btn{border:0;background:transparent;color:#a8a29e;cursor:pointer;',
@@ -3037,7 +3116,7 @@ function waysToCoveragePoints(elements, geom) {
       '  <div id="purif-scout-hud">',
       '    <div class="top">',
       '      <span class="ext-dot bad" id="purif-scout-ext-status" title="Estado extensión"><i></i><span>ext</span></span>',
-      '      <span id="purif-scout-ver" title="Versión del userscript">v' + SCRIPT_VERSION + '</span>',
+      '      <span id="purif-scout-ver" title="Userscript · extensión">v' + SCRIPT_VERSION + ' · ext —</span>',
       '      <div class="menu-wrap">',
       '        <button type="button" class="menu-btn" id="purif-scout-more" title="Más" aria-haspopup="true">⋯</button>',
       '        <div class="menu" id="purif-scout-menu" role="menu">',
@@ -3192,14 +3271,39 @@ function waysToCoveragePoints(elements, geom) {
     var pauseBtn = document.getElementById('purif-scout-pause-route');
     if (!extEl) return;
 
+    var verEl = document.getElementById('purif-scout-ver');
     if (state.extAvailable) {
       extEl.className = 'ext-dot ok';
-      extEl.title = 'ext OK · camina solo';
+      extEl.title = 'ext OK · v' + (state.extVersion || '?') + ' · camina solo';
       extEl.innerHTML = '<i></i><span>ext OK</span>';
     } else {
       extEl.className = 'ext-dot bad';
       extEl.title = 'INSTALA extensión — sin ella no se mueve';
       extEl.innerHTML = '<i></i><span>ext</span>';
+    }
+    // Version chip: v1.8.2 · ext 1.6.1 | ext — | ext vieja — recarga zip
+    if (verEl) {
+      var extLabel;
+      var verClass = '';
+      if (!state.extAvailable) {
+        extLabel = 'ext —';
+        verClass = 'bad';
+        verEl.title = 'Extensión no detectada — instala/recarga el zip';
+      } else if (!state.extVersion) {
+        extLabel = 'ext …';
+        verClass = '';
+        verEl.title = 'Extensión detectada — esperando versión del ping';
+      } else if (versionLt(state.extVersion, EXPECT_EXT)) {
+        extLabel = 'ext vieja — recarga zip';
+        verClass = 'warn';
+        verEl.title = 'Extensión ' + state.extVersion + ' < mín ' + EXPECT_EXT + ' — descarga zip nuevo y Recargar en chrome://extensions';
+      } else {
+        extLabel = 'ext ' + state.extVersion;
+        verClass = '';
+        verEl.title = 'Userscript v' + SCRIPT_VERSION + ' · extensión ' + state.extVersion;
+      }
+      verEl.className = verClass;
+      verEl.textContent = 'v' + SCRIPT_VERSION + ' · ' + extLabel;
     }
 
     // One-line progress only (no badge / POV / lat spam)

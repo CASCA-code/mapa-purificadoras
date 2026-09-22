@@ -1,4 +1,4 @@
-/* Purificadoras Scout v1.6.0 — trusted SV keys via chrome.debugger (MV3).
+/* Purificadoras Scout v1.6.1 — trusted SV keys via chrome.debugger (MV3).
  * PRIMARY walk driver: ArrowUp / ArrowLeft / ArrowRight (+ optional KeyW).
  * v1.5.1: stronger POV turns — more keys per deg, turn burst + settle BEFORE ArrowUp,
  * optional mouse-drag backup; one attach for turn+wait+Up (no mid-step detach).

@@ -1,4 +1,4 @@
-/* Bridge v1.6.0: page/userscript ↔ extension background (trusted debugger keys).
+/* Bridge v1.6.1: page/userscript ↔ extension background (trusted debugger keys).
  * Primary: window.postMessage + reqId (one debugger burst per logical step).
  * CustomEvent = legacy only when reqId absent. Exposes PURIF_SCOUT_EXT via postMessage. */
 (function () {
@@ -16,7 +16,7 @@
   function readyPing() {
     postToPage({
       type: 'PURIF_SCOUT_EXT_READY',
-      version: (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '1.6.0',
+      version: (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '1.6.1',
       api: ['step', 'stepForward', 'turnLeft', 'turnRight', 'ping']
     });
   }
@@ -104,7 +104,7 @@
     }
   }
 
-  // v1.6.0: primary channel = postMessage with reqId (userscript must NOT also fire CustomEvent)
+  // v1.6.1: primary channel = postMessage with reqId (userscript must NOT also fire CustomEvent)
   window.addEventListener('message', function (ev) {
     try {
       var o = ev && ev.origin;
@@ -157,7 +157,7 @@
       '    });',
       '  }',
       '  window.PURIF_SCOUT_EXT = {',
-      '    _v: "1.6.0",',
+      '    _v: "1.6.1",',
       '    ping: function(){ return send("ping"); },',
       '    stepForward: function(opts){ return send("stepForward", opts || {}); },',
       '    turnLeft: function(count){ return send("turnLeft", { count: count || 1 }); },',
