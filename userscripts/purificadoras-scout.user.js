@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.8.2
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.8.2: HUD ext version; menos U-turns/thrash; turn-only ≥40° (salvo ≤25 m esquina); 1 align/tick + ↑; skip 2–3 WP; docs ?v=182. NO uses scout-sv.html.
+// @version      1.9.0
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.9.0: modo Avenidas (default) vs Todo; preview mini-mapa 2.5s; exitBearing 1.8.2; docs ?v=190. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -45,6 +45,7 @@
    * v1.8.0: bridge postMessage-only; routeBusy finally+15s; alreadyAligned; corner m look-ahead; oneway/service; soft-ok heading; shared recovery; docs ?v=180.
    * v1.8.1: turns fully predetermined from trayecto; CORNER_LOOKAHEAD ~100 m + align@40 m; never re-pick L/R at SV node; turn-only if |Δ|>25°; HUD próx ↰ en Xm; docs ?v=181.
    * v1.8.2: HUD shows userscript + ext version (yellow if ext < EXPECT_EXT); U-turn only at path dead-end; prefer skip/hop; max 1 POV align/tick then ↑; turn-only thrash |Δ|<40° ignored unless ≤25 m corner; recovery cooldown on hop; failStreak→skip 2–3 WP; docs ?v=182.
+   * v1.9.0: route mode Avenidas (default: primary/secondary/tertiary/unclassified/+trunk) | Todo (full residential); HUD toggle; Start preview 2.5s on mini-map + toast; keep exitBearing steering; docs ?v=190.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
@@ -55,8 +56,19 @@
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
-  var SCRIPT_VERSION = '1.8.2';
+  var LS_ROUTE_MODE = 'purificadoras_scout_tm_route_mode'; // 'avenidas' | 'todo'
+  var SCRIPT_VERSION = '1.9.0';
   var EXPECT_EXT = '1.6.1'; // min extension version shown green in HUD
+  var ROUTE_MODE_AVENIDAS = 'avenidas';
+  var ROUTE_MODE_TODO = 'todo';
+  // Avenidas: main commercial OSM highways (Modeloramas live here). Optional trunk.
+  var AVENIDAS_HW = { primary: 1, secondary: 1, tertiary: 1, unclassified: 1, trunk: 1 };
+  // Todo: previous full coverage (service only if alley — filtered later)
+  var TODO_HW = {
+    primary: 1, secondary: 1, tertiary: 1, unclassified: 1, trunk: 1,
+    residential: 1, living_street: 1, service: 1
+  };
+  var ROUTE_PREVIEW_MS = 2500; // show path on mini-map before walking
   var MAP_BASE = 'https://casca-code.github.io/mapa-purificadoras/';
   var COLONIAS_URLS = [
     MAP_BASE + 'data/colonias.geojson',
@@ -153,9 +165,11 @@
     coloniasLoaded: false,
     coloniasLoading: false,
     selectedColonia: null,
-    route: null, // { name, points, i, paused, status, skipped, streetCount, edgeCount, capped }
+    routeMode: ROUTE_MODE_AVENIDAS, // 'avenidas' (default) | 'todo'
+    route: null, // { name, points, i, paused, status, skipped, streetCount, edgeCount, capped, routeMode }
     routeTimer: null,
     routeBusy: false,
+    _previewTimer: null,
     roadsFc: null,
     roadsLoading: null,
     trayectoBuilding: false,
@@ -186,6 +200,15 @@
     }
     if (isFinite(savedSpeed) && savedSpeed >= ROUTE_MS_MIN && savedSpeed <= ROUTE_MS_MAX) state.autoMs = savedSpeed;
   } catch (e) {}
+
+  try {
+    var savedMode = null;
+    try { if (typeof GM_getValue === 'function') savedMode = GM_getValue(LS_ROUTE_MODE, ''); } catch (eM0) {}
+    if (!savedMode) {
+      try { savedMode = localStorage.getItem(LS_ROUTE_MODE); } catch (eM1) {}
+    }
+    if (savedMode === ROUTE_MODE_TODO || savedMode === ROUTE_MODE_AVENIDAS) state.routeMode = savedMode;
+  } catch (eM) {}
 
   /* ---------- utils ---------- */
   function parseSemverParts(v) {
@@ -252,6 +275,7 @@
         edgeCount: state.route.edgeCount || 0,
         capped: !!state.route.capped,
         hopCount: state.route.hopCount || 0,
+        routeMode: state.route.routeMode || state.routeMode || ROUTE_MODE_AVENIDAS,
         savedAt: Date.now()
       });
       try { sessionStorage.setItem(LS_ROUTE, payload); } catch (e2) {}
@@ -272,6 +296,14 @@
       if (r.savedAt && (Date.now() - r.savedAt) > 6 * 60 * 60 * 1000) return null; // stale
       // v1.8.1: refresh turnDeg/exitBearing/isCorner from path (saved routes may lack them)
       annotateRouteTurns(r.points);
+      if (r.routeMode === ROUTE_MODE_TODO || r.routeMode === ROUTE_MODE_AVENIDAS) {
+        state.routeMode = r.routeMode;
+      }
+      // Stale preview → treat as paused running so resume can continue
+      if (r.status === 'preview') {
+        r.status = 'running';
+        r.paused = true;
+      }
       return r;
     } catch (e) { return null; }
   }
@@ -281,13 +313,70 @@
     try { if (typeof GM_setValue === 'function') GM_setValue(LS_ROUTE, ''); } catch (e1) {}
   }
 
-  function toast(msg) {
+  function toast(msg, ms) {
     var el = document.getElementById('purif-scout-toast');
     if (!el) return;
     el.textContent = msg;
     el.classList.add('show');
     clearTimeout(toast._tm);
-    toast._tm = setTimeout(function () { el.classList.remove('show'); }, 2200);
+    toast._tm = setTimeout(function () { el.classList.remove('show'); }, (ms != null && isFinite(ms)) ? ms : 2200);
+  }
+
+  function persistRouteMode() {
+    try { if (typeof GM_setValue === 'function') GM_setValue(LS_ROUTE_MODE, state.routeMode); } catch (e0) {}
+    try { localStorage.setItem(LS_ROUTE_MODE, state.routeMode); } catch (e1) {}
+  }
+
+  function setRouteMode(mode, opts) {
+    opts = opts || {};
+    if (mode !== ROUTE_MODE_AVENIDAS && mode !== ROUTE_MODE_TODO) return;
+    if (state.routeMode === mode && !opts.force) {
+      syncRouteModeUi();
+      return;
+    }
+    state.routeMode = mode;
+    persistRouteMode();
+    syncRouteModeUi();
+    if (!opts.silent) {
+      toast(mode === ROUTE_MODE_AVENIDAS
+        ? 'Modo Avenidas — solo calles principales'
+        : 'Modo Todo — cobertura completa (residential+)');
+    }
+  }
+
+  function syncRouteModeUi() {
+    var a = document.getElementById('purif-scout-mode-avenidas');
+    var t = document.getElementById('purif-scout-mode-todo');
+    if (a) a.classList.toggle('active', state.routeMode === ROUTE_MODE_AVENIDAS);
+    if (t) t.classList.toggle('active', state.routeMode === ROUTE_MODE_TODO);
+    if (a) a.setAttribute('aria-pressed', state.routeMode === ROUTE_MODE_AVENIDAS ? 'true' : 'false');
+    if (t) t.setAttribute('aria-pressed', state.routeMode === ROUTE_MODE_TODO ? 'true' : 'false');
+  }
+
+  /** True if OSM highway tag is allowed for current routeMode. */
+  function highwayAllowed(hw, svc) {
+    var h = String(hw || '').toLowerCase();
+    if (!h) return false;
+    if (state.routeMode === ROUTE_MODE_AVENIDAS) {
+      return !!AVENIDAS_HW[h];
+    }
+    // Todo: previous policy — service only if alley
+    if (h === 'service') return /^alley$/i.test(String(svc || ''));
+    return !!TODO_HW[h];
+  }
+
+  function pathLengthM(points) {
+    if (!points || points.length < 2) return 0;
+    var sum = 0;
+    for (var i = 1; i < points.length; i++) {
+      sum += haversineM(points[i - 1].lat, points[i - 1].lng, points[i].lat, points[i].lng);
+    }
+    return sum;
+  }
+
+  function formatMetersApprox(m) {
+    if (!isFinite(m) || m < 0) return '0';
+    return String(Math.round(m));
   }
 
   function offsetLatLng(lat, lng, headingDeg, meters) {
@@ -1788,8 +1877,11 @@
   }
 
   function overpassHighways(bbox) {
+    var hwRe = state.routeMode === ROUTE_MODE_AVENIDAS
+      ? '^(primary|secondary|tertiary|unclassified|trunk)$'
+      : '^(primary|secondary|tertiary|residential|unclassified|living_street|service|trunk)$';
     var q = '[out:json][timeout:' + OVERPASS_QUERY_TIMEOUT + '][maxsize:33554432];\n' +
-      'way["highway"~"^(primary|secondary|tertiary|residential|unclassified|living_street|service)$"](' +
+      'way["highway"~"' + hwRe + '"](' +
       bbox.south + ',' + bbox.west + ',' + bbox.north + ',' + bbox.east + ');\n' +
       'out geom;';
     var body = 'data=' + encodeURIComponent(q);
@@ -2009,8 +2101,8 @@ function waysToCoveragePoints(elements, geom) {
       if (!el || el.type !== 'way' || !el.geometry || el.geometry.length < 2) return;
       var hw = (el.tags && el.tags.highway) || '';
       var svc = (el.tags && el.tags.service) || '';
-      // v1.8.0: exclude highway=service unless alley (parking/driveway stubs)
-      if (hw === 'service' && !/^alley$/i.test(svc)) return;
+      // v1.9.0: Avenidas = primary/secondary/tertiary/unclassified/+trunk; Todo = prior full set
+      if (!highwayAllowed(hw, svc)) return;
       var oneway = (el.tags && el.tags.oneway) || '';
       var coords = [];
       var prevInside = null;
@@ -2383,6 +2475,10 @@ function waysToCoveragePoints(elements, geom) {
   }
 
   function stopRoute(msg) {
+    if (state._previewTimer) {
+      clearTimeout(state._previewTimer);
+      state._previewTimer = null;
+    }
     if (state.routeTimer) {
       clearInterval(state.routeTimer);
       state.routeTimer = null;
@@ -2402,19 +2498,33 @@ function waysToCoveragePoints(elements, geom) {
   function startRoute(points, name, meta) {
     meta = meta || {};
     if (!points || !points.length) {
-      toast('Sin calles OSM en esta colonia');
+      toast(state.routeMode === ROUTE_MODE_AVENIDAS
+        ? 'Sin avenidas OSM en esta colonia — prueba modo Todo'
+        : 'Sin calles OSM en esta colonia');
       return;
     }
     if (state.autoWalk) setAutoWalk(false);
     var streetCount = meta.streetCount || 0;
     var edgeCount = meta.edgeCount || 0;
     var capped = !!meta.capped;
+    var mode = meta.routeMode || state.routeMode || ROUTE_MODE_AVENIDAS;
+    var lenM = pathLengthM(points);
+    var lenLabel = formatMetersApprox(lenM);
+    if (state._previewTimer) {
+      clearTimeout(state._previewTimer);
+      state._previewTimer = null;
+    }
+    if (state.routeTimer) {
+      clearInterval(state.routeTimer);
+      state.routeTimer = null;
+    }
+    clearRouteBusy();
     state.route = {
       name: name || 'colonia',
       points: points,
       i: 0,
-      paused: false,
-      status: 'running',
+      paused: true, // preview — walk starts after ROUTE_PREVIEW_MS
+      status: 'preview',
       skipped: 0,
       failStreak: 0,
       svFailStreak: 0,
@@ -2425,22 +2535,39 @@ function waysToCoveragePoints(elements, geom) {
       streetCount: streetCount,
       edgeCount: edgeCount,
       capped: capped,
+      routeMode: mode,
+      pathLenM: lenM,
       entered: false // first point uses one URL jump to enter colonia SV
     };
     state.routeEntered = false;
     state.hopCount = 0;
     saveRoute();
-    if (state.routeTimer) clearInterval(state.routeTimer);
-    var iv = routeIntervalMs();
-    state.routeTimer = setInterval(routeTick, iv);
-    var callesLabel = streetCount ? (streetCount + ' calles') : (edgeCount ? edgeCount + ' tramos' : 'calles');
-    var hudLine = 'Trayecto: ' + points.length + ' pts · ~' + callesLabel + ' · cobertura colonia';
+    var modeWord = mode === ROUTE_MODE_AVENIDAS ? 'avenidas' : 'completo';
+    var previewToast = mode === ROUTE_MODE_AVENIDAS
+      ? ('Trayecto avenidas · ' + points.length + ' pts · ~' + lenLabel + ' m — caminando…')
+      : ('Trayecto completo · ' + points.length + ' pts · ~' + lenLabel + ' m — caminando…');
+    var callesLabel = streetCount ? (streetCount + ' calles') : (edgeCount ? edgeCount + ' tramos' : modeWord);
+    var hudLine = 'Trayecto ' + modeWord + ': ' + points.length + ' pts · ~' + lenLabel + ' m · ' + callesLabel;
     if (capped) hudLine += ' · cap ' + MAX_ROUTE_PTS;
-    toast('🛣 ' + hudLine);
-    setRouteStatus(hudLine + ' · ' + name);
-    if (!state.extAvailable) toast('⚠ Sin extensión — el trayecto no avanzará hasta instalarla');
+    toast(previewToast, ROUTE_PREVIEW_MS + 800);
+    setRouteStatus('👁 Preview ' + modeWord + ' · ' + points.length + ' pts · ' + name);
+    if (!state.extAvailable) toast('⚠ Sin extensión — el trayecto no avanzará hasta instalarla', 3500);
     updateHud();
-    routeTick();
+    drawMini(true);
+    // 2–3s path preview on mini-map, then walk
+    state._previewTimer = setTimeout(function () {
+      state._previewTimer = null;
+      if (!state.route || state.route.status === 'stopped') return;
+      state.route.paused = false;
+      state.route.status = 'running';
+      saveRoute();
+      setRouteStatus(hudLine + ' · ' + name);
+      var iv = routeIntervalMs();
+      if (state.routeTimer) clearInterval(state.routeTimer);
+      state.routeTimer = setInterval(routeTick, iv);
+      updateHud();
+      routeTick();
+    }, ROUTE_PREVIEW_MS);
   }
 
   function resumeRouteFromPersist() {
@@ -2884,6 +3011,21 @@ function waysToCoveragePoints(elements, geom) {
 
   function toggleRoutePause() {
     if (!state.route) return false;
+    // During preview: Pause keeps path visible without walking; Reanudar skips remaining preview
+    if (state.route.status === 'preview') {
+      if (state._previewTimer) {
+        clearTimeout(state._previewTimer);
+        state._previewTimer = null;
+      }
+      state.route.paused = true;
+      state.route.status = 'running';
+      clearRouteBusy();
+      toast('⏸ Preview pausado — Reanudar para caminar');
+      setRouteStatus('PAUSA preview · ' + state.route.points.length + ' pts · ' + state.route.name);
+      saveRoute();
+      updateHud();
+      return true;
+    }
     state.route.paused = !state.route.paused;
     if (state.route.paused) {
       clearRouteBusy();
@@ -2928,7 +3070,9 @@ function waysToCoveragePoints(elements, geom) {
     state.lastTrayectoError = null;
     setRetryVisible(false);
     setRouteStatus('Armando trayecto…');
-    toast('Generando trayecto…');
+    toast(state.routeMode === ROUTE_MODE_AVENIDAS
+      ? 'Generando trayecto avenidas…'
+      : 'Generando trayecto completo…');
 
     function finishOk(cover, source) {
       state.trayectoBuilding = false;
@@ -2938,14 +3082,18 @@ function waysToCoveragePoints(elements, geom) {
         streetCount: (cover && cover.streetCount) || 0,
         edgeCount: (cover && cover.edgeCount) || 0,
         capped: !!(cover && cover.capped),
-        source: source
+        source: source,
+        routeMode: state.routeMode
       };
       if (!pts.length) {
-        showTrayectoError('Sin puntos de cobertura en ' + name);
+        showTrayectoError(state.routeMode === ROUTE_MODE_AVENIDAS
+          ? 'Sin avenidas en ' + name + ' — prueba modo Todo'
+          : 'Sin puntos de cobertura en ' + name);
         return;
       }
-      var calles = meta.streetCount ? ('~' + meta.streetCount + ' calles') : 'cobertura colonia';
-      var line = 'Trayecto: ' + pts.length + ' pts · ' + calles + ' · cobertura colonia';
+      var modeWord = state.routeMode === ROUTE_MODE_AVENIDAS ? 'avenidas' : 'completo';
+      var calles = meta.streetCount ? ('~' + meta.streetCount + ' calles') : modeWord;
+      var line = 'Trayecto ' + modeWord + ': ' + pts.length + ' pts · ' + calles;
       if (meta.capped) line += ' · cap ' + MAX_ROUTE_PTS;
       setRouteStatus(line + ' · ' + source + ' · ' + name);
       startRoute(pts, name, meta);
@@ -2972,6 +3120,12 @@ function waysToCoveragePoints(elements, geom) {
     }
 
     function useGridFallback(reason) {
+      // v1.9.0: grid is not avenidas — only for Todo mode
+      if (state.routeMode === ROUTE_MODE_AVENIDAS) {
+        state.trayectoBuilding = false;
+        showTrayectoError('Pocas avenidas OSM (' + reason + '). Cambia a Todo o reintenta.');
+        return;
+      }
       setRouteStatus('Fallback rejilla / borde…');
       var pts = densifyPolygonFallback(geom, GRID_STEP_M);
       if (pts.length >= MIN_ROUTE_PTS) {
@@ -3060,6 +3214,11 @@ function waysToCoveragePoints(elements, geom) {
       '#purif-scout-hud button.primary{pointer-events:auto;cursor:pointer;border:0;border-radius:8px;',
       'padding:9px 10px;font:700 12px/1.2 system-ui;background:#7a0177;color:#fff;width:100%;margin:4px 0 2px}',
       '#purif-scout-hud button.primary:hover{filter:brightness(1.07)}',
+      '#purif-scout-hud .mode-row{display:flex;gap:4px;margin:3px 0 2px}',
+      '#purif-scout-hud .mode-row button{pointer-events:auto;cursor:pointer;border:1px solid #44403c;',
+      'border-radius:7px;padding:5px 6px;font:600 10px/1.2 system-ui;background:#1c1917;color:#a8a29e;flex:1}',
+      '#purif-scout-hud .mode-row button.active{background:#7a0177;border-color:#a21caf;color:#fff}',
+      '#purif-scout-hud .mode-row button:hover{filter:brightness(1.08)}',
       '#purif-scout-hud .speed-row{display:flex;align-items:center;gap:5px;margin:2px 0}',
       '#purif-scout-hud .speed-row label{margin:0;flex:0 0 auto;text-transform:none;',
       'letter-spacing:0;font-size:10px;opacity:.8}',
@@ -3138,6 +3297,11 @@ function waysToCoveragePoints(elements, geom) {
       '      <label>Colonia</label>',
       '      <input type="search" id="purif-scout-col-filter" placeholder="Buscar colonia…" autocomplete="off" />',
       '      <select id="purif-scout-colonia"><option value="">— cargando… —</option></select>',
+      '      <label>Cobertura</label>',
+      '      <div class="mode-row" role="group" aria-label="Modo de cobertura">',
+      '        <button type="button" id="purif-scout-mode-avenidas" class="active" aria-pressed="true" title="Solo avenidas OSM (primary/secondary/tertiary/unclassified)">Avenidas</button>',
+      '        <button type="button" id="purif-scout-mode-todo" aria-pressed="false" title="Cobertura completa incl. residential">Todo</button>',
+      '      </div>',
       '      <button type="button" class="primary" id="purif-scout-start-route">▶ Start trayecto</button>',
       '      <div class="speed-row">',
       '        <label>Velocidad</label>',
@@ -3210,6 +3374,21 @@ function waysToCoveragePoints(elements, geom) {
       e.preventDefault(); e.stopPropagation();
       buildTrayectoForSelection();
     });
+    var modeAve = document.getElementById('purif-scout-mode-avenidas');
+    var modeTodo = document.getElementById('purif-scout-mode-todo');
+    if (modeAve) {
+      modeAve.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        setRouteMode(ROUTE_MODE_AVENIDAS);
+      });
+    }
+    if (modeTodo) {
+      modeTodo.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        setRouteMode(ROUTE_MODE_TODO);
+      });
+    }
+    syncRouteModeUi();
     document.getElementById('purif-scout-next').addEventListener('click', function (e) {
       e.preventDefault(); e.stopPropagation(); closeMenu();
       advanceOneStep();
@@ -3320,10 +3499,12 @@ function waysToCoveragePoints(elements, geom) {
     }
 
     if (pauseBtn && state.route) {
-      pauseBtn.textContent = state.route.paused ? 'Reanudar' : 'Pausa';
+      if (state.route.status === 'preview') pauseBtn.textContent = 'Preview…';
+      else pauseBtn.textContent = state.route.paused ? 'Reanudar' : 'Pausa';
     } else if (pauseBtn) {
       pauseBtn.textContent = 'Pausa';
     }
+    syncRouteModeUi();
 
     if (link && state.lat != null && state.lng != null) {
       link.href = MAP_BASE + '#map=' + Math.max(16, 17) + '/' + state.lat.toFixed(5) + '/' + state.lng.toFixed(5);

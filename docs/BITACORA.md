@@ -1,3 +1,11 @@
+## 2026-09-21 (scout v1.9.0 — Avenidas primero)
+
+- Nicolás: trayecto debe serpentear avenidas comerciales (Modeloramas), no callejones residential.
+- Default **Avenidas**: OSM primary/secondary/tertiary/unclassified (+trunk). Excluye residential/living_street/service/footway.
+- HUD toggle **Avenidas** | **Todo** (cobertura full previa). Persistido en GM/localStorage.
+- Start: grafo filtrado + preview 2.5 s en mini-mapa; toast `Trayecto avenidas · N pts · ~X m — caminando…`.
+- Se mantiene exitBearing / look-ahead / turn-only / U-turn dead-end de 1.8.2. Extensión 1.6.1 sin cambio. Reinstall `?v=190`.
+
 ## 2026-09-21 (scout v1.8.2 — HUD ext + walk estable)
 
 - Nicolás: Scout sticks / U-turns/spins innecesarios; falta ver si extensión está al día en HUD.
