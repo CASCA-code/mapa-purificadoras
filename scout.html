@@ -37,6 +37,15 @@ a{color:var(--accent)}
 #mapMini{position:absolute;left:10px;bottom:10px;width:220px;height:180px;
   border-radius:10px;overflow:hidden;box-shadow:var(--shadow);border:2px solid var(--surface);z-index:3;background:#e7e2d7}
 #pano{position:absolute;inset:0}
+#mapFallback{position:absolute;inset:0;display:none;z-index:1;background:var(--map-void)}
+#mapFallback.show{display:block}
+#mapsError{
+  display:none;position:absolute;left:12px;right:12px;bottom:12px;z-index:7;
+  background:rgba(192,20,15,.94);color:#fff;padding:12px 14px;border-radius:12px;
+  font:600 13px/1.4 "IBM Plex Sans", system-ui, sans-serif;box-shadow:var(--shadow);
+  max-width:min(520px,100%);
+}
+#mapsError.show{display:block}
 #hud{
   position:absolute;top:10px;left:10px;right:10px;z-index:4;
   display:flex;flex-wrap:wrap;gap:8px;align-items:center;pointer-events:none;
@@ -155,7 +164,9 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
 
   <div id="stage">
     <div id="pano" aria-label="Street View"></div>
+    <div id="mapFallback" aria-label="Mapa de respaldo"></div>
     <div id="mapMini" aria-label="Mini-mapa"></div>
+    <div id="mapsError" role="alert" aria-live="assertive"></div>
     <div id="hud">
       <span class="chip" id="chipStatus">Cargando…</span>
       <span class="chip" id="chipProgress">0 / 0</span>
@@ -921,6 +932,7 @@ function startAtLatLng(lat, lng){
     }, function(data, status){
       if (status !== google.maps.StreetViewStatus.OK || !data || !data.location) {
         // still try setPosition walk
+        hideMapFallback();
         panorama.setVisible(true);
         panorama.setPosition({ lat: first.lat, lng: first.lng });
         panorama.setPov({ heading: first.exitBearing || 0, pitch: 0 });
@@ -929,6 +941,8 @@ function startAtLatLng(lat, lng){
         panorama.setPov({ heading: first.exitBearing || 0, pitch: 0 });
         panorama.setVisible(true);
       }
+      hideMapFallback();
+      clearMapsError();
       $('overlayStart').classList.add('hidden');
       $('startMsg').textContent = '';
       walking = true;
@@ -943,6 +957,81 @@ function startAtLatLng(lat, lng){
     console.error(err);
     setStatus('Error calles', 'warn');
     $('startMsg').textContent = 'No se pudo cargar data/roads_zmm.geojson';
+  });
+}
+
+var fallbackMap = null;
+
+function showMapsError(msg){
+  var el = $('mapsError');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function clearMapsError(){
+  var el = $('mapsError');
+  if (!el) return;
+  el.textContent = '';
+  el.classList.remove('show');
+}
+function showMapFallback(center, reason){
+  var host = $('mapFallback');
+  if (!host) return;
+  host.classList.add('show');
+  if (panorama) {
+    try { panorama.setVisible(false); } catch (e) {}
+  }
+  if (!fallbackMap) {
+    fallbackMap = new google.maps.Map(host, {
+      center: center,
+      zoom: 16,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      zoomControl: true,
+      gestureHandling: 'greedy',
+      clickableIcons: false
+    });
+  } else {
+    fallbackMap.setCenter(center);
+  }
+  setStatus(reason || 'Sin Street View — mapa', 'warn');
+}
+function hideMapFallback(){
+  var host = $('mapFallback');
+  if (host) host.classList.remove('show');
+}
+function showPreviewStreetView(center){
+  if (!svService || !panorama) return;
+  setStatus('Buscando Street View…');
+  svService.getPanorama({
+    location: center,
+    radius: 250,
+    source: google.maps.StreetViewSource.OUTDOOR
+  }, function(data, status){
+    if (status === google.maps.StreetViewStatus.OK && data && data.location) {
+      hideMapFallback();
+      clearMapsError();
+      try {
+        panorama.setPano(data.location.pano);
+        if (data.location.latLng) {
+          currentPanoMeta.lat = data.location.latLng.lat();
+          currentPanoMeta.lng = data.location.latLng.lng();
+        }
+        panorama.setPov({ heading: 0, pitch: 0 });
+        panorama.setVisible(true);
+        onPanoChanged();
+      } catch (e) {
+        console.error(e);
+        showMapFallback(center, 'Error al mostrar SV');
+        return;
+      }
+      setStatus('SV listo — elige centro', 'ok');
+    } else {
+      // No outdoor imagery at point: keep usable map, not black void
+      showMapFallback(center, 'Sin imagery SV aquí — mapa');
+      showMapsError('No hay Street View outdoor cerca de este punto. Puedes iniciar el recorrido igual; Scout usará el mapa y saltará a panos cuando existan.');
+    }
   });
 }
 
@@ -963,11 +1052,12 @@ function initMaps(){
     gestureHandling: 'greedy',
     clickableIcons: false
   });
+  // visible:true from the start — #pano is #111; invisible SV = black screen
   panorama = new google.maps.StreetViewPanorama($('pano'), {
     position: center,
     pov: { heading: 0, pitch: 0 },
     zoom: 1,
-    visible: false,
+    visible: true,
     addressControl: true,
     linksControl: true,
     panControl: true,
@@ -1012,12 +1102,17 @@ function initMaps(){
     }
   });
   mapsReady = true;
-  setStatus('Listo — elige centro', 'ok');
+  showPreviewStreetView(center);
   // Prefetch roads
   loadRoads().then(function(){ /* warm */ }).catch(function(){});
 }
 
 function loadGoogleMaps(key){
+  window.gm_authFailure = function(){
+    setStatus('Key Maps rechazada', 'warn');
+    showMapsError('Google Maps rechazó la API key (billing, API no activada, o referrer). En Cloud Console: Maps JavaScript API + billing + HTTP referrers https://casca-code.github.io/* y localhost. Proyecto tip: 807995860142.');
+    toast('Error de autenticación Maps');
+  };
   if (window.google && window.google.maps) {
     initMaps();
     return;
@@ -1025,7 +1120,12 @@ function loadGoogleMaps(key){
   var cb = '__scoutMapsReady';
   window[cb] = function(){
     try { initMaps(); }
-    catch (e) { setStatus('Error init Maps', 'warn'); console.error(e); showKeyGate(true); }
+    catch (e) {
+      setStatus('Error init Maps', 'warn');
+      console.error(e);
+      showMapsError('Falló al iniciar Maps/Street View: ' + (e && e.message ? e.message : e));
+      showKeyGate(true);
+    }
   };
   var s = document.createElement('script');
   s.async = true;
@@ -1033,6 +1133,7 @@ function loadGoogleMaps(key){
   s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&callback=' + cb + '&v=weekly';
   s.onerror = function(){
     setStatus('No cargó Maps JS', 'warn');
+    showMapsError('No se pudo cargar Maps JavaScript. Revisa red, key inválida, o restricción de referrer bloqueando github.io / localhost.');
     toast('Error al cargar Google Maps — revisa key / referrers');
     showKeyGate(true);
   };
@@ -1069,9 +1170,17 @@ $('btnRestart').addEventListener('click', function(){
   routePoints = [];
   routeIndex = 0;
   if (routeLine) { routeLine.setMap(null); routeLine = null; }
-  panorama && panorama.setVisible(false);
   $('overlayStart').classList.remove('hidden');
-  setStatus('Nuevo centro');
+  clearMapsError();
+  var center = { lat: 25.836071, lng: -100.371121 };
+  try {
+    var last = JSON.parse(localStorage.getItem(LS_LAST) || 'null');
+    if (last && last.lat != null) center = { lat: Number(last.lat), lng: Number(last.lng) };
+  } catch (e) {}
+  var ll = parseLatLng($('centerInput').value);
+  if (ll) center = ll;
+  if (mapsReady) showPreviewStreetView(center);
+  else setStatus('Nuevo centro');
   setProgress();
 });
 $('btnStart').addEventListener('click', function(){

@@ -25,6 +25,12 @@ La key es visible en el cliente (Pages); la protección real es el referrer lock
 
 Override avanzado (raro): `localStorage.purif_gmaps_key` o botón **Key…** en el topbar — no es el flujo normal.
 
+## Pantalla al cargar
+
+Al abrir Scout, el panorama Street View se muestra **de inmediato** (centro Escobedo / última posición) vía `StreetViewService.getPanorama` outdoor. Si no hay imagery, cae a mapa de respaldo con mensaje en español — nunca un void negro. Errores de key/billing/referrer aparecen en HUD (`gm_authFailure`).
+
+Si ves error de autenticación: confirma en Cloud Console referrers `https://casca-code.github.io/*` (+ localhost) y Maps JavaScript API + billing en el proyecto de la key.
+
 ## Cómo usar
 
 1. Abre https://casca-code.github.io/mapa-purificadoras/scout.html
