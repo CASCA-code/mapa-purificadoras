@@ -9,7 +9,9 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 | Archivo | Qué es |
 |---|---|
 | `index.html` | Mapa Leaflet offline (score_100, capas, Ubicarme) |
-| `scout-sv.html` | Scout SV embebido (requiere Maps billing; preferir userscript) |
+| `scout.html` | **Scout** Maps JS + Dynamic Street View (key en `config/maps-key.js`, cero paste) |
+| `config/maps-key.js` | Key Maps JS embebida (restringir referrer `https://casca-code.github.io/*`) |
+| `scout-sv.html` | Redirect → `scout.html` |
 | `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.9.0** Avenidas-first (default) vs Todo; preview mini-mapa; exitBearing 1.8.2) |
 | `extension/` + `extension-dist/*.zip` | **REQUERIDA**: ArrowUp/Left/Right vía `chrome.debugger` |
 | `data/roads_zmm.geojson` | Calles OSM prebaked (Escobedo) para trayecto scout |
@@ -46,10 +48,11 @@ Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
 
 
 ## Scout (Street View remoto)
-**Primario (sin billing):** userscript Tampermonkey sobre Maps de consumidor — [`docs/SCOUT_USERSCRIPT.md`](docs/SCOUT_USERSCRIPT.md) · instalar desde  
-`https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js`  
-Elige colonia (Escobedo + ZMM) → **Start trayecto** cubre **avenidas** OSM por default (toggle **Todo** = full; Chinese Postman; sin Maps billing) → marca pines con hotkeys.  
-`scout-sv.html` (Maps JS embebido) sigue en Pages pero **requiere Google Cloud billing** — **no usarla**; no pedir key a Nicolás. Camino correcto: userscript **v1.9.0+** + extensión **1.6.1** (pasito; script = mapa de calles + giros; Space = pausa / Start) en `google.com/maps`; extensión **requerida** (`extension/` / `extension-dist/*.zip`). Mapillary abandonado. Legacy: [`docs/SCOUT_SV.md`](docs/SCOUT_SV.md).
+**Primario (Maps JS):** https://casca-code.github.io/mapa-purificadoras/scout.html — Dynamic Street View + trayecto OSM avenidas/todo, hotkeys, sync ntfy. Key embebida en `config/maps-key.js` (cero paste). Docs: [`docs/SCOUT.md`](docs/SCOUT.md). Restringir referrer a `https://casca-code.github.io/*`.
+
+**Fallback (sin Maps Platform):** userscript Tampermonkey + extensión Chrome sobre `google.com/maps` — [`docs/SCOUT_USERSCRIPT.md`](docs/SCOUT_USERSCRIPT.md) · raw  
+`https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js?v=190`  
+(v1.9.0 Avenidas-first; extensión **1.6.1** requerida para el pasito).
 
 ## Tránsito OSM (semáforos / altos)
 Capas gratuitas de OpenStreetMap en el panel **Anclas → Tránsito**: **Semáforos** y **Altos / stops**.

@@ -1,5 +1,7 @@
 # Scout SV (Street View remoto)
 
+> **2026-09-22:** camino primario = [`scout.html`](../scout.html) + [`SCOUT.md`](SCOUT.md) (key embebida en `config/maps-key.js`). Esta nota queda como legacy; `scout-sv.html` redirige a `scout.html`.
+
 Actualizado: 2026-09-21 — **estado operativo**
 
 > **Billing Google Cloud:** Nicolás rechazó el hold ~$500 MXN de Maps Platform.  
