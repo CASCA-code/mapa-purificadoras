@@ -2358,6 +2358,120 @@
         "layer": "ancla_campo",
         "pano_id": null
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.29053520000001,
+          25.6475316
+        ]
+      },
+      "properties": {
+        "id": "fa_mue8xth2_ctx0k1",
+        "kind": "purificadora",
+        "name": "Tec",
+        "nota_raw": "",
+        "precio_garrafon_mxn": 20,
+        "precio_medio_garrafon_mxn": 10,
+        "precio_galon_mxn": 6,
+        "precio_recarga_mxn": 20,
+        "accuracy_m": 5,
+        "ts": "2026-09-23T15:17:01.432Z",
+        "fuente": "campo",
+        "status": "inbox",
+        "layer": "competencia"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.29205320000001,
+          25.6463895
+        ]
+      },
+      "properties": {
+        "id": "ancla_mue8yj03_zvcxhh",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": 5,
+        "ts": "2026-09-23T15:17:34.515Z",
+        "fuente": "campo",
+        "status": "inbox",
+        "layer": "ancla_campo"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.29240589999999,
+          25.6461311
+        ]
+      },
+      "properties": {
+        "id": "ancla_mue8yoox_k0t66t",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": 5,
+        "ts": "2026-09-23T15:17:41.889Z",
+        "fuente": "campo",
+        "status": "inbox",
+        "layer": "ancla_campo"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.2993873564063,
+          25.643454522276055
+        ]
+      },
+      "properties": {
+        "id": "ours_mue9235p_5pookc",
+        "kind": "favorito",
+        "name": "Acsa",
+        "telefono": "80000000000",
+        "descripcion": "",
+        "accuracy_m": 5,
+        "ts": "2026-09-23T15:20:20.605Z",
+        "fuente": "campo",
+        "status": "inbox",
+        "layer": "favoritos"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.30853358320067,
+          25.638328543097344
+        ]
+      },
+      "properties": {
+        "id": "fa_mue9efdx_nbsovm",
+        "kind": "purificadora",
+        "name": "Agya",
+        "nota_raw": "",
+        "precio_garrafon_mxn": 20,
+        "precio_medio_garrafon_mxn": 10,
+        "precio_galon_mxn": null,
+        "precio_recarga_mxn": 20,
+        "accuracy_m": 5,
+        "ts": "2026-09-23T15:29:56.326Z",
+        "fuente": "campo",
+        "status": "inbox",
+        "layer": "competencia"
+      }
     }
   ]
 }
