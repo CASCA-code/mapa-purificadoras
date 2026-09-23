@@ -8,4 +8,4 @@
  * APIs: Maps JavaScript API only (Dynamic Street View via StreetViewPanorama).
  * Do NOT enable Places or Street View Static for this key unless needed later.
  */
-window.PURIF_MAPS_KEY = 'AIzaSyADFsX38asTuQ0Mu3KZ4P5dYfFAPjvFHbQ';
+window.PURIF_MAPS_KEY = 'AIzaSyCbZj0ZvZTIsqCnDTWObjVhL60jgalx2Cg';
