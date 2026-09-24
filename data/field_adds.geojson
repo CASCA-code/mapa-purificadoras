@@ -2955,6 +2955,75 @@
         "pano_id": "WTgHRx_ffHKdQRcPpxvPHg",
         "client": "scout.html"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37344013748528,
+          25.837465390992985
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4texj_hxbj2m",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:57:09.847Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "Qd2gHdIGQgG8lYXMwH1qew",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37241477151436,
+          25.83750100420452
+        ]
+      },
+      "properties": {
+        "id": "fa_mug4up8h_8ytykq",
+        "kind": "purificadora",
+        "name": "Purificadora",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:58:09.857Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "competencia",
+        "pano_id": "63x9nU05T8ASGWKB0MlA3g",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.36932769084102,
+          25.8365777125224
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4v6kz_bly768",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:58:32.339Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "1d4GALWDvC0kW3BBKQr2LA",
+        "client": "scout.html"
+      }
     }
   ]
 }
