@@ -1,6 +1,6 @@
 # Scout Userscript (Tampermonkey) — Street View sin billing
 
-Actualizado: 2026-09-21 (**v1.9.0**)
+Actualizado: 2026-09-24 (**v1.9.1**)
 
 > **Camino primario para Nicolás.** Corre **sobre** Google Maps de consumidor (`https://www.google.com/maps` Street View).  
 > **Cero** Google Cloud / Maps Platform API key / hold de facturación.  
@@ -26,7 +26,7 @@ Los clicks/teclas sintéticos del userscript son *untrusted* y Maps los ignora. 
 2. Descomprime en una carpeta fija.
 3. Chrome → `chrome://extensions` → **Modo de desarrollador** ON.
 4. **Cargar descomprimida** → elige esa carpeta (debe verse `manifest.json`).
-5. Abre Maps → Street View. El HUD muestra un **punto verde «ext OK»** (o rojo si falta) y el chip de versión `v1.9.0 · ext 1.6.1`.
+5. Abre Maps → Street View. El HUD muestra un **punto verde «ext OK»** (o rojo si falta) y el chip de versión `v1.9.1 · ext 1.6.1`.
 
 Detalle: [`extension/README.md`](../extension/README.md).
 
@@ -36,7 +36,7 @@ Detalle: [`extension/README.md`](../extension/README.md).
 2. **Utilidades** → **Instalar desde URL**:
 
    ```
-   https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js?v=190
+   https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js?v=191
    ```
    Si Tampermonkey no toma el cambio: **Reinstall** desde esa URL (no solo Update).
 
@@ -75,7 +75,7 @@ Pace default ~800 ms (−/+).
 
 Extensión de usuarios (Tampermonkey) + **extensión Chrome companion (requerida para walk)** que, en Street View del Maps normal, deja marcar pines / comentarios de zona con las mismas teclas que Scout SV.
 
-- Human-in-the-loop en el **marcado** (M/S/Y/…/C); el **desplazamiento** del trayecto es automático vía extensión.
+- Human-in-the-loop en el **marcado** (M/S/**F**/Y/…/C); **F** pide nombre+tel, **Y** pide precios recarga/garrafón. El **desplazamiento** del trayecto es automático vía extensión.
 - No scrapea negocios ni cachea imagery — solo GeoJSON (coords + props).
 - Sync **primario: ntfy** (el userscript en `google.com` **no** comparte `localStorage` con Pages).
 

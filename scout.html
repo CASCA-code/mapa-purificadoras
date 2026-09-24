@@ -153,7 +153,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
 <div id="app">
   <div id="topbar">
     <div>
-      <h1>Scout</h1>
+      <h1>Scout <span id="scoutVer" style="font:500 12px/1 IBM Plex Mono,monospace;color:var(--ink-muted);margin-left:6px">v1.9.1</span></h1>
       <div class="sub">Street View dinámico · colonia = todas las calles · pines → ntfy → mapa · Escobedo / ZMM</div>
     </div>
     <div class="grow"></div>
@@ -203,7 +203,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
   <aside id="side">
     <header>
       <strong id="pinCount">0 pines</strong>
-      <p>Hotkeys → pin. <b>M</b>/<b>S</b>/<b>F</b> (Favorito). <b>C</b> = comentario zona. Space = pausa.</p>
+      <p>Hotkeys → pin. <b>M</b>/<b>S</b>/<b>F</b> Favorito · <b>Y</b> Comp+precio. <b>C</b> = comentario. Space = pausa.</p>
     </header>
     <div class="scroll">
       <section class="sec">
@@ -283,7 +283,7 @@ const SCOUT_HOTKEYS = {
   M: { kind: 'modelorama', layer: 'ancla_campo', name: 'Modelorama', label: 'Modelorama', color: '#ca8a04', primary: true },
   S: { kind: 'otro', layer: 'ancla_campo', name: 'Semáforo', nota_raw: 'Semáforo', label: 'Semáforo', color: '#64748b', primary: true },
   F: { kind: 'favorito', layer: 'favoritos', name: 'Favorito', label: 'Favorito', color: '#f59e0b', primary: true },
-  Y: { kind: 'purificadora', layer: 'competencia', name: 'Purificadora', label: 'Competencia / purificadora', color: '#0f766e' },
+  Y: { kind: 'purificadora', layer: 'competencia', name: 'Purificadora', label: 'Competencia (+ precio)', color: '#0f766e' },
   E: { kind: 'express', layer: 'ancla_campo', name: 'Express', label: 'Express', color: '#ea580c' },
   P: { kind: 'iglesia', layer: 'ancla_campo', name: 'Iglesia', label: 'Iglesia', color: '#7c3aed' },
   I: { kind: 'escuela', layer: 'ancla_campo', name: 'Escuela', label: 'Escuela', color: '#2563eb' },
@@ -308,6 +308,7 @@ const LS_LAST = 'purif_scout_last_pos';
 const LS_MODE = 'purif_scout_route_mode';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
+const SCOUT_VERSION = '1.9.1';
 const COMMENT_HALF_M = 30;
 const COMMENT_COLOR = '#db2777';
 const ROADS_URL = 'data/roads_zmm.geojson';
@@ -620,13 +621,59 @@ function renderPins(){
   });
   refreshPinMarkers();
 }
-function makeFeature(def, lat, lng){
+
+function parsePriceMxn(raw){
+  if (raw == null) return null;
+  var s = String(raw).trim();
+  if (!s) return null;
+  var m = s.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  var n = Number(m[1]);
+  return (isFinite(n) && n >= 0) ? n : null;
+}
+function promptFavoritoExtras(def){
+  var nameIn = window.prompt('Nombre del favorito (opcional):', def.name || 'Favorito');
+  if (nameIn === null) return null;
+  var name = String(nameIn).trim() || 'Favorito';
+  var telIn = window.prompt('Teléfono (opcional, 8+ dígitos):', '');
+  if (telIn === null) return null;
+  telIn = String(telIn).trim();
+  var extra = { favorito: true, name: name };
+  if (telIn) {
+    var digits = telIn.replace(/\D/g, '');
+    if (digits.length < 8) {
+      toast('Teléfono: mínimo 8 dígitos (o déjalo vacío)');
+      return null;
+    }
+    extra.telefono = telIn;
+  }
+  return extra;
+}
+function promptCompetenciaExtras(def){
+  var recIn = window.prompt('Precio de recarga MXN (ej. Recarga $12) — vacío = omitir:', '');
+  if (recIn === null) return null;
+  var rec = parsePriceMxn(recIn);
+  var garIn = window.prompt('Precio garrafón/envase MXN (opcional):', '');
+  if (garIn === null) return null;
+  var gar = parsePriceMxn(garIn);
+  var extra = {};
+  if (rec != null) extra.precio_recarga_mxn = rec;
+  if (gar != null) extra.precio_garrafon_mxn = gar;
+  if (rec != null) extra.name = 'Comp $' + rec + ' recarga';
+  else if (gar != null) extra.name = 'Comp $' + gar + ' garrafón';
+  else extra.name = def.name || 'Purificadora';
+  if (rec != null || gar != null) {
+    var bits = [];
+    if (rec != null) bits.push('recarga $' + rec);
+    if (gar != null) bits.push('garrafón $' + gar);
+    extra.nota_raw = bits.join(' · ');
+  }
+  return extra;
+}
+function makeFeature(def, lat, lng, extraProps){
   var isComp = def.layer === 'competencia';
   var isFav = def.layer === 'favoritos';
-  return {
-    type: 'Feature',
-    geometry: { type: 'Point', coordinates: [lng, lat] },
-    properties: {
+  var props = {
       id: uuid(isComp ? 'fa' : (isFav ? 'fav' : 'ancla')),
       kind: def.kind,
       name: def.name || def.label,
@@ -638,7 +685,19 @@ function makeFeature(def, lat, lng){
       layer: def.layer,
       pano_id: currentPanoMeta.panoId || null,
       client: 'scout.html'
-    }
+  };
+  if (isFav) props.favorito = true;
+  if (extraProps && typeof extraProps === 'object') {
+    Object.keys(extraProps).forEach(function(k){
+      if (extraProps[k] !== undefined && extraProps[k] !== null && extraProps[k] !== '') {
+        props[k] = extraProps[k];
+      }
+    });
+  }
+  return {
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: [lng, lat] },
+    properties: props
   };
 }
 function makeCommentFeature(text, lat, lng, heading){
@@ -666,11 +725,24 @@ function makeCommentFeature(text, lat, lng, heading){
 }
 function dropPin(def){
   if (currentPanoMeta.lat == null) { toast('Sin panorama aún'); return; }
-  var feat = makeFeature(def, currentPanoMeta.lat, currentPanoMeta.lng);
+  var extra = null;
+  if (def.layer === 'favoritos' || def.kind === 'favorito') {
+    extra = promptFavoritoExtras(def);
+    if (!extra) return;
+  } else if (def.layer === 'competencia') {
+    extra = promptCompetenciaExtras(def);
+    if (!extra) return;
+  }
+  var feat = makeFeature(def, currentPanoMeta.lat, currentPanoMeta.lng, extra || undefined);
   sessionPins.push(feat);
   persistFeature(feat);
   renderPins();
-  toast('📍 ' + (def.label || def.name));
+  var p = feat.properties || {};
+  var msg = '📍 ' + (p.name || def.label || def.name);
+  if (p.precio_recarga_mxn != null) msg += ' · recarga $' + p.precio_recarga_mxn;
+  else if (p.precio_garrafon_mxn != null) msg += ' · garrafón $' + p.precio_garrafon_mxn;
+  if (p.telefono) msg += ' · ☎';
+  toast(msg);
 }
 function dropComment(text){
   if (currentPanoMeta.lat == null) { toast('Sin panorama aún'); return; }

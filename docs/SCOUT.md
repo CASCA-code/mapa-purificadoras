@@ -46,8 +46,8 @@ Si ves error de autenticación: confirma en Cloud Console referrers `https://cas
 |---|---|---|
 | **M** | Modelorama | `modelorama` / `ancla_campo` |
 | **S** | Semáforo | `otro` + nota Semáforo / `ancla_campo` |
-| **F** | Favorito | `favorito` / `favoritos` |
-| **Y** | Competencia | `purificadora` / `competencia` |
+| **F** | Favorito (prompt nombre + tel opcional) | `favorito` / `favoritos` + `favorito:true` |
+| **Y** | Competencia (prompt precio recarga / garrafón) | `purificadora` / `competencia` + `precio_*_mxn` |
 | **E** | Express | `express` / `ancla_campo` |
 | **P** | Iglesia | `iglesia` / `ancla_campo` |
 | **I** | Escuela | `escuela` / `ancla_campo` |
@@ -56,6 +56,8 @@ Si ves error de autenticación: confirma en Cloud Console referrers `https://cas
 | **C** | Comentario de zona (~60 m LineString) | `comentario_zona` |
 | **Space** | Pausar / reanudar | — |
 | **Z** / **⌫** | Deshacer último pin | — |
+
+Tras **F**: pide nombre (default «Favorito») y teléfono opcional (8+ dígitos). Tras **Y**: pide precio de **recarga** MXN (campo primario `precio_recarga_mxn`) y opcionalmente garrafón/envase (`precio_garrafon_mxn`); vacío = omitir. El toast y el `name` reflejan el precio (ej. `Comp $12 recarga`). Versión Scout **v1.9.1**.
 
 ## Sync ntfy → mapa principal
 

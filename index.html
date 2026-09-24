@@ -848,7 +848,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     </button>
     <button class="tbtn ctx " data-l="stops" aria-pressed="false" title="Altos / yield OSM — cobertura incompleta; Scout S para marcas manuales">
       <i aria-hidden="true" style="background:#e53e3e;border-color:#9b2c2c;color:#fff;font-size:9px;font-weight:700;border-radius:2px">■</i>
-      <span>Altos / stops</span>
+      <span>Altos / yield</span>
     </button>
     <button type="button" class="tbtn ctx on" id="likedZonesToggle" aria-pressed="true" title="Zonas que a Nicolás le gustaron para volver">
       <i aria-hidden="true" style="background:#fbbf24;border-color:#b45309;color:#78350f;font-size:11px;font-weight:700">★</i>
@@ -936,7 +936,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260921-osm-transito';
+window.__PURIF_BUILD = '20260924-scout-fav-precio';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -1281,7 +1281,7 @@ function paintStops(fc){
     const bs = document.querySelector('.tbtn[data-l="semaforos"] span');
     const bt = document.querySelector('.tbtn[data-l="stops"] span');
     if (bs && nS) bs.textContent = 'Semáforos (' + nS + ')';
-    if (bt && nT) bt.textContent = 'Altos / stops (' + nT + ')';
+    if (bt && nT) bt.textContent = 'Altos / yield (' + nT + ')';
   }).catch(function(){});
 })();
 
@@ -2998,6 +2998,7 @@ window.__purifReady && window.__purifReady.then(function(){
     const c = f.geometry.coordinates;
     const id = p.id;
     const lines = [];
+    if (p.precio_recarga_mxn != null) lines.push('Recarga $' + p.precio_recarga_mxn);
     if (p.precio_garrafon_mxn != null) lines.push('Garrafón $' + p.precio_garrafon_mxn);
     if (p.precio_medio_garrafon_mxn != null) lines.push('Medio $' + p.precio_medio_garrafon_mxn);
     if (p.precio_galon_mxn != null) lines.push('Galón $' + p.precio_galon_mxn);

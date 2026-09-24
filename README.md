@@ -12,7 +12,7 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 | `scout.html` | **Scout** Maps JS + Dynamic Street View (key en `config/maps-key.js`, cero paste) |
 | `config/maps-key.js` | Key Maps JS embebida (restringir referrer `https://casca-code.github.io/*`) |
 | `scout-sv.html` | Redirect → `scout.html` |
-| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.9.0** Avenidas-first (default) vs Todo; preview mini-mapa; exitBearing 1.8.2) |
+| `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.9.1** F Favorito + Y precios; Avenidas-first vs Todo) |
 | `extension/` + `extension-dist/*.zip` | **REQUERIDA**: ArrowUp/Left/Right vía `chrome.debugger` |
 | `data/roads_zmm.geojson` | Calles OSM prebaked (Escobedo) para trayecto scout |
 | `scripts/prebake_roads_zmm.py` | Regenera `roads_zmm.geojson` vía Overpass |
@@ -51,11 +51,11 @@ Cómo se llegó a `score_100`: [`docs/FORMULA_SCORE.md`](docs/FORMULA_SCORE.md).
 **Primario (Maps JS):** https://casca-code.github.io/mapa-purificadoras/scout.html — Dynamic Street View + trayecto OSM avenidas/todo, hotkeys, sync ntfy. Key embebida en `config/maps-key.js` (cero paste). Docs: [`docs/SCOUT.md`](docs/SCOUT.md). Restringir referrer a `https://casca-code.github.io/*`.
 
 **Fallback (sin Maps Platform):** userscript Tampermonkey + extensión Chrome sobre `google.com/maps` — [`docs/SCOUT_USERSCRIPT.md`](docs/SCOUT_USERSCRIPT.md) · raw  
-`https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js?v=190`  
-(v1.9.0 Avenidas-first; extensión **1.6.1** requerida para el pasito).
+`https://raw.githubusercontent.com/CASCA-code/mapa-purificadoras/main/userscripts/purificadoras-scout.user.js?v=191`  
+(v1.9.1 Favorito+precios; extensión **1.6.1** requerida para el pasito).
 
 ## Tránsito OSM (semáforos / altos)
-Capas gratuitas de OpenStreetMap en el panel **Anclas → Tránsito**: **Semáforos** y **Altos / stops**.
-No son cobertura completa (OSM incompleto en ZMM); no puntúan. Para marcas manuales en campo sigue usando Scout **S**.
+Capas gratuitas de OpenStreetMap en el panel **Anclas → Tránsito**: **Semáforos** y **Altos / yield**.
+La consulta incluye `highway=traffic_signals` en nodos/vías y `crossing=traffic_signals` (cruce señalizado), además de `highway=stop|give_way` y `traffic_sign=stop` en nodos/vías. No son cobertura completa (OSM incompleto en ZMM); no puntúan. Para marcas manuales de campo sigue usando Scout **S**.
 Refrescar datos: `python3 scripts/fetch_osm_traffic.py` → commit de `data/semaforos_zmm.geojson` + `data/stops_zmm.geojson`.
 

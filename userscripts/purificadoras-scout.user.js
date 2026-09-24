@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.9.0
-// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.9.0: modo Avenidas (default) vs Todo; preview mini-mapa 2.5s; exitBearing 1.8.2; docs ?v=190. NO uses scout-sv.html.
+// @version      1.9.1
+// @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.9.1: F Favorito (nombre/tel) + Y precios recarga/garrafón; Avenidas/Todo; docs ?v=191. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
 // @match        https://maps.google.com/*
@@ -46,18 +46,20 @@
    * v1.8.1: turns fully predetermined from trayecto; CORNER_LOOKAHEAD ~100 m + align@40 m; never re-pick L/R at SV node; turn-only if |Δ|>25°; HUD próx ↰ en Xm; docs ?v=181.
    * v1.8.2: HUD shows userscript + ext version (yellow if ext < EXPECT_EXT); U-turn only at path dead-end; prefer skip/hop; max 1 POV align/tick then ↑; turn-only thrash |Δ|<40° ignored unless ≤25 m corner; recovery cooldown on hop; failStreak→skip 2–3 WP; docs ?v=182.
    * v1.9.0: route mode Avenidas (default: primary/secondary/tertiary/unclassified/+trunk) | Todo (full residential); HUD toggle; Start preview 2.5s on mini-map + toast; keep exitBearing steering; docs ?v=190.
+   * v1.9.1: F Favorito (prompt nombre + tel opcional) + Y competencia (prompt precio_recarga_mxn / precio_garrafon_mxn); HUD F; LS ours; docs ?v=191.
    */
 
   var NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
   var LS_COMP = 'purificadoras_field_adds_v1';
   var LS_ANCLAS = 'purificadoras_anclas_v1';
+  var LS_FAV = 'purificadoras_ours_v1';
   var LS_SESSION = 'purificadoras_scout_tm_session_v1';
   var LS_SPEED = 'purificadoras_scout_tm_speed_ms';
   var LS_ROUTE = 'purificadoras_scout_tm_route_v1';
   var LS_AUTOWALK = 'purif_scout_autowalk';
   var LS_AUTOWALK_META = 'purif_scout_autowalk_meta';
   var LS_ROUTE_MODE = 'purificadoras_scout_tm_route_mode'; // 'avenidas' | 'todo'
-  var SCRIPT_VERSION = '1.9.0';
+  var SCRIPT_VERSION = '1.9.1';
   var EXPECT_EXT = '1.6.1'; // min extension version shown green in HUD
   var ROUTE_MODE_AVENIDAS = 'avenidas';
   var ROUTE_MODE_TODO = 'todo';
@@ -141,7 +143,8 @@
   var SCOUT_HOTKEYS = {
     M: { kind: 'modelorama', layer: 'ancla_campo', name: 'Modelorama', label: 'Modelorama', color: '#ca8a04', primary: true },
     S: { kind: 'otro', layer: 'ancla_campo', name: 'Semáforo', nota_raw: 'Semáforo', label: 'Semáforo', color: '#64748b', primary: true },
-    Y: { kind: 'purificadora', layer: 'competencia', name: 'Purificadora', label: 'Competencia / purificadora', color: '#0f766e' },
+    F: { kind: 'favorito', layer: 'favoritos', name: 'Favorito', label: 'Favorito', color: '#f59e0b', primary: true },
+    Y: { kind: 'purificadora', layer: 'competencia', name: 'Purificadora', label: 'Competencia (+ precio)', color: '#0f766e' },
     E: { kind: 'express', layer: 'ancla_campo', name: 'Express', label: 'Express', color: '#ea580c' },
     P: { kind: 'iglesia', layer: 'ancla_campo', name: 'Iglesia', label: 'Iglesia', color: '#7c3aed' },
     I: { kind: 'escuela', layer: 'ancla_campo', name: 'Escuela', label: 'Escuela', color: '#2563eb' },
@@ -685,6 +688,7 @@
   function destKeyForFeature(f) {
     var p = f.properties || {};
     if (p.layer === 'competencia' || p.kind === 'purificadora') return LS_COMP;
+    if (p.layer === 'favoritos' || p.kind === 'favorito' || p.kind === 'nuestra') return LS_FAV;
     return LS_ANCLAS;
   }
 
@@ -707,24 +711,85 @@
     if (id) silentSync({ action: 'delete', id: id, layer: (feat.properties || {}).layer || '' });
   }
 
-  function makeFeature(def, lat, lng) {
+  function parsePriceMxn(raw) {
+    if (raw == null) return null;
+    var s = String(raw).trim();
+    if (!s) return null;
+    var m = s.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+    if (!m) return null;
+    var n = Number(m[1]);
+    return (isFinite(n) && n >= 0) ? n : null;
+  }
+
+  function promptFavoritoExtras(def) {
+    var nameIn = window.prompt('Nombre del favorito (opcional):', def.name || 'Favorito');
+    if (nameIn === null) return null;
+    var name = String(nameIn).trim() || 'Favorito';
+    var telIn = window.prompt('Teléfono (opcional, 8+ dígitos):', '');
+    if (telIn === null) return null;
+    telIn = String(telIn).trim();
+    var extra = { favorito: true, name: name };
+    if (telIn) {
+      var digits = telIn.replace(/\D/g, '');
+      if (digits.length < 8) {
+        toast('Teléfono: mínimo 8 dígitos (o déjalo vacío)');
+        return null;
+      }
+      extra.telefono = telIn;
+    }
+    return extra;
+  }
+
+  function promptCompetenciaExtras(def) {
+    var recIn = window.prompt('Precio de recarga MXN (ej. Recarga $12) — vacío = omitir:', '');
+    if (recIn === null) return null;
+    var rec = parsePriceMxn(recIn);
+    var garIn = window.prompt('Precio garrafón/envase MXN (opcional):', '');
+    if (garIn === null) return null;
+    var gar = parsePriceMxn(garIn);
+    var extra = {};
+    if (rec != null) extra.precio_recarga_mxn = rec;
+    if (gar != null) extra.precio_garrafon_mxn = gar;
+    if (rec != null) extra.name = 'Comp $' + rec + ' recarga';
+    else if (gar != null) extra.name = 'Comp $' + gar + ' garrafón';
+    else extra.name = def.name || 'Purificadora';
+    if (rec != null || gar != null) {
+      var bits = [];
+      if (rec != null) bits.push('recarga $' + rec);
+      if (gar != null) bits.push('garrafón $' + gar);
+      extra.nota_raw = bits.join(' · ');
+    }
+    return extra;
+  }
+
+  function makeFeature(def, lat, lng, extraProps) {
     var isComp = def.layer === 'competencia';
+    var isFav = def.layer === 'favoritos';
+    var props = {
+      id: uuid(isComp ? 'fa' : (isFav ? 'fav' : 'ancla')),
+      kind: def.kind,
+      name: def.name || def.label,
+      nota_raw: def.nota_raw || '',
+      accuracy_m: null,
+      ts: new Date().toISOString(),
+      fuente: FUENTE,
+      client: CLIENT,
+      status: 'inbox',
+      layer: def.layer,
+      pano_id: null
+    };
+    if (isFav) props.favorito = true;
+    if (extraProps && typeof extraProps === 'object') {
+      Object.keys(extraProps).forEach(function (k) {
+        if (extraProps[k] !== undefined && extraProps[k] !== null && extraProps[k] !== '') {
+          props[k] = extraProps[k];
+        }
+      });
+    }
     return {
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [lng, lat] },
-      properties: {
-        id: uuid(isComp ? 'fa' : 'ancla'),
-        kind: def.kind,
-        name: def.name || def.label,
-        nota_raw: def.nota_raw || '',
-        accuracy_m: null,
-        ts: new Date().toISOString(),
-        fuente: FUENTE,
-        client: CLIENT,
-        status: 'inbox',
-        layer: def.layer,
-        pano_id: null
-      }
+      properties: props
     };
   }
 
@@ -769,12 +834,25 @@
 
   function dropPin(def) {
     if (!needPose()) return;
-    var feat = makeFeature(def, state.lat, state.lng);
+    var extra = null;
+    if (def.layer === 'favoritos' || def.kind === 'favorito') {
+      extra = promptFavoritoExtras(def);
+      if (!extra) return;
+    } else if (def.layer === 'competencia') {
+      extra = promptCompetenciaExtras(def);
+      if (!extra) return;
+    }
+    var feat = makeFeature(def, state.lat, state.lng, extra || undefined);
     state.sessionPins.push(feat);
     saveSession();
     persistFeature(feat);
     drawMini();
-    toast('📍 ' + (def.label || def.name));
+    var p = feat.properties || {};
+    var msg = '📍 ' + (p.name || def.label || def.name);
+    if (p.precio_recarga_mxn != null) msg += ' · recarga $' + p.precio_recarga_mxn;
+    else if (p.precio_garrafon_mxn != null) msg += ' · garrafón $' + p.precio_garrafon_mxn;
+    if (p.telefono) msg += ' · ☎';
+    toast(msg);
   }
 
   function dropComment(text) {
@@ -801,9 +879,11 @@
   function downloadExport() {
     var comp = [];
     var anclas = [];
+    var favs = [];
     state.sessionPins.forEach(function (f) {
       var layer = (f.properties || {}).layer;
       if (layer === 'competencia') comp.push(f);
+      else if (layer === 'favoritos') favs.push(f);
       else anclas.push(f);
     });
     var payload = {
@@ -811,7 +891,8 @@
       fuente: FUENTE,
       keys: {
         purificadoras_field_adds_v1: comp,
-        purificadoras_anclas_v1: anclas
+        purificadoras_anclas_v1: anclas,
+        purificadoras_ours_v1: favs
       }
     };
     var text = JSON.stringify(payload, null, 2);
@@ -3288,8 +3369,8 @@ function waysToCoveragePoints(elements, geom) {
       '      </div>',
       '    </div>',
       '    <div class="keys">',
-      '      <div class="row"><kbd>M</kbd><b>Modelorama</b> · <kbd>S</kbd><b>Semáforo</b></div>',
-      '      <div class="row"><kbd class="sec">Y</kbd>Comp · <kbd class="sec">E</kbd>Express · <kbd class="sec">P</kbd>Iglesia</div>',
+      '      <div class="row"><kbd>M</kbd><b>Modelorama</b> · <kbd>S</kbd><b>Semáforo</b> · <kbd>F</kbd><b>Favorito</b></div>',
+      '      <div class="row"><kbd class="sec">Y</kbd>Comp$ · <kbd class="sec">E</kbd>Express · <kbd class="sec">P</kbd>Iglesia</div>',
       '      <div class="row"><kbd class="sec">I</kbd>Escuela · <kbd class="sec">H</kbd>Hosp · <kbd>C</kbd>Coment</div>',
       '      <div class="row"><kbd class="sec">Space</kbd>Pausa/Start · <kbd class="sec">Z</kbd>Undo</div>',
       '    </div>',
@@ -3637,6 +3718,7 @@ function waysToCoveragePoints(elements, geom) {
           }
         }
         if (p.layer === 'competencia') col = '#0f766e';
+        if (p.kind === 'favorito' || p.layer === 'favoritos') col = '#f59e0b';
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
         ctx.fillStyle = col;
