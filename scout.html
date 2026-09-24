@@ -183,7 +183,8 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
         <h2>Empezar recorrido</h2>
         <p class="hint">Elige colonia (cubre <b>todas las calles</b> del polígono) o pega lat,lng. Scout arma trayecto OSM y camina Street View dinámico; tú sueltas pines con hotkeys.</p>
         <div class="sec" style="margin-top:12px">
-          <label class="field"><span>Colonia prioritaria</span>
+          <label class="field"><span>Colonia (ZMM · 167)</span>
+            <input type="text" id="coloniaFilter" placeholder="Filtrar por nombre o municipio…" autocomplete="off" spellcheck="false" style="margin-bottom:6px">
             <select id="coloniaPick"><option value="">— elegir —</option></select>
           </label>
           <label class="field"><span>O centro lat,lng</span>
@@ -324,7 +325,7 @@ const LS_CLARITY = 'purif_scout_clarity';
 const LS_HOP = 'purif_scout_hop_m';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
-const SCOUT_VERSION = '1.9.3';
+const SCOUT_VERSION = '1.9.4';
 const HOP_M_DEFAULT = 28;
 const HOP_M_MIN = 15;
 const HOP_M_MAX = 80;
@@ -536,21 +537,13 @@ try {
     host.appendChild(row);
   });
 })();
-(function buildColonias(){
-  var sel = $('coloniaPick');
-  PRIORITY_COLONIAS.forEach(function(c){
-    var o = document.createElement('option');
-    o.value = c.id;
-    o.textContent = c.nombre + ' · ' + c.municipio;
-    sel.appendChild(o);
-  });
+(function initCenterDefaults(){
   try {
     var last = JSON.parse(localStorage.getItem(LS_LAST) || 'null');
     if (last && last.lat != null) {
       $('centerInput').value = Number(last.lat).toFixed(6) + ', ' + Number(last.lng).toFixed(6);
     } else {
       $('centerInput').value = '25.836071, -100.371121';
-      sel.value = 'smr';
     }
   } catch (e) {
     $('centerInput').value = '25.836071, -100.371121';
@@ -860,6 +853,165 @@ function loadColonias(){
     coloniasFc = fc;
     return fc;
   });
+}
+function coloniaFeatureId(feat){
+  if (!feat) return '';
+  var p = feat.properties || {};
+  if (p.cve_col != null && p.cve_col !== '') return String(p.cve_col);
+  if (p.id_ine != null && p.id_ine !== '') return String(p.id_ine);
+  return '';
+}
+function findColoniaFeatureById(id){
+  if (!coloniasFc || !coloniasFc.features || id == null || id === '') return null;
+  var want = String(id);
+  for (var i = 0; i < coloniasFc.features.length; i++) {
+    var f = coloniasFc.features[i];
+    var fid = coloniaFeatureId(f);
+    if (fid && fid === want) return f;
+    var p = f.properties || {};
+    if (p.id_ine != null && String(p.id_ine) === want) return f;
+  }
+  return null;
+}
+function isEscobedoMuni(muni){
+  return /escobedo/i.test(String(muni || ''));
+}
+function resolvePriorityCveSet(){
+  var set = {};
+  if (!coloniasFc) return set;
+  PRIORITY_COLONIAS.forEach(function(pri){
+    var feat = matchColoniaFeature(pri);
+    if (feat) {
+      var id = coloniaFeatureId(feat);
+      if (id) set[id] = true;
+    }
+  });
+  return set;
+}
+function scoreOfFeat(f){
+  var p = f.properties || {};
+  var s = p.score_100;
+  if (s == null || !isFinite(Number(s))) s = p.site_score;
+  return isFinite(Number(s)) ? Number(s) : -1;
+}
+function formatColoniaOptionText(feat, isPri){
+  var p = feat.properties || {};
+  var name = p.colonia || p.colonia_raw || 'Colonia';
+  var muni = p.municipio || '';
+  var sc = scoreOfFeat(feat);
+  var scoreTxt = sc >= 0 ? ('score ' + (Math.round(sc * 10) / 10)) : '';
+  if (!scoreTxt && p.rank != null) scoreTxt = 'rank #' + p.rank;
+  var base = name + ' · ' + muni + (scoreTxt ? (' · ' + scoreTxt) : '');
+  return (isPri ? '★ ' : '') + base;
+}
+function selectionFromFeature(feat){
+  if (!feat) return null;
+  var p = feat.properties || {};
+  var lat = Number(p.lat), lng = Number(p.lon);
+  if (!isFinite(lat) || !isFinite(lng)) return null;
+  return {
+    id: coloniaFeatureId(feat),
+    nombre: p.colonia || p.colonia_raw || '',
+    municipio: p.municipio || '',
+    lat: lat,
+    lng: lng,
+    score_100: scoreOfFeat(feat),
+    rank: p.rank,
+    feature: feat
+  };
+}
+function populateColoniaPick(){
+  var sel = $('coloniaPick');
+  if (!sel || !coloniasFc || !coloniasFc.features) return;
+  var prev = sel.value;
+  sel.innerHTML = '';
+  var ph = document.createElement('option');
+  ph.value = '';
+  ph.textContent = '— elegir · ' + coloniasFc.features.length + ' colonias —';
+  sel.appendChild(ph);
+
+  var priSet = resolvePriorityCveSet();
+  var esc = [];
+  var rest = [];
+  coloniasFc.features.forEach(function(f){
+    var p = f.properties || {};
+    if (isEscobedoMuni(p.municipio)) esc.push(f);
+    else rest.push(f);
+  });
+  function sortFeats(arr){
+    arr.sort(function(a, b){
+      var aid = coloniaFeatureId(a), bid = coloniaFeatureId(b);
+      var ap = priSet[aid] ? 1 : 0, bp = priSet[bid] ? 1 : 0;
+      if (ap !== bp) return bp - ap;
+      var ds = scoreOfFeat(b) - scoreOfFeat(a);
+      if (ds) return ds;
+      var an = normalizeName((a.properties && a.properties.colonia) || '');
+      var bn = normalizeName((b.properties && b.properties.colonia) || '');
+      return an < bn ? -1 : an > bn ? 1 : 0;
+    });
+  }
+  sortFeats(esc);
+  sortFeats(rest);
+
+  function fillGroup(label, feats){
+    if (!feats.length) return;
+    var og = document.createElement('optgroup');
+    og.label = label;
+    feats.forEach(function(f){
+      var id = coloniaFeatureId(f);
+      if (!id) return;
+      var o = document.createElement('option');
+      o.value = id;
+      o.textContent = formatColoniaOptionText(f, !!priSet[id]);
+      o.dataset.search = normalizeName(
+        ((f.properties && f.properties.colonia) || '') + ' ' +
+        ((f.properties && f.properties.municipio) || '')
+      );
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  }
+  fillGroup('Escobedo (prioridad) · ' + esc.length, esc);
+  fillGroup('Resto ZMM · ' + rest.length, rest);
+
+  if (prev && findColoniaFeatureById(prev)) sel.value = prev;
+  else {
+    // default to San Miguel Residencial (priority) if no saved center override already set pick
+    var smr = null;
+    for (var i = 0; i < PRIORITY_COLONIAS.length; i++) {
+      if (PRIORITY_COLONIAS[i].id === 'smr') {
+        smr = matchColoniaFeature(PRIORITY_COLONIAS[i]);
+        break;
+      }
+    }
+    try {
+      var last = JSON.parse(localStorage.getItem(LS_LAST) || 'null');
+      if (!(last && last.lat != null) && smr) {
+        sel.value = coloniaFeatureId(smr);
+      }
+    } catch (e) {}
+  }
+  applyColoniaFilter();
+}
+function applyColoniaFilter(){
+  var inp = $('coloniaFilter');
+  var sel = $('coloniaPick');
+  if (!sel) return;
+  var q = normalizeName(inp && inp.value ? inp.value : '');
+  var groups = sel.getElementsByTagName('optgroup');
+  for (var g = 0; g < groups.length; g++) {
+    var og = groups[g];
+    var any = false;
+    var opts = og.getElementsByTagName('option');
+    for (var i = 0; i < opts.length; i++) {
+      var o = opts[i];
+      var hay = o.dataset.search || normalizeName(o.textContent || '');
+      var show = !q || hay.indexOf(q) >= 0;
+      o.hidden = !show;
+      if (show) any = true;
+    }
+    og.hidden = !any;
+  }
 }
 function normalizeName(s){
   return String(s || '')
@@ -1327,11 +1479,9 @@ function endOfRouteMessage(){
     try {
       var pick = $('coloniaPick') && $('coloniaPick').value;
       if (pick) {
-        for (var i = 0; i < PRIORITY_COLONIAS.length; i++) {
-          if (PRIORITY_COLONIAS[i].id === pick) {
-            name = PRIORITY_COLONIAS[i].nombre;
-            break;
-          }
+        var feat = findColoniaFeatureById(pick);
+        if (feat && feat.properties) {
+          name = feat.properties.colonia || feat.properties.colonia_raw || null;
         }
       }
     } catch (e) {}
@@ -1442,7 +1592,7 @@ function beginWalk(lat, lng, hudLabel){
     saveLastPos(lat, lng);
   });
 }
-function startAtLatLng(lat, lng, coloniaPri){
+function startAtLatLng(lat, lng, coloniaSel){
   if (!svService || !panorama || !mapsReady) {
     toast('Maps aún no listo');
     return;
@@ -1452,18 +1602,21 @@ function startAtLatLng(lat, lng, coloniaPri){
   setStatus('Armando trayecto OSM…');
   $('startMsg').textContent = 'Cargando calles…';
   var tasks = [loadRoads()];
-  if (coloniaPri) tasks.push(loadColonias());
+  if (coloniaSel) tasks.push(loadColonias());
   Promise.all(tasks).then(function(){
-    if (coloniaPri) {
-      var feat = matchColoniaFeature(coloniaPri);
+    if (coloniaSel) {
+      var feat = coloniaSel.feature ||
+        (coloniaSel.id && findColoniaFeatureById(coloniaSel.id)) ||
+        matchColoniaFeature(coloniaSel);
       if (feat && feat.geometry) {
         var built = buildRouteInPolygon(feat.geometry, lat, lng);
         routePoints = built.points;
         activeColoniaMeta = {
-          nombre: (feat.properties && feat.properties.colonia) || coloniaPri.nombre,
-          municipio: (feat.properties && feat.properties.municipio) || coloniaPri.municipio,
+          nombre: (feat.properties && feat.properties.colonia) || coloniaSel.nombre,
+          municipio: (feat.properties && feat.properties.municipio) || coloniaSel.municipio,
           calleCount: built.calleCount,
-          teleports: built.teleports
+          teleports: built.teleports,
+          id: coloniaFeatureId(feat)
         };
         drawColoniaOutline(feat.geometry);
         if (!routePoints.length) {
@@ -1483,7 +1636,7 @@ function startAtLatLng(lat, lng, coloniaPri){
           return;
         }
       } else {
-        $('startMsg').textContent = 'Sin polígono para ' + coloniaPri.nombre +
+        $('startMsg').textContent = 'Sin polígono para ' + (coloniaSel.nombre || coloniaSel.id || 'colonia') +
           ' — usando radio ±' + ROUTE_RADIUS_M + ' m (centroid).';
         setRouteMode('todo');
         routePoints = buildRouteNear(lat, lng);
@@ -1652,7 +1805,7 @@ function initMaps(){
   showPreviewStreetView(center);
   // Prefetch roads
   loadRoads().then(function(){ /* warm */ }).catch(function(){});
-  loadColonias().catch(function(){});
+  loadColonias().then(function(){ populateColoniaPick(); }).catch(function(){});
 }
 
 function loadGoogleMaps(key){
@@ -1779,14 +1932,12 @@ $('btnStart').addEventListener('click', function(){
   if (!mapsReady) { toast('Espera a que cargue Maps…'); return; }
   var pick = $('coloniaPick').value;
   var ll = null;
-  var coloniaPri = null;
+  var coloniaSel = null;
   if (pick) {
-    for (var i = 0; i < PRIORITY_COLONIAS.length; i++) {
-      if (PRIORITY_COLONIAS[i].id === pick) {
-        coloniaPri = PRIORITY_COLONIAS[i];
-        ll = { lat: PRIORITY_COLONIAS[i].lat, lng: PRIORITY_COLONIAS[i].lng };
-        break;
-      }
+    var feat = findColoniaFeatureById(pick);
+    if (feat) {
+      coloniaSel = selectionFromFeature(feat);
+      if (coloniaSel) ll = { lat: coloniaSel.lat, lng: coloniaSel.lng };
     }
   }
   if (!ll) ll = parseLatLng($('centerInput').value);
@@ -1794,7 +1945,7 @@ $('btnStart').addEventListener('click', function(){
     $('startMsg').textContent = 'Elige colonia o pega lat,lng válidos.';
     return;
   }
-  startAtLatLng(ll.lat, ll.lng, coloniaPri);
+  startAtLatLng(ll.lat, ll.lng, coloniaSel);
 });
 $('coloniaPick').addEventListener('change', function(){
   var pick = $('coloniaPick').value;
@@ -1802,13 +1953,19 @@ $('coloniaPick').addEventListener('change', function(){
     setRouteMode(routeMode);
     return;
   }
-  for (var i = 0; i < PRIORITY_COLONIAS.length; i++) {
-    if (PRIORITY_COLONIAS[i].id === pick) {
-      $('centerInput').value = PRIORITY_COLONIAS[i].lat.toFixed(6) + ', ' + PRIORITY_COLONIAS[i].lng.toFixed(6);
-      setRouteMode('todo');
-      break;
-    }
+  var feat = findColoniaFeatureById(pick);
+  var sel = selectionFromFeature(feat);
+  if (sel) {
+    $('centerInput').value = sel.lat.toFixed(6) + ', ' + sel.lng.toFixed(6);
+    setRouteMode('todo');
   }
+});
+if ($('coloniaFilter')) {
+  $('coloniaFilter').addEventListener('input', applyColoniaFilter);
+}
+// Prefill dropdown ASAP (antes de Maps) para que Nicolás vea las 167
+loadColonias().then(function(){ populateColoniaPick(); }).catch(function(err){
+  console.warn('colonias prefetch', err);
 });
 $('btnExport').addEventListener('click', downloadExport);
 $('btnSync').addEventListener('click', syncAllNtfy);
