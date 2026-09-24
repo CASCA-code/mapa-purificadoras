@@ -6,6 +6,7 @@
  *   - http://localhost/*
  *   - http://127.0.0.1/*
  * APIs: Maps JavaScript API only (Dynamic Street View via StreetViewPanorama).
- * Do NOT enable Places or Street View Static for this key unless needed later.
+ * Billing MUST be enabled on this Cloud project or Maps shows
+ * "For development purposes only".
  */
-window.PURIF_MAPS_KEY = 'AIzaSyCbZj0ZvZTIsqCnDTWObjVhL60jgalx2Cg';
+window.PURIF_MAPS_KEY = 'AIzaSyCt5yRf0uV-y7g7yq8Eg2WecJLJQ6cNRvI';
