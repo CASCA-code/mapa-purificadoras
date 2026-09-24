@@ -287,6 +287,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
 const SCOUT_HOTKEYS = {
   M: { kind: 'modelorama', layer: 'ancla_campo', name: 'Modelorama', label: 'Modelorama', color: '#ca8a04', primary: true },
   S: { kind: 'otro', layer: 'ancla_campo', name: 'Semáforo', nota_raw: 'Semáforo', label: 'Semáforo', color: '#64748b', primary: true },
+  A: { kind: 'alto', layer: 'ancla_campo', name: 'Alto', nota_raw: 'Alto', label: 'Señal de alto', color: '#e53e3e', primary: true },
   F: { kind: 'favorito', layer: 'favoritos', name: 'Favorito', label: 'Favorito', color: '#f59e0b', primary: true },
   Y: { kind: 'purificadora', layer: 'competencia', name: 'Purificadora', label: 'Competencia (+ precio)', color: '#0f766e' },
   E: { kind: 'express', layer: 'ancla_campo', name: 'Express', label: 'Express', color: '#ea580c' },
@@ -315,7 +316,7 @@ const LS_CLARITY = 'purif_scout_clarity';
 const LS_HOP = 'purif_scout_hop_m';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
-const SCOUT_VERSION = '1.9.6';
+const SCOUT_VERSION = '1.9.7';
 const HOP_M_DEFAULT = 28;
 const HOP_M_MIN = 15;
 const HOP_M_MAX = 80;
@@ -503,7 +504,7 @@ var routeMode = 'todo';
 
 (function buildKeymap(){
   var host = $('keymap');
-  ['M','S','F','Y','E','P','I','H','N'].forEach(function(k){
+  ['M','S','A','F','Y','E','P','I','H','N'].forEach(function(k){
     var h = SCOUT_HOTKEYS[k];
     if (!h) return;
     var row = document.createElement('div');
