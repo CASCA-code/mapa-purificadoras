@@ -2472,6 +2472,29 @@
         "status": "inbox",
         "layer": "competencia"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37059009958095,
+          25.83589038082864
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug43oep_1pqe62",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:37:09.073Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "izjxiAR1N0vh27iknS9jnQ",
+        "client": "scout.html"
+      }
     }
   ]
 }
