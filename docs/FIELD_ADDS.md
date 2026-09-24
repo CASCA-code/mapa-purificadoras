@@ -32,3 +32,5 @@ Actualizado: 2026-09-24 — dock ★/＋/Comp + Scout auto-ntfy; merge Action ~c
 Las capas Semáforos / Altos del mapa vienen de OSM (`data/semaforos_zmm.geojson`, `data/stops_zmm.geojson`) y son **independientes** de field_adds / ntfy / Scout sync. Incluyen señales `highway=traffic_signals` (nodo/vía), cruces `crossing=traffic_signals`, `highway=stop|give_way` y `traffic_sign=stop` cuando están mapeados.
 La cobertura OSM sigue incompleta; Scout **S** sigue siendo la vía para altos/semáforos vistos en campo. Regenerar: `python3 scripts/fetch_osm_traffic.py`.
 
+## Dedupe display (Scout vs Places/OSM)
+Mapa: `DEDUPE_M = 10` — Scout gana sobre Places/OSM mismo kind ≤10 m. Ver [`SCOUT.md`](SCOUT.md). Sin script de flow-count aún.

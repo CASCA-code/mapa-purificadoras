@@ -65,3 +65,5 @@ Capas gratuitas de OpenStreetMap en el panel **Anclas → Tránsito**: **Semáfo
 La consulta incluye `highway=traffic_signals` en nodos/vías y `crossing=traffic_signals` (cruce señalizado), además de `highway=stop|give_way` y `traffic_sign=stop` en nodos/vías. No son cobertura completa (OSM incompleto en ZMM); no puntúan. Para marcas manuales de campo sigue usando Scout **S**.
 Refrescar datos: `python3 scripts/fetch_osm_traffic.py` → commit de `data/semaforos_zmm.geojson` + `data/stops_zmm.geojson`.
 
+## Dedupe 10 m (Scout vs Places/OSM)
+`DEDUPE_M = 10` en `index.html`: si Scout y Places/OSM del mismo kind están a ≤10 m, el mapa muestra solo Scout (no doble conteo visual). Ver [`docs/SCOUT.md`](docs/SCOUT.md).

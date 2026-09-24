@@ -99,6 +99,11 @@ Userscript Tampermonkey + extensión Chrome sobre `google.com/maps`: [`SCOUT_USE
 - `scout-sv.html` redirige a `scout.html`.
 - Notas antiguas: [`SCOUT_SV.md`](SCOUT_SV.md).
 
+
+## Dedupe Scout ↔ Places/OSM (10 m)
+
+`DEDUPE_M = 10` en `index.html`: si un pin Scout (`field_adds`) y un feature Places/OSM del **mismo kind** están a ≤ ~10 m (haversine), se trata como **un solo lugar**. Gana Scout (verdad de campo, borde punteado); se oculta el gemelo Places/OSM. Aplica a modelorama, express, iglesia, escuela, empeno. Favoritos no cambian. Por ahora solo dedupe de **display** en el mapa (aún no hay script de conteo de flujo).
+
 ## ToS
 
 Human-in-the-loop en el marcado. No scrapear nombres de negocio ni cachear imagery SV — solo GeoJSON (coords + props).

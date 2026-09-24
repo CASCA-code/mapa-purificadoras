@@ -981,7 +981,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260924-scout-alto';
+window.__PURIF_BUILD = '20260924-dedupe10m';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -1162,6 +1162,72 @@ MUNS.forEach(([name,la,lo])=> L.marker([la,lo], {interactive:false, keyboard:fal
   icon:L.divIcon({className:'mun-label', html:name, iconSize:[130,14], iconAnchor:[65,7]})}).addTo(labels));
 labels.addTo(map); /* default ON: etiquetas de municipio */
 
+
+/* ---------- Scout ↔ Places/OSM 10 m dedupe (Nicolás) ----------
+ * DEDUPE_M = 10 — if a Scout field_add and a Places/OSM feature of the same
+ * kind lie within ~10 m (haversine), treat as ONE place for display/flow:
+ * Scout wins (field truth, dashed pin); hide the Places/OSM twin.
+ * Applies to modelorama, express, iglesia, escuela, empeno (any kind where
+ * Scout + Places or OSM can overlap). Favoritos unchanged. Map-display only
+ * for now (no separate flow-count script yet). */
+const DEDUPE_M = 10;
+function haversineM(lat1, lng1, lat2, lng2){
+  const R = 6371000;
+  const toRad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * toRad;
+  const dLng = (lng2 - lng1) * toRad;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2)
+    + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad)
+      * Math.sin(dLng/2) * Math.sin(dLng/2);
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+const _dedupeBase = {};  /* kind -> [{lat,lng,marker,layer,suppressed}] */
+const _dedupeScout = {}; /* kind -> [{lat,lng}] */
+const DEDUPE_KINDS = { modelorama:1, express:1, iglesia:1, escuela:1, empeno:1 };
+function registerBaseAnchor(kind, lat, lng, marker, layer){
+  if (!DEDUPE_KINDS[kind] || !marker) return;
+  if (!_dedupeBase[kind]) _dedupeBase[kind] = [];
+  _dedupeBase[kind].push({ lat: +lat, lng: +lng, marker: marker, layer: layer, suppressed: false });
+}
+function hasScoutTwin(kind, lat, lng){
+  const list = _dedupeScout[kind] || [];
+  for (let i = 0; i < list.length; i++){
+    if (haversineM(lat, lng, list[i].lat, list[i].lng) <= DEDUPE_M) return true;
+  }
+  return false;
+}
+function hasBaseTwin(kind, lat, lng){
+  const list = _dedupeBase[kind] || [];
+  for (let i = 0; i < list.length; i++){
+    if (list[i].suppressed) continue;
+    if (haversineM(lat, lng, list[i].lat, list[i].lng) <= DEDUPE_M) return true;
+  }
+  return false;
+}
+function suppressBaseTwins(kind, lat, lng){
+  const list = _dedupeBase[kind] || [];
+  let n = 0;
+  for (let i = 0; i < list.length; i++){
+    const b = list[i];
+    if (b.suppressed) continue;
+    if (haversineM(lat, lng, b.lat, b.lng) <= DEDUPE_M) {
+      b.suppressed = true;
+      n++;
+      try { if (b.layer && b.marker) b.layer.removeLayer(b.marker); } catch (e) {}
+    }
+  }
+  return n;
+}
+function registerScoutAnchor(kind, lat, lng){
+  if (!DEDUPE_KINDS[kind]) return 0;
+  if (!_dedupeScout[kind]) _dedupeScout[kind] = [];
+  _dedupeScout[kind].push({ lat: +lat, lng: +lng });
+  return suppressBaseTwins(kind, +lat, +lng);
+}
+window.__purifDedupeM = DEDUPE_M;
+window.__purifHasBaseTwin = hasBaseTwin;
+window.__purifRegisterScoutAnchor = registerScoutAnchor;
+
 /* ---------- CONTEXT: anclas azules por tipo / subtipo — no puntúan ---------- */
 const TIPO_LABEL = {iglesia:'Iglesia', hospital:'Hospital', escuela:'Escuela'};
 const SUBTIPO_LABEL = {
@@ -1212,6 +1278,8 @@ const ANCLA_GROUPS = {iglesia: anclasIglesia, hospital: anclasHospital};
   const ll = [ft.geometry.coordinates[1], ft.geometry.coordinates[0]];
   const mun = p.mun ? '<br>'+p.mun : '';
   if (tipo === 'escuela') {
+    /* Scout wins: skip OSM escuela if Scout twin ≤ DEDUPE_M */
+    if (hasScoutTwin('escuela', ll[0], ll[1])) return;
     const sub = (p.subtipo && anclasEscuelaBySub[p.subtipo]) ? p.subtipo : 'otra';
     const m = L.marker(ll, {icon: anclaIcon('escuela', sub), keyboard: true});
     m.bindPopup(
@@ -1220,10 +1288,12 @@ const ANCLA_GROUPS = {iglesia: anclasIglesia, hospital: anclasHospital};
       '<br>'+(p.fuente || 'OSM')+(p.osm_tag ? ' · '+p.osm_tag : '')+' · '+sub+'</span>'
     );
     m.addTo(anclasEscuelaBySub[sub]);
+    registerBaseAnchor('escuela', ll[0], ll[1], m, anclasEscuelaBySub[sub]);
     return;
   }
   const group = ANCLA_GROUPS[tipo];
   if (!group) return;
+  if (tipo === 'iglesia' && hasScoutTwin('iglesia', ll[0], ll[1])) return;
   const m = L.marker(ll, {icon: anclaIcon(tipo), keyboard: true});
   m.bindPopup(
     '<b>'+(p.name || '(sin nombre)')+'</b><br><span class="p-sub">' +
@@ -1231,6 +1301,7 @@ const ANCLA_GROUPS = {iglesia: anclasIglesia, hospital: anclasHospital};
     '<br>'+(p.fuente || 'OSM')+(p.osm_tag ? ' · '+p.osm_tag : '')+'</span>'
   );
   m.addTo(group);
+  if (tipo === 'iglesia') registerBaseAnchor('iglesia', ll[0], ll[1], m, group);
 });
 /* default off: anclas OSM */
 let escuelasMasterOn = true;
@@ -1380,6 +1451,8 @@ function paintPlacesAnclas(fc){
     const p = ft.properties || {};
     let kind = p.kind || 'otro';
     if (!placesByKind[kind]) kind = 'otro';
+    /* Scout wins: skip Places twin ≤ DEDUPE_M (modelorama / express) */
+    if (DEDUPE_KINDS[kind] && hasScoutTwin(kind, c[1], c[0])) return;
     counts[kind] = (counts[kind] || 0) + 1;
     const name = p.name || PLACES_LABELS[kind] || kind;
     const addr = p.address || '';
@@ -1391,6 +1464,7 @@ function paintPlacesAnclas(fc){
       { maxWidth: 260, autoPan: false }
     );
     m.addTo(placesByKind[kind]);
+    if (DEDUPE_KINDS[kind]) registerBaseAnchor(kind, c[1], c[0], m, placesByKind[kind]);
   });
   PLACES_KINDS.forEach(function(k){
     const btn = document.querySelector('.tbtn[data-l="places_'+k+'"] span');
@@ -1527,6 +1601,8 @@ function paintPrestamosAnclas(fc){
     const p = ft.properties || {};
     let kind = p.kind || 'prestamo';
     if (!prestamosByKind[kind]) kind = 'prestamo';
+    /* Scout wins: skip Places empeño twin ≤ DEDUPE_M */
+    if (kind === 'empeno' && hasScoutTwin('empeno', c[1], c[0])) return;
     counts[kind] = (counts[kind] || 0) + 1;
     const name = p.name || PRESTAMOS_LABELS[kind] || kind;
     const addr = p.address || '';
@@ -1538,6 +1614,7 @@ function paintPrestamosAnclas(fc){
       { maxWidth: 260, autoPan: false }
     );
     m.addTo(prestamosByKind[kind]);
+    if (kind === 'empeno') registerBaseAnchor('empeno', c[1], c[0], m, prestamosByKind[kind]);
   });
   PRESTAMOS_KINDS.forEach(function(k){
     const btn = document.querySelector('.tbtn[data-l="prestamos_'+k+'"] span');
@@ -3777,6 +3854,10 @@ window.__purifReady && window.__purifReady.then(function(){
     if (isScoutKind) {
       lines.push(window.__purifScoutProvenance || 'Añadida con Scout');
       lines.push(ANCHOR_LABELS[k] || 'Ancla');
+      /* optional enrich: Places/OSM twin within DEDUPE_M */
+      if (typeof window.__purifHasBaseTwin === 'function' && window.__purifHasBaseTwin(k, c[1], c[0])) {
+        lines.push('también confirmado en Places/OSM (≤' + (window.__purifDedupeM || 10) + ' m)');
+      }
     } else {
       lines.push(ANCHOR_LABELS[k] || 'Ancla');
     }
@@ -3805,6 +3886,10 @@ window.__purifReady && window.__purifReady.then(function(){
         }
       });
     }, null, markerOpts);
+    /* Scout wins over Places/OSM twin ≤ DEDUPE_M */
+    if (isScoutKind && typeof window.__purifRegisterScoutAnchor === 'function') {
+      window.__purifRegisterScoutAnchor(k, c[1], c[0]);
+    }
   }
   function saveAnchor(){
     const g = sheetGeo();
