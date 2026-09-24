@@ -9,12 +9,12 @@ Actualizado: 2026-09-24 — dock ★/＋/Comp + Scout auto-ntfy; merge Action ~c
 
 
 ## Scout → mismo pipeline
-`scout.html` hace upsert/delete ntfy en cada pin, comentario LineString y undo (toast Enviado al mapa / Error sync). Misma bandeja y merge que el dock del mapa. Delay hasta Pages: schedule ~2 h (ver workflow `merge-field-adds`).
+`scout.html` hace upsert/delete ntfy en cada pin, comentario LineString y undo (toast Enviado al mapa / Error sync). Misma bandeja y merge que el dock del mapa. Delay hasta Pages: ~2 h **si** el merge workflow está instalado; si no, hay que mergear a mano / instalar Action.
 
 ## Qué hace Purificador / routine / GitHub Actions
 - Poll ntfy → `python3 scripts/merge_field_add_issues.py` → escribe `data/field_adds.geojson` + `data/field_adds_deleted.json` → commit+push Pages.
 - Cadencia: Actions en schedule (~cada 2 h), `workflow_dispatch` y `repository_dispatch` (`merge-field-adds`). Si no hay cambios, silencio (`NO_CHANGES`).
-- Workflow: `.github/workflows/merge-field-adds.yml` (copia de `docs/merge-field-adds.workflow.yml`). Cron `15 */2 * * *` + dispatch manual.
+- Plantilla: `docs/merge-field-adds.workflow.yml` → instalar en `.github/workflows/merge-field-adds.yml` (token scope `workflow`). Cron `15 */2 * * *` + dispatch. **Estado 2026-09-24:** el repo solo tiene Pages Action; el merge workflow aún no está activo — pines llegan a ntfy + LS, pero no a `field_adds.geojson` hasta instalarlo o correr `python3 scripts/merge_field_add_issues.py` a mano.
 - Deletes: si el `id` aún no está en el geojson, igual se persiste en `field_adds_deleted.json` (tombstone) para no re-mergear luego.
 
 ## ntfy topic (seguridad)

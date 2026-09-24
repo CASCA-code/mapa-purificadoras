@@ -74,8 +74,8 @@ Al soltar pin: upsert ntfy + `localStorage` (`purificadoras_field_adds_v1` / `pu
 ## Sync → mapa principal
 
 - Cada hotkey / comentario / undo llama `silentSync` (fetch a ntfy `purif-zmm-campo-casca-v1`) al instante; toast **Enviado al mapa** / **Error sync**.
-- El mapa público lee `data/field_adds.geojson` tras el merge Action (`.github/workflows/merge-field-adds.yml`): cron **cada ~2 h** (`15 */2`), más `workflow_dispatch` / `repository_dispatch` (`merge-field-adds`).
-- **Latencia típica hasta ver el pin en el mapa:** hasta ~2 h (o menos si alguien dispara el workflow). LS local es inmediato en el mismo browser.
+- El mapa público lee `data/field_adds.geojson` tras el merge Action (plantilla `docs/merge-field-adds.workflow.yml` → `.github/workflows/`): cron **cada ~2 h** si está instalado (`15 */2`), más `workflow_dispatch` / `repository_dispatch` (`merge-field-adds`).
+- **Latencia:** LS local inmediato. ntfy inmediato (toast Enviado al mapa). Mapa público: hasta ~2 h **después de instalar** el merge workflow; hoy hay que mergear a mano (`scripts/merge_field_add_issues.py`) o copiar la plantilla a `.github/workflows/`.
 - Cache-bust: `scout.html?v=<commit>` tras deploy Pages.
 
 ## Qué aún necesita Places / Static (no habilitado)
