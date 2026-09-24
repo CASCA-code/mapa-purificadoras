@@ -29,6 +29,6 @@ Actualizado: 2026-09-24 — dock ★/＋/Comp + Scout auto-ntfy; merge Action ~c
 - Liked zones vs favoritos campo: si mismo `id` o mismas coords (~5 dec), el mapa no pinta el liked encima del favorito de `field_adds`.
 
 ## Tránsito OSM (contexto)
-Las capas Semáforos / Altos del mapa vienen de OSM (`data/semaforos_zmm.geojson`, `data/stops_zmm.geojson`) y son **independientes** de field_adds / ntfy / Scout sync.
-Cobertura incompleta; Scout **S** sigue siendo la vía para altos/semáforos vistos en campo. Regenerar: `python3 scripts/fetch_osm_traffic.py`.
+Las capas Semáforos / Altos del mapa vienen de OSM (`data/semaforos_zmm.geojson`, `data/stops_zmm.geojson`) y son **independientes** de field_adds / ntfy / Scout sync. Incluyen señales `highway=traffic_signals` (nodo/vía), cruces `crossing=traffic_signals`, `highway=stop|give_way` y `traffic_sign=stop` cuando están mapeados.
+La cobertura OSM sigue incompleta; Scout **S** sigue siendo la vía para altos/semáforos vistos en campo. Regenerar: `python3 scripts/fetch_osm_traffic.py`.
 

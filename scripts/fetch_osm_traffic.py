@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Fetch OSM traffic_signals + stop/give_way for ZMM → GeoJSON layers.
+"""Fetch OSM traffic infrastructure for ZMM → GeoJSON layers.
 
 Usage:
   python3 scripts/fetch_osm_traffic.py
 
 Writes:
-  data/semaforos_zmm.geojson  (highway=traffic_signals)
-  data/stops_zmm.geojson      (highway=stop + give_way)
+  data/semaforos_zmm.geojson  (highway=traffic_signals + signalized crossings)
+  data/stops_zmm.geojson      (stop/give_way highway and traffic_sign tags)
 
 BBox: extent of data/colonias.geojson (+ pad) — scored ZMM metro.
 (Roads prebake uses Escobedo-only; this layer intentionally covers full ZMM.)
 
-Retries Overpass mirrors; tiles stop queries on 504; hard per-request timeout.
+Retries Overpass mirrors; tiles queries on 504; hard per-request timeout.
 No Google billing.
 """
 from __future__ import annotations
@@ -121,16 +121,19 @@ def feature_from_el(el):
             return None
         lon, lat = float(center["lon"]), float(center["lat"])
     tags = el.get("tags") or {}
-    hw = tags.get("highway") or ""
     osm_type = el.get("type") or "node"
     osm_id = el.get("id")
+    # Keep the canonical OSM element identity.  Ways are represented by their
+    # Overpass center because the map layer is intentionally point-based.
+    if osm_id is None:
+        return None
     props = {
-        "highway": hw,
         "fuente": "osm",
-        "osm_id": f"{osm_type}/{osm_id}" if osm_id is not None else None,
+        "osm_id": f"{osm_type}/{osm_id}",
     }
-    if tags.get("name"):
-        props["name"] = tags["name"]
+    for key in ("highway", "crossing", "traffic_sign", "name"):
+        if tags.get(key):
+            props[key] = tags[key]
     return {
         "type": "Feature",
         "properties": props,
@@ -141,21 +144,40 @@ def feature_from_el(el):
     }
 
 
-def collect(elements, allow_hw, seen):
+def collect(elements, predicate, seen):
     feats = []
     for el in elements or []:
+        if not predicate(el.get("tags") or {}):
+            continue
         ft = feature_from_el(el)
         if not ft:
             continue
-        hw = ft["properties"].get("highway") or ""
-        if hw not in allow_hw:
-            continue
         key = ft["properties"].get("osm_id")
-        if key in seen:
+        # Queries overlap at tile edges and may match more than one tag.  OSM
+        # element identity is the dedupe key, never coordinates.
+        if not key or key in seen:
             continue
         seen.add(key)
         feats.append(ft)
     return feats
+
+
+def is_signal(tags):
+    return (
+        tags.get("highway") == "traffic_signals"
+        or tags.get("crossing") == "traffic_signals"
+    )
+
+
+def is_stop(tags):
+    traffic_sign = (tags.get("traffic_sign") or "").lower()
+    # traffic_sign can contain semicolon-separated values.  Only accept the
+    # explicit stop value; do not infer a stop from road geometry or imagery.
+    traffic_sign_values = {part.strip() for part in traffic_sign.split(";")}
+    return (
+        tags.get("highway") in {"stop", "give_way"}
+        or "stop" in traffic_sign_values
+    )
 
 
 def write_fc(path, feats, scope, bbox_wsen):
@@ -189,29 +211,34 @@ def tile_boxes(south, west, north, east, rows, cols):
     return boxes
 
 
-def fetch_signals(south, west, north, east):
-    q = (
-        f"[out:json][timeout:{OVERPASS_TIMEOUT}];\n"
-        f'node["highway"="traffic_signals"]({south},{west},{north},{east});\n'
-        f"out;"
-    )
-    data = overpass_fetch(q)
-    return collect(data.get("elements"), {"traffic_signals"}, set())
+def traffic_query(south, west, north, east, timeout):
+    clauses = []
+    for element_type in ("node", "way"):
+        clauses.extend([
+            f'  {element_type}["highway"="traffic_signals"]({south},{west},{north},{east});',
+            f'  {element_type}["crossing"="traffic_signals"]({south},{west},{north},{east});',
+        ])
+    return f"[out:json][timeout:{timeout}];\n(\n" + "\n".join(clauses) + "\n);\nout center;"
 
 
-def fetch_stops_tiled(south, west, north, east):
+def stop_query(south, west, north, east, timeout):
+    clauses = []
+    for element_type in ("node", "way"):
+        clauses.extend([
+            f'  {element_type}["highway"="stop"]({south},{west},{north},{east});',
+            f'  {element_type}["highway"="give_way"]({south},{west},{north},{east});',
+            f'  {element_type}["traffic_sign"~"(^|;)stop(;|$)",i]({south},{west},{north},{east});',
+        ])
+    return f"[out:json][timeout:{timeout}];\n(\n" + "\n".join(clauses) + "\n);\nout center;"
+
+
+def fetch_tiled(south, west, north, east, query_builder, predicate, label):
     seen = set()
     feats = []
     boxes = tile_boxes(south, west, north, east, TILE_ROWS, TILE_COLS)
     for idx, (ts, tw, tn, te) in enumerate(boxes):
-        print(f"tile {idx + 1}/{len(boxes)}", round(ts, 4), round(tw, 4), round(tn, 4), round(te, 4), flush=True)
-        q = (
-            f"[out:json][timeout:45];\n"
-            f"(\n"
-            f'  node["highway"="stop"]({ts},{tw},{tn},{te});\n'
-            f'  node["highway"="give_way"]({ts},{tw},{tn},{te});\n'
-            f");\nout;"
-        )
+        print(f"{label} tile {idx + 1}/{len(boxes)}", round(ts, 4), round(tw, 4), round(tn, 4), round(te, 4), flush=True)
+        q = query_builder(ts, tw, tn, te)
         data = None
         for attempt in range(TILE_RETRIES):
             try:
@@ -223,10 +250,28 @@ def fetch_stops_tiled(south, west, north, east):
         if data is None:
             print("SKIP tile", idx + 1, flush=True)
             continue
-        chunk = collect(data.get("elements"), {"stop", "give_way"}, seen)
+        chunk = collect(data.get("elements"), predicate, seen)
         feats.extend(chunk)
         print(" +", len(chunk), "total", len(feats), flush=True)
     return feats
+
+
+def fetch_signals_tiled(south, west, north, east):
+    return fetch_tiled(
+        south, west, north, east,
+        lambda ts, tw, tn, te: traffic_query(ts, tw, tn, te, OVERPASS_TIMEOUT),
+        is_signal,
+        "signals",
+    )
+
+
+def fetch_stops_tiled(south, west, north, east):
+    return fetch_tiled(
+        south, west, north, east,
+        lambda ts, tw, tn, te: stop_query(ts, tw, tn, te, 45),
+        is_stop,
+        "stops",
+    )
 
 
 def main():
@@ -234,24 +279,24 @@ def main():
     print("bbox", south, west, north, east, flush=True)
     bbox_wsen = [west, south, east, north]
 
-    print("=== traffic_signals ===", flush=True)
-    sema = fetch_signals(south, west, north, east)
+    print("=== traffic_signals + crossing=traffic_signals (tiled) ===", flush=True)
+    sema = fetch_signals_tiled(south, west, north, east)
     print("semaforos", len(sema), flush=True)
 
-    print("=== stop / give_way (tiled) ===", flush=True)
+    print("=== stop / give_way / traffic_sign=stop (tiled) ===", flush=True)
     stops = fetch_stops_tiled(south, west, north, east)
     print("stops", len(stops), flush=True)
 
     write_fc(
         OUT_SEMA,
         sema,
-        "ZMM highway=traffic_signals (colonias bbox + pad)",
+        "ZMM highway=traffic_signals plus crossing=traffic_signals (colonias bbox + pad)",
         bbox_wsen,
     )
     write_fc(
         OUT_STOP,
         stops,
-        "ZMM highway=stop|give_way (colonias bbox + pad)",
+        "ZMM highway=stop|give_way plus traffic_sign=stop (colonias bbox + pad)",
         bbox_wsen,
     )
     print("done semaforos", len(sema), "stops", len(stops))
