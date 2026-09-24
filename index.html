@@ -872,9 +872,9 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <i aria-hidden="true" style="background:#e53e3e;border-color:#9b2c2c;color:#fff;font-size:9px;font-weight:700;border-radius:2px">■</i>
       <span>Altos / stops</span>
     </button>
-    <button type="button" class="tbtn ctx on" id="likedZonesToggle" aria-pressed="true" title="Zonas que a Nicolás le gustaron para volver">
-      <i aria-hidden="true" style="background:#fbbf24;border-color:#b45309;color:#78350f;font-size:11px;font-weight:700">★</i>
-      <span>★ Me gustó (volver)</span>
+    <button type="button" class="tbtn ctx on" id="likedZonesToggle" aria-pressed="true" title="Favoritos unificados (campo + me gustó). Verde = teléfono real CRM; ámbar = interés sin teléfono">
+      <i aria-hidden="true" style="background:#0f766e;border-color:#115e59;color:#ecfdf5;font-size:11px;font-weight:700">★</i>
+      <span>Favoritos</span>
     </button>
    </div>
 
@@ -909,7 +909,8 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <div class="row"><span class="sw ico" title="Azteca" style="background:#2f855a;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">Z</span> Banco Azteca</div>
     <div class="row"><span class="sw ico" title="Semáforo" style="background:#ecc94b;border-radius:50%;border:1px solid #975a16"></span> semáforo (OSM · cobertura incompleta)</div>
     <div class="row"><span class="sw ico" title="Alto" style="background:#e53e3e;border-radius:2px;color:#fff;font:700 8px/16px sans-serif;text-align:center">A</span> alto / yield (OSM · Scout S manual)</div>
-    <div class="row"><span class="sw ico" title="Me gustó" style="background:#fbbf24;border-radius:50%;color:#78350f;font:700 11px/16px sans-serif;text-align:center">★</span> zona me gustó (volver)</div>
+    <div class="row"><span class="sw ico" title="Favorito con teléfono" style="background:#0f766e;border-radius:50%;color:#ecfdf5;font:700 11px/16px sans-serif;text-align:center">★</span> Favorito con teléfono (CRM / llamar)</div>
+    <div class="row"><span class="sw ico" title="Favorito sin teléfono" style="background:#f59e0b;border-radius:50%;color:#78350f;font:700 11px/16px sans-serif;text-align:center">★</span> Favorito sin teléfono (interés)</div>
     <div class="row"><span class="sw ring"></span> contexto: anillos 5/10/15 km</div>
     <div class="row"><span class="sw line"></span> límite de municipio · <span style="opacity:.6">— — San Pedro (excluido)</span></div>
     <p class="gap" style="margin-top:8px"><a href="scout.html" style="font-weight:600">Scout Street View</a> — Maps JS + avenidas OSM (cero paste de key). Fallback: <a href="docs/SCOUT_USERSCRIPT.md">Tampermonkey</a>.</p>
@@ -958,7 +959,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260924-places-anclas';
+window.__PURIF_BUILD = '20260924-favoritos-tel';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -2794,11 +2795,13 @@ window.__purifReady && window.__purifReady.then(function(){
   const markersOurs = Object.create(null);
   const markersAnclas = Object.create(null);
 
+  window.__purifFavoritosOn = true;
+  window.__purifLayerFavoritos = layerOurs;
   function ensureLayers(){
     const m = getMap();
     if (!m) return null;
     if (!m.hasLayer(layerComp)) layerComp.addTo(m);
-    if (!m.hasLayer(layerOurs)) layerOurs.addTo(m);
+    if (window.__purifFavoritosOn !== false && !m.hasLayer(layerOurs)) layerOurs.addTo(m);
     if (!m.hasLayer(layerAnclas)) layerAnclas.addTo(m);
     return m;
   }
@@ -3011,10 +3014,18 @@ window.__purifReady && window.__purifReady.then(function(){
     delete store[id];
   }
 
+  function hasRealPhone(raw){
+    var dig = String(raw == null ? '' : raw).replace(/\D/g, '');
+    if (dig.length < 8) return false;
+    if (/^0+$/.test(dig)) return false;
+    if (/^(\d)\1+$/.test(dig)) return false; /* all same digit */
+    if (/^8000+$/.test(dig)) return false; /* 800 + zeros / Tec campo placeholder */
+    return true;
+  }
+  window.__purifHasRealPhone = hasRealPhone;
   function dialHref(phone){
-    var raw = String(phone || '');
-    var dig = raw.replace(/\D/g, '');
-    if (dig.length < 8) return null;
+    if (!hasRealPhone(phone)) return null;
+    var dig = String(phone || '').replace(/\D/g, '');
     if (dig.length === 10) dig = '52' + dig;
     return 'tel:+' + dig;
   }
@@ -3273,13 +3284,17 @@ window.__purifReady && window.__purifReady.then(function(){
     const c = f.geometry.coordinates;
     const id = p.id;
     const lines = [];
-    if (p.telefono) lines.push('Tel: ' + p.telefono);
+    var phoneVal = pickPhone(p);
+    var realTel = hasRealPhone(phoneVal || p.telefono);
+    if (realTel) {
+      var shown = phoneVal || p.telefono;
+      if (shown) lines.push('Tel: ' + shown);
+    }
     if (p.anfitrion) lines.push('Anfitrión: ' + p.anfitrion);
     if (p.descripcion) lines.push(p.descripcion);
     lines.push('Favorito');
-    var phoneVal = pickPhone(p);
-    if (phoneVal && lines.indexOf('Tel: ' + phoneVal) < 0 && !p.telefono) lines.unshift('Tel: ' + phoneVal);
-    addVisibleMarker([c[1], c[0]], '#f59e0b', p.name || 'Favorito', lines, markersOurs, id, layerOurs, function(){
+    var starColor = realTel ? '#0f766e' : '#f59e0b';
+    addVisibleMarker([c[1], c[0]], starColor, p.name || 'Favorito', lines, markersOurs, id, layerOurs, function(){
       var feat = null;
       var prev = loadLS(LS_OURS);
       for (var i = 0; i < prev.length; i++) {
@@ -3807,24 +3822,41 @@ window.__purifReady && window.__purifReady.then(function(){
 <script>
 window.__purifReady && window.__purifReady.then(function(){
 /* deferred until layers boot (liked) */
-/* ★ Zonas me gustó — published from Purificador / Campo */
+/* ★ Favoritos unificados — field_adds (favorito) + liked_zones, un solo toggle */
 (function(){
-  var layerLiked = L.layerGroup().addTo(window.map);
-  var starIcon = L.divIcon({
-    className: '',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    html: '<div style="width:28px;height:28px;border-radius:50%;background:#fbbf24;border:2px solid #78350f;display:flex;align-items:center;justify-content:center;font:700 16px/1 system-ui;color:#78350f;box-shadow:0 2px 6px rgba(0,0,0,.35)">★</div>'
-  });
+  var likedMarkers = [];
+  function favLayer(){
+    return window.__purifLayerFavoritos || null;
+  }
+  function hasRealPhone(raw){
+    if (typeof window.__purifHasRealPhone === 'function') return window.__purifHasRealPhone(raw);
+    var dig = String(raw == null ? '' : raw).replace(/\D/g, '');
+    if (dig.length < 8) return false;
+    if (/^0+$/.test(dig)) return false;
+    if (/^(\d)\1+$/.test(dig)) return false;
+    if (/^8000+$/.test(dig)) return false;
+    return true;
+  }
   function dialHrefLiked(phone){
+    if (!hasRealPhone(phone)) return null;
     var dig = String(phone || '').replace(/\D/g, '');
-    if (dig.length < 8) return null;
     if (dig.length === 10) dig = '52' + dig;
     return 'tel:+' + dig;
   }
+  function starIcon(color){
+    var fill = color || '#f59e0b';
+    var ink = (fill === '#0f766e') ? '#ecfdf5' : '#78350f';
+    var border = (fill === '#0f766e') ? '#115e59' : '#b45309';
+    return L.divIcon({
+      className: '',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+      html: '<div style="width:28px;height:28px;border-radius:50%;background:'+fill+';border:2px solid '+border+';display:flex;align-items:center;justify-content:center;font:700 16px/1 system-ui;color:'+ink+';box-shadow:0 2px 6px rgba(0,0,0,.35)">★</div>'
+    });
+  }
   function popupHtml(p){
     var note = (p.nota || '').replace(/</g,'&lt;');
-    var name = (p.name || 'Zona ★').replace(/</g,'&lt;');
+    var name = (p.name || 'Favorito').replace(/</g,'&lt;');
     var col = (p.colonia || '').replace(/</g,'&lt;');
     var st = p.status === 'liked_rejected' ? '<div style="margin-top:6px;color:#fecaca;font-weight:700">Rechazo en campo</div>' : '';
     var maps = p.maps ? '<div style="margin-top:8px"><a href="'+String(p.maps).replace(/"/g,'')+'" target="_blank" rel="noopener" style="color:#93c5fd">Abrir en Maps</a></div>' : '';
@@ -3832,11 +3864,13 @@ window.__purifReady && window.__purifReady.then(function(){
     var tel = dialHrefLiked(phone);
     var host = (p.anfitrion || '').replace(/</g,'&lt;');
     var hostLine = host ? '<div style="margin:4px 0;font-size:12px">Anfitrión: '+host+'</div>' : '';
+    var phoneLine = tel ? '<div style="margin:4px 0;font-size:12px">Tel: '+String(phone).replace(/</g,'&lt;')+'</div>' : '';
     var call = tel
       ? '<div style="margin-top:8px"><a href="'+tel+'" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;background:#16a34a;color:#fff!important;font:700 13px system-ui;text-decoration:none">📞 Llamar</a></div>'
       : '';
     return '<div class="field-popup" style="min-width:180px;color:#fff"><b style="color:#fde68a">★ '+name+'</b>'+
       (col?'<div style="margin:4px 0;font-size:12px;opacity:.9">'+col+'</div>':'')+
+      phoneLine+
       '<div style="margin:6px 0;font-size:12px;line-height:1.35;white-space:pre-wrap">'+note+'</div>'+st+hostLine+call+maps+'</div>';
   }
   function isDupOfFieldFav(f){
@@ -3847,26 +3881,37 @@ window.__purifReady && window.__purifReady.then(function(){
     if (c && keys['xy:' + Number(c[0]).toFixed(5) + ',' + Number(c[1]).toFixed(5)]) return true;
     return false;
   }
+  function clearLikedMarkers(){
+    var layer = favLayer();
+    likedMarkers.forEach(function(m){
+      try { if (layer) layer.removeLayer(m); } catch (e) {}
+    });
+    likedMarkers = [];
+  }
   function paintLiked(fc){
+    var layer = favLayer();
+    if (!layer) return;
+    clearLikedMarkers();
     (fc.features||[]).forEach(function(f){
       var c = f.geometry && f.geometry.coordinates; if (!c) return;
-      // Skip si mismo id/coords que favorito en field_adds (evita doble ★)
       if (isDupOfFieldFav(f)) return;
       var p = f.properties || {};
-      var m = L.marker([c[1], c[0]], { icon: starIcon, keyboard:false, zIndexOffset: 1500 });
+      var phone = p.telefono || p.phone || '';
+      var color = hasRealPhone(phone) ? '#0f766e' : '#f59e0b';
+      var m = L.marker([c[1], c[0]], { icon: starIcon(color), keyboard:false, zIndexOffset: 1500 });
       m.bindPopup(popupHtml(p), { maxWidth: 280, className: 'field-pop', autoPan: false });
       m.on('click', function(ev){
         if (window.__purifRutaPanelOpen && window.__purifRutaPanelOpen() && window.__purifAddRutaStop) {
           L.DomEvent.stopPropagation(ev);
           try { m.closePopup(); window.map.closePopup(); } catch (e) {}
-          window.__purifAddRutaStop(c[1], c[0], '★ '+(p.name||'Me gustó'), null, null);
+          window.__purifAddRutaStop(c[1], c[0], '★ '+(p.name||'Favorito'), null, null);
           setTimeout(function(){ try { m.closePopup(); window.map.closePopup(); } catch (e) {} }, 0);
         }
       });
-      m.addTo(layerLiked);
+      m.addTo(layer);
+      likedMarkers.push(m);
     });
   }
-  // Cache-bust como field_adds; dedupe vs favoritos de field_adds (id o coords)
   function loadLiked(){
     var bust = Date.now();
     var likedP = fetch('data/liked_zones.geojson?v=' + bust, { cache: 'no-store' }).then(function(r){ return r.json(); });
@@ -3893,13 +3938,17 @@ window.__purifReady && window.__purifReady.then(function(){
   var btn = document.getElementById('likedZonesToggle');
   if (btn) {
     btn.addEventListener('click', function(){
+      var layer = favLayer();
       var on = btn.getAttribute('aria-pressed') !== 'true';
       btn.setAttribute('aria-pressed', String(on));
       btn.classList.toggle('on', on);
-      if (on) { if (!window.map.hasLayer(layerLiked)) layerLiked.addTo(window.map); }
-      else { if (window.map.hasLayer(layerLiked)) window.map.removeLayer(layerLiked); }
+      window.__purifFavoritosOn = on;
+      if (!window.map || !layer) return;
+      if (on) { if (!window.map.hasLayer(layer)) layer.addTo(window.map); }
+      else { if (window.map.hasLayer(layer)) window.map.removeLayer(layer); }
     });
   }
+})();
 })();
 }).catch(function(){});
 </script>
