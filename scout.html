@@ -139,8 +139,9 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
   padding:18px;box-shadow:var(--shadow);margin-bottom:24px;
 }
 #overlayStart h2{margin:0 0 4px;font:600 20px/1.2 Fraunces, Georgia, serif}
-.speedWrap{display:flex;align-items:center;gap:10px}
-.speedWrap input[type=range]{flex:1}
+.speedWrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.speedWrap input[type=range]{flex:1;min-width:80px}
+.hopWrap{margin-top:8px}
 @media (max-width:900px){
   #app{grid-template-columns:1fr;grid-template-rows:auto minmax(42vh,1fr) minmax(38vh,1fr)}
   #side{border-left:none;border-top:1px solid var(--hair)}
@@ -216,10 +217,15 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
           <span class="hint" style="margin:0">vel.</span>
           <input type="range" id="speedSlider" min="1" max="10" value="6" aria-label="Velocidad">
           <span id="speedLabel" class="hint" style="margin:0;min-width:3.5em">medio-rápido</span>
-          <label class="hint" style="margin:0;display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap" title="Menos blur: espera el pano y salta ~48 m">
+          <label class="hint" style="margin:0;display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap" title="Menos blur: espera a que cargue el pano (CSS + settle)">
             <input type="checkbox" id="chkClarity" checked style="margin:0">
             Nítido
           </label>
+        </div>
+        <div class="speedWrap hopWrap">
+          <span class="hint" style="margin:0;white-space:nowrap">Salto (m)</span>
+          <input type="range" id="hopSlider" min="15" max="80" value="28" step="1" aria-label="Metros por salto">
+          <span id="hopLabel" class="hint" style="margin:0;min-width:3.2em;font-variant-numeric:tabular-nums">28 m</span>
         </div>
         <div class="btns">
           <button type="button" class="btn primary" id="btnPause">Pausar (Space)</button>
@@ -315,10 +321,13 @@ const LS_FAV = 'purificadoras_ours_v1';
 const LS_LAST = 'purif_scout_last_pos';
 const LS_MODE = 'purif_scout_route_mode';
 const LS_CLARITY = 'purif_scout_clarity';
+const LS_HOP = 'purif_scout_hop_m';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
-const SCOUT_VERSION = '1.9.2';
-const CLARITY_MIN_HOP_M = 48;
+const SCOUT_VERSION = '1.9.3';
+const HOP_M_DEFAULT = 28;
+const HOP_M_MIN = 15;
+const HOP_M_MAX = 80;
 const minClarityMs = 600;
 const COMMENT_HALF_M = 30;
 const COMMENT_COLOR = '#db2777';
@@ -588,6 +597,11 @@ try {
   var _cl = localStorage.getItem(LS_CLARITY);
   if (_cl === '0' || _cl === 'false') clarityOn = false;
   else if (_cl === '1' || _cl === 'true') clarityOn = true;
+} catch (e) {}
+var hopMinM = HOP_M_DEFAULT;
+try {
+  var _hm = parseInt(localStorage.getItem(LS_HOP), 10);
+  if (isFinite(_hm)) hopMinM = Math.max(HOP_M_MIN, Math.min(HOP_M_MAX, _hm));
 } catch (e) {}
 var stepCount = 0;
 var routePoints = [];
@@ -1368,20 +1382,14 @@ function stepAlongRoute(){
     return;
   }
   var pt = null;
-  if (clarityOn) {
-    while (routeIndex < routePoints.length) {
-      pt = routePoints[routeIndex];
-      routeIndex++;
-      stepCount++;
-      var hopOk = !lastShownPos ||
-        haversineM(lastShownPos.lat, lastShownPos.lng, pt.lat, pt.lng) >= CLARITY_MIN_HOP_M;
-      var atEnd = routeIndex >= routePoints.length;
-      if (hopOk || atEnd) break;
-    }
-  } else {
+  while (routeIndex < routePoints.length) {
     pt = routePoints[routeIndex];
     routeIndex++;
     stepCount++;
+    var hopOk = !lastShownPos ||
+      haversineM(lastShownPos.lat, lastShownPos.lng, pt.lat, pt.lng) >= hopMinM;
+    var atEnd = routeIndex >= routePoints.length;
+    if (hopOk || atEnd) break;
   }
   if (!pt) return;
   setProgress();
@@ -1710,12 +1718,32 @@ $('speedLabel').textContent = speedLabel();
     clarityOn = !!chk.checked;
     try { localStorage.setItem(LS_CLARITY, clarityOn ? '1' : '0'); } catch (e) {}
     toast(clarityOn
-      ? 'Nítido: menos blur, saltos un poco más largos'
+      ? 'Nítido: menos blur, espera al pano'
       : 'Nítido off · cobertura densa (más blur)');
     if (!paused && walking) {
       clearClarityWait();
       scheduleNext();
     }
+  });
+})();
+(function initHopUi(){
+  var sl = $('hopSlider');
+  var lab = $('hopLabel');
+  if (!sl) return;
+  sl.value = String(hopMinM);
+  function syncHopLabel(){
+    if (lab) lab.textContent = hopMinM + ' m';
+  }
+  syncHopLabel();
+  sl.addEventListener('input', function(){
+    var v = parseInt(sl.value, 10);
+    if (!isFinite(v)) return;
+    hopMinM = Math.max(HOP_M_MIN, Math.min(HOP_M_MAX, v));
+    syncHopLabel();
+    try { localStorage.setItem(LS_HOP, String(hopMinM)); } catch (e) {}
+  });
+  sl.addEventListener('change', function(){
+    toast('Salto: ' + hopMinM + ' m entre panos');
   });
 })();
 try { $('scoutVer').textContent = 'v' + SCOUT_VERSION; } catch (e) {}
