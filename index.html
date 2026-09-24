@@ -841,6 +841,28 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <button class="tbtn ctx " data-l="anclas_banco_azteca" aria-pressed="false"><i aria-hidden="true" style="background:#2f855a;border-color:#276749;color:#fff;font-size:9px;font-weight:700">Z</i><span>Banco Azteca (22)</span></button>
      </div>
     </div>
+    <div class="esc-wrap" id="placesWrap">
+     <button type="button" class="tbtn ctx esc-parent" id="placesParent" aria-expanded="false" aria-controls="placesSub" aria-pressed="false" title="Anclas Places API (New) — no inventadas; fuente Google">
+      <i aria-hidden="true" id="placesParentIcon" style="background:#805ad5;border-color:#553c9a;color:#fff;font-size:9px;font-weight:700">P</i>
+      <span>Places (API)</span>
+      <span class="chev" aria-hidden="true">▾</span>
+     </button>
+     <div class="esc-sub" id="placesSub" role="group" aria-label="Anclas Places API por marca">
+      <div class="esc-master"><span id="placesSummary">todas activas</span>
+        <button type="button" id="placesAllOn" title="Activar todas">Todas</button>
+        <button type="button" id="placesAllOff" title="Desactivar todas">Ninguna</button>
+      </div>
+      <button class="tbtn ctx " data-l="places_modelorama" aria-pressed="false"><i aria-hidden="true" style="background:#b7791f;border:2px dashed #744210;color:#fff;font-size:9px;font-weight:700">M</i><span>Modelorama (Places)</span></button>
+      <button class="tbtn ctx " data-l="places_express" aria-pressed="false"><i aria-hidden="true" style="background:#dd6b20;border:2px dashed #9c4221;color:#fff;font-size:9px;font-weight:700">A</i><span>Aurrera Express (Places)</span></button>
+      <button class="tbtn ctx " data-l="places_soriana_express" aria-pressed="false"><i aria-hidden="true" style="background:#ed8936;border:2px dashed #c05621;color:#fff;font-size:9px;font-weight:700">S</i><span>Soriana Express (Places)</span></button>
+      <button class="tbtn ctx " data-l="places_oxxo" aria-pressed="false"><i aria-hidden="true" style="background:#e53e3e;border:2px dashed #9b2c2c;color:#fff;font-size:9px;font-weight:700">O</i><span>Oxxo (Places)</span></button>
+      <button class="tbtn ctx " data-l="places_six" aria-pressed="false"><i aria-hidden="true" style="background:#d69e2e;border:2px dashed #744210;color:#1a202c;font-size:9px;font-weight:700">6</i><span>Six (Places)</span></button>
+      <button class="tbtn ctx " data-l="places_extra" aria-pressed="false"><i aria-hidden="true" style="background:#319795;border:2px dashed #234e52;color:#fff;font-size:9px;font-weight:700">E</i><span>Extra (Places)</span></button>
+      <button class="tbtn ctx " data-l="places_banco" aria-pressed="false"><i aria-hidden="true" style="background:#2f855a;border:2px dashed #276749;color:#fff;font-size:9px;font-weight:700">Z</i><span>Banco Azteca (Places)</span></button>
+      <button class="tbtn ctx " data-l="places_farmacia" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border:2px dashed #2c5282;color:#fff;font-size:9px;font-weight:700">F</i><span>Farmacias (Places)</span></button>
+      <button class="tbtn ctx " data-l="places_otro" aria-pressed="false"><i aria-hidden="true" style="background:#718096;border:2px dashed #4a5568;color:#fff;font-size:9px;font-weight:700">·</i><span>Otro (Places)</span></button>
+     </div>
+    </div>
     <p class="eyebrow" style="margin-top:10px">Tránsito (OSM)</p>
     <button class="tbtn ctx " data-l="semaforos" aria-pressed="false" title="Semáforos OSM — cobertura incompleta">
       <i aria-hidden="true" style="background:#ecc94b;border-color:#975a16;color:#1a202c;font-size:10px;font-weight:700">🚦</i>
@@ -848,7 +870,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     </button>
     <button class="tbtn ctx " data-l="stops" aria-pressed="false" title="Altos / yield OSM — cobertura incompleta; Scout S para marcas manuales">
       <i aria-hidden="true" style="background:#e53e3e;border-color:#9b2c2c;color:#fff;font-size:9px;font-weight:700;border-radius:2px">■</i>
-      <span>Altos / yield</span>
+      <span>Altos / stops</span>
     </button>
     <button type="button" class="tbtn ctx on" id="likedZonesToggle" aria-pressed="true" title="Zonas que a Nicolás le gustaron para volver">
       <i aria-hidden="true" style="background:#fbbf24;border-color:#b45309;color:#78350f;font-size:11px;font-weight:700">★</i>
@@ -936,7 +958,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260924-scout-fav-precio';
+window.__PURIF_BUILD = '20260924-places-anclas';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -1281,8 +1303,164 @@ function paintStops(fc){
     const bs = document.querySelector('.tbtn[data-l="semaforos"] span');
     const bt = document.querySelector('.tbtn[data-l="stops"] span');
     if (bs && nS) bs.textContent = 'Semáforos (' + nS + ')';
-    if (bt && nT) bt.textContent = 'Altos / yield (' + nT + ')';
+    if (bt && nT) bt.textContent = 'Altos / stops (' + nT + ')';
   }).catch(function(){});
+})();
+
+/* ---------- Places API anchors (commercial) ---------- */
+const PLACES_KINDS = ['modelorama','express','soriana_express','oxxo','six','extra','banco','farmacia','otro'];
+const PLACES_LABELS = {
+  modelorama:'Modelorama',
+  express:'Aurrera Express',
+  soriana_express:'Soriana Express',
+  oxxo:'Oxxo',
+  six:'Six',
+  extra:'Extra',
+  banco:'Banco Azteca',
+  farmacia:'Farmacia',
+  otro:'Otro'
+};
+const PLACES_STYLE = {
+  modelorama:{fill:'#b7791f', stroke:'#744210', letter:'M'},
+  express:{fill:'#dd6b20', stroke:'#9c4221', letter:'A'},
+  soriana_express:{fill:'#ed8936', stroke:'#c05621', letter:'S'},
+  oxxo:{fill:'#e53e3e', stroke:'#9b2c2c', letter:'O'},
+  six:{fill:'#d69e2e', stroke:'#744210', letter:'6'},
+  extra:{fill:'#319795', stroke:'#234e52', letter:'E'},
+  banco:{fill:'#2f855a', stroke:'#276749', letter:'Z'},
+  farmacia:{fill:'#3182ce', stroke:'#2c5282', letter:'F'},
+  otro:{fill:'#718096', stroke:'#4a5568', letter:'·'}
+};
+function placesSvg(kind){
+  const s = PLACES_STYLE[kind] || PLACES_STYLE.otro;
+  return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    +'<circle cx="9" cy="9" r="7.2" fill="'+s.fill+'" stroke="'+s.stroke+'" stroke-width="1.6" stroke-dasharray="2.2 1.6"/>'
+    +'<text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">'+s.letter+'</text>'
+    +'</svg>';
+}
+function placesIcon(kind){
+  return L.divIcon({className:'places-icon ancla-icon', iconSize:[18,18], iconAnchor:[9,9], popupAnchor:[0,-10],
+    html:'<span class="ai" aria-hidden="true">'+placesSvg(kind)+'</span>'});
+}
+const placesByKind = {};
+PLACES_KINDS.forEach(k => { placesByKind[k] = L.layerGroup(); });
+let placesMasterOn = true;
+function paintPlacesAnclas(fc){
+  const counts = {};
+  PLACES_KINDS.forEach(k => { counts[k] = 0; });
+  (fc.features || []).forEach(function(ft){
+    const c = ft.geometry && ft.geometry.coordinates; if (!c) return;
+    const p = ft.properties || {};
+    let kind = p.kind || 'otro';
+    if (!placesByKind[kind]) kind = 'otro';
+    counts[kind] = (counts[kind] || 0) + 1;
+    const name = p.name || PLACES_LABELS[kind] || kind;
+    const addr = p.address || '';
+    const m = L.marker([c[1], c[0]], { icon: placesIcon(kind), keyboard: true });
+    m.bindPopup(
+      '<b>'+name+'</b><br><span class="p-sub">Places · '+ (PLACES_LABELS[kind]||kind) +'</span>'
+      +(addr ? '<br>'+addr : '')
+      +(p.place_id ? '<br><span class="p-sub">id '+p.place_id+'</span>' : ''),
+      { maxWidth: 260, autoPan: false }
+    );
+    m.addTo(placesByKind[kind]);
+  });
+  PLACES_KINDS.forEach(function(k){
+    const btn = document.querySelector('.tbtn[data-l="places_'+k+'"] span');
+    if (btn) {
+      const label = btn.textContent.replace(/\s*\(\d+\)\s*$/, '');
+      if (counts[k]) btn.textContent = label + ' (' + counts[k] + ')';
+    }
+  });
+  return counts;
+}
+function syncPlacesLayer(kind){
+  const lyr = placesByKind[kind];
+  const btn = document.querySelector('.tbtn[data-l="places_'+kind+'"]');
+  const want = placesMasterOn && btn && btn.classList.contains('on');
+  if (want && !map.hasLayer(lyr)) map.addLayer(lyr);
+  if (!want && map.hasLayer(lyr)) map.removeLayer(lyr);
+}
+function syncAllPlacesLayers(){ PLACES_KINDS.forEach(syncPlacesLayer); }
+function updatePlacesParentUI(){
+  const parent = document.getElementById('placesParent');
+  const summary = document.getElementById('placesSummary');
+  if (!parent || !summary) return;
+  const btns = [...document.querySelectorAll('#placesSub .tbtn[data-l]')];
+  const nOn = btns.filter(b => b.classList.contains('on')).length;
+  const n = btns.length;
+  parent.classList.toggle('on', placesMasterOn && nOn > 0);
+  parent.classList.toggle('partial', placesMasterOn && nOn > 0 && nOn < n);
+  parent.setAttribute('aria-pressed', String(placesMasterOn && nOn > 0));
+  if (!placesMasterOn) summary.textContent = 'ocultas (maestro off)';
+  else if (nOn === n) summary.textContent = 'todas activas';
+  else if (nOn === 0) summary.textContent = 'ningún subtipo';
+  else summary.textContent = nOn+' de '+n+' marcas';
+}
+(function loadPlacesAnclas(){
+  const bust = window.__PURIF_BUILD || String(Date.now());
+  fetch('data/places_anclas_zmm.geojson?v=' + encodeURIComponent(bust), { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(function(fc){
+      if (!fc) return;
+      paintPlacesAnclas(fc);
+    })
+    .catch(function(){});
+})();
+(function wirePlacesAccordion(){
+  const parent = document.getElementById('placesParent');
+  const sub = document.getElementById('placesSub');
+  const icon = document.getElementById('placesParentIcon');
+  if (!parent || !sub) return;
+  function enableAllPlaces(){
+    document.querySelectorAll('#placesSub .tbtn[data-l]').forEach(b=>{
+      b.classList.add('on'); b.setAttribute('aria-pressed','true');
+    });
+    placesMasterOn = true;
+    syncAllPlacesLayers();
+    updatePlacesParentUI();
+  }
+  parent.addEventListener('click', (e)=>{
+    if (e.target === icon || (icon && icon.contains(e.target))) {
+      e.preventDefault();
+      e.stopPropagation();
+      const turningOn = !placesMasterOn;
+      if (turningOn) {
+        const nOn = [...document.querySelectorAll('#placesSub .tbtn[data-l]')].filter(b=>b.classList.contains('on')).length;
+        if (nOn === 0) enableAllPlaces();
+        else { placesMasterOn = true; syncAllPlacesLayers(); updatePlacesParentUI(); }
+      } else {
+        placesMasterOn = false; syncAllPlacesLayers(); updatePlacesParentUI();
+      }
+      return;
+    }
+    const open = parent.getAttribute('aria-expanded') === 'true';
+    parent.setAttribute('aria-expanded', String(!open));
+    sub.classList.toggle('open', !open);
+  });
+  const allOn = document.getElementById('placesAllOn');
+  const allOff = document.getElementById('placesAllOff');
+  if (allOn) allOn.addEventListener('click', (e)=>{ e.stopPropagation(); enableAllPlaces(); });
+  if (allOff) allOff.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.querySelectorAll('#placesSub .tbtn[data-l]').forEach(b=>{
+      b.classList.remove('on'); b.setAttribute('aria-pressed','false');
+    });
+    placesMasterOn = true;
+    syncAllPlacesLayers();
+    updatePlacesParentUI();
+  });
+  document.querySelectorAll('#placesSub .tbtn[data-l]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const nowOn = !btn.classList.contains('on');
+      btn.classList.toggle('on', nowOn);
+      btn.setAttribute('aria-pressed', String(nowOn));
+      const kind = btn.dataset.l.replace('places_', '');
+      syncPlacesLayer(kind);
+      updatePlacesParentUI();
+    });
+  });
+  updatePlacesParentUI();
 })();
 
 /* ---------- sidebar ---------- */
@@ -1467,6 +1645,7 @@ if (searchEl) searchEl.addEventListener('input', ()=> renderToplist(searchEl.val
 
 /* ---------- layer toggles (live inside the Puntúan / Contexto panels) ---------- */
 const LAYERS = {colonias:colLayer, comp_rec:compRec, comp_ind:compInd, estaciones:estLayer, calor:heat, anillos:rings, etiquetas:labels, anclas_iglesia:anclasIglesia, anclas_hospital:anclasHospital, semaforos:semaforosLayer, stops:stopsLayer};
+PLACES_KINDS.forEach(k => { LAYERS['places_'+k] = placesByKind[k]; });
 ESC_SUBS.forEach(s => { LAYERS['anclas_escuela_'+s] = anclasEscuelaBySub[s]; });
 RETAIL_SUBS.forEach(s => { LAYERS['anclas_'+s] = anclasRetailBySub[s]; });
 
@@ -1495,6 +1674,7 @@ function updateEscuelasParentUI(){
 }
 document.querySelectorAll('.tbtn[data-l]').forEach(btn=>{
   const key = btn.dataset.l;
+  if (key && key.indexOf('places_') === 0) return; /* wired in places accordion */
   if (key && RETAIL_SUBS.indexOf(key.replace('anclas_','')) >= 0 && key.indexOf('anclas_escuela_') !== 0 && key.startsWith('anclas_') && key !== 'anclas_iglesia' && key !== 'anclas_hospital') {
     btn.addEventListener('click', ()=>{
       const nowOn = !btn.classList.contains('on');
