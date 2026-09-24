@@ -2495,6 +2495,466 @@
         "pano_id": "izjxiAR1N0vh27iknS9jnQ",
         "client": "scout.html"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3727705251471,
+          25.835921129220043
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4492h_m0l0i1",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:37:35.849Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "5j3yN9d_dKxc6GP7bNK5Sg",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37361587406046,
+          25.835786915165524
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug44it0_ufzs8c",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:37:48.468Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "ytWWJmSliukpWEdWwYL6CA",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37361587406046,
+          25.835786915165524
+        ]
+      },
+      "properties": {
+        "id": "fa_mug44oxg_6xsuwq",
+        "kind": "purificadora",
+        "name": "Purificadora",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:37:56.404Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "competencia",
+        "pano_id": "ytWWJmSliukpWEdWwYL6CA",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37427101205968,
+          25.839164006120264
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug46q93_9xv631",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:39:31.431Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "I9hfs0NqH09oOQoC72BeVQ",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37365151838073,
+          25.839125071114392
+        ]
+      },
+      "properties": {
+        "id": "fa_mug47mv7_6nnscq",
+        "kind": "purificadora",
+        "name": "Purificadora",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:40:13.699Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "competencia",
+        "pano_id": "4SC7Jo3iozufRw8F7FVeIQ",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37201712081104,
+          25.839211287585425
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug48a6k_4mgl7r",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:40:43.916Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "T8ozaiXBjl4EkMsAk_n2Gw",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37079461934137,
+          25.8392577451882
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug48sjt_irdoa5",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:41:07.721Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "_226pGcQrzZv1SvebrJ30A",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37055591303863,
+          25.83581244528554
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug49jzp_vtpis6",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:41:43.285Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "8QPilAnzqLa0e6eabVROUw",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37068066399246,
+          25.833317473184213
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4an1y_ao4pwq",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:42:33.910Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "TIZvGN0wvK6KTUwKBEVOSQ",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3708991499383,
+          25.829144937328653
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4bu8o_igkv66",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:43:29.880Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "6mvysPBc6FD0Cr8vj4Jt2Q",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37089889289571,
+          25.826577416661728
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4cvsy_5spnxs",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:44:18.562Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "K_20WtGTRRZ4jYN5LcAFDA",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37100753629984,
+          25.82683560073214
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4d7iw_h125xl",
+        "kind": "escuela",
+        "name": "Escuela",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:44:33.752Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "36akC2a4jkhM9mArb0VVow",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3723527375466,
+          25.843801218926934
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4hnim_3573v1",
+        "kind": "escuela",
+        "name": "Escuela",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:48:01.102Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "f9M2lwkMgZVk1UY1CokG4Q",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37423571023099,
+          25.842092161146496
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4i50a_n7uz75",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:48:23.770Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "3cFA_nZPUto1vrl7tvzYiA",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37472488170307,
+          25.841702826440315
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4ingz_jrn16j",
+        "kind": "express",
+        "name": "Express",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:48:47.699Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "AzyeB8_mlyVJY7RUdr_fyw",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37300281109108,
+          25.841787419222648
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4k1eg_w4gy4b",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:49:52.408Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "kRXzfROGqKHi1Nxu1f7-fA",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37443801046062,
+          25.848184295642206
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4pxbd_ev26go",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:54:27.049Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "4LXNDlWVFLQqjjTiP_Z7pw",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3747505013715,
+          25.847278324511702
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4q4ve_4xlco4",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:54:36.842Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "lTKH0Q8_EzyfyhnQuaBYbw",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37461777614452,
+          25.845096299502032
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4rfmx_ywuk4o",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:55:37.449Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "FjC7nwFEnQ3oHOrtTO3Ejw",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37454477306864,
+          25.84396480535682
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug4rp6t_99yay6",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T22:55:49.829Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "WTgHRx_ffHKdQRcPpxvPHg",
+        "client": "scout.html"
+      }
     }
   ]
 }
