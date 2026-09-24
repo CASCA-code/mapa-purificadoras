@@ -1,8 +1,9 @@
 # Scout — Street View dinámico (Maps JavaScript API)
 
-Actualizado: 2026-09-22
+Actualizado: 2026-09-24
 
-**Live:** https://casca-code.github.io/mapa-purificadoras/scout.html
+**Live:** https://casca-code.github.io/mapa-purificadoras/scout.html  
+Cache-bust tip: añade `?v=<commit-sha>` tras un deploy.
 
 Herramienta oficial para recorrer Escobedo / ZMM con **Google Maps JavaScript API** + **StreetViewPanorama** (Dynamic Street View). **No** usa Places API ni Street View Static API.
 
@@ -35,9 +36,9 @@ Si ves error de autenticación: confirma en Cloud Console referrers `https://cas
 
 1. Abre https://casca-code.github.io/mapa-purificadoras/scout.html
 2. Elige colonia prioritaria (Escobedo) o pega `lat,lng` (default: última posición o San Miguel Residencial).
-3. Cobertura: **Avenidas** (default) o **Todo**.
-4. **Iniciar Scout** → arma trayecto desde `data/roads_zmm.geojson` y camina Dynamic Street View.
-5. Hotkeys para pines; **Space** pausa/reanuda.
+3. **Colonia** → cobertura completa del polígono (`data/colonias.geojson`): todas las calles (residential + avenidas). UI pasa a **Todo**. Lat/lng suelto: **Avenidas** o **Todo** ± ~1.4 km.
+4. **Iniciar Scout** → arma trayecto desde `data/roads_zmm.geojson` (clip al polígono si hay colonia) y camina Dynamic Street View.
+5. Hotkeys para pines; **Space** pausa/reanuda. Cada pin/comentario/undo se sync a ntfy automáticamente.
 
 ## Hotkeys
 
@@ -64,11 +65,18 @@ Al soltar pin: upsert ntfy + `localStorage` (`purificadoras_field_adds_v1` / `pu
 
 ## Trayecto OSM
 
-- Fuente: `data/roads_zmm.geojson` (prebaked Escobedo/ZMM).
-- **Avenidas:** `primary`, `secondary`, `tertiary`, `unclassified`, `trunk`.
-- **Todo:** + `residential`, `living_street`, `service`.
-- Radio ~900 m alrededor del centro; muestreo ~18 m; tope ~900 pts.
-- Mini-mapa = `google.maps.Map` ligado al panorama (ruta + pines + pegman).
+- Fuente calles: `data/roads_zmm.geojson` (prebaked Escobedo/ZMM).
+- Fuente polígonos: `data/colonias.geojson` — match por nombre (acentos/espacios) + municipio.
+- **Colonia seleccionada:** clip de segmentos al polígono (punto dentro o arista que cruza); fuerza AVENIDAS + residential/living_street/service; cadena greedy con **teleport** entre componentes (no abandona manzanas sueltas). Muestreo ~22 m; tope ~4000 pts (si hace falta, sube el paso antes de stride).
+- **Lat/lng sin colonia:** radio ~1.4 km; modo Avenidas o Todo; muestreo ~18 m; tope ~900 pts.
+- Mini-mapa: ruta + outline del polígono + pines + pegman.
+
+## Sync → mapa principal
+
+- Cada hotkey / comentario / undo llama `silentSync` (fetch a ntfy `purif-zmm-campo-casca-v1`) al instante; toast **Enviado al mapa** / **Error sync**.
+- El mapa público lee `data/field_adds.geojson` tras el merge Action (`.github/workflows/merge-field-adds.yml`): cron **cada ~2 h** (`15 */2`), más `workflow_dispatch` / `repository_dispatch` (`merge-field-adds`).
+- **Latencia típica hasta ver el pin en el mapa:** hasta ~2 h (o menos si alguien dispara el workflow). LS local es inmediato en el mismo browser.
+- Cache-bust: `scout.html?v=<commit>` tras deploy Pages.
 
 ## Qué aún necesita Places / Static (no habilitado)
 

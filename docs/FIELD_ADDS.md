@@ -1,16 +1,20 @@
 # Field adds (multi-celular)
 
-Actualizado: 2026-09-15 — dock ★/＋/Comp + ntfy sync sigue vigente post-slim `67cf5f9`.
+Actualizado: 2026-09-24 — dock ★/＋/Comp + Scout auto-ntfy; merge Action ~cada 2 h.
 
 ## Qué hace cada teléfono
 1. Ubicarme → ★ Fav / ＋ anclas / Comp
 2. Al **guardar**, el pin se pinta local y se manda solo a la bandeja ntfy (`purif-zmm-campo-casca-v1`). La otra persona no toca nada extra.
 3. Al **abrir** el mapa, se baja `data/field_adds.geojson` (capa compartida) y se ven los pines de todos.
 
+
+## Scout → mismo pipeline
+`scout.html` hace upsert/delete ntfy en cada pin, comentario LineString y undo (toast Enviado al mapa / Error sync). Misma bandeja y merge que el dock del mapa. Delay hasta Pages: schedule ~2 h (ver workflow `merge-field-adds`).
+
 ## Qué hace Purificador / routine / GitHub Actions
 - Poll ntfy → `python3 scripts/merge_field_add_issues.py` → escribe `data/field_adds.geojson` + `data/field_adds_deleted.json` → commit+push Pages.
 - Cadencia: Actions en schedule (~cada 2 h), `workflow_dispatch` y `repository_dispatch` (`merge-field-adds`). Si no hay cambios, silencio (`NO_CHANGES`).
-- Plantilla del workflow: `docs/merge-field-adds.workflow.yml` → copiar a `.github/workflows/merge-field-adds.yml` (hace falta token con scope `workflow`; el OAuth de Agents no lo tiene).
+- Workflow: `.github/workflows/merge-field-adds.yml` (copia de `docs/merge-field-adds.workflow.yml`). Cron `15 */2 * * *` + dispatch manual.
 - Deletes: si el `id` aún no está en el geojson, igual se persiste en `field_adds_deleted.json` (tombstone) para no re-mergear luego.
 
 ## ntfy topic (seguridad)

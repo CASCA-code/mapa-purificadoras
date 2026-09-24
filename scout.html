@@ -154,7 +154,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
   <div id="topbar">
     <div>
       <h1>Scout</h1>
-      <div class="sub">Street View dinámico · avenidas OSM · pines hotkey · sync ntfy · Escobedo / ZMM</div>
+      <div class="sub">Street View dinámico · colonia = todas las calles · pines → ntfy → mapa · Escobedo / ZMM</div>
     </div>
     <div class="grow"></div>
     <a class="sub" href="index.html">← Mapa principal</a>
@@ -171,12 +171,12 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
       <span class="chip" id="chipStatus">Cargando…</span>
       <span class="chip" id="chipProgress">0 / 0</span>
       <span class="chip" id="chipCoords">—</span>
-      <span class="chip" id="chipMode">Avenidas</span>
+      <span class="chip" id="chipMode">Todo</span>
     </div>
     <div id="overlayStart">
       <div class="card">
         <h2>Empezar recorrido</h2>
-        <p class="hint">Elige colonia o pega lat,lng. Scout arma trayecto OSM (<b>Avenidas</b> default) y camina Street View dinámico; tú sueltas pines con hotkeys.</p>
+        <p class="hint">Elige colonia (cubre <b>todas las calles</b> del polígono) o pega lat,lng. Scout arma trayecto OSM y camina Street View dinámico; tú sueltas pines con hotkeys.</p>
         <div class="sec" style="margin-top:12px">
           <label class="field"><span>Colonia prioritaria</span>
             <select id="coloniaPick"><option value="">— elegir —</option></select>
@@ -190,7 +190,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
               <button type="button" class="btn" id="btnModeTodo" aria-pressed="false">Todo</button>
             </div>
           </label>
-          <p class="hint" id="modeHint">Avenidas = primary/secondary/tertiary/unclassified (+trunk). Todo incluye residential.</p>
+          <p class="hint" id="modeHint">Colonia = todas las calles del polígono. Lat/lng: Avenidas o Todo (±radio).</p>
           <div class="btns">
             <button type="button" class="btn primary" id="btnStart">Iniciar Scout</button>
           </div>
@@ -234,7 +234,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
           <button type="button" class="btn" id="btnSync">Sync ntfy</button>
           <button type="button" class="btn danger" id="btnClear">Limpiar sesión</button>
         </div>
-        <p class="hint">Sync al topic <code>purif-zmm-campo-casca-v1</code> (mismo que campo / userscript). LS: field_adds + anclas + favoritos.</p>
+        <p class="hint">Cada pin/comentario/undo se manda solo a ntfy (<code>purif-zmm-campo-casca-v1</code>) → merge Action ~cada 2 h → mapa. Botón Sync = reenvío manual. LS local inmediato.</p>
       </section>
       <section class="sec">
         <h2>Nota</h2>
@@ -311,9 +311,13 @@ const API_PLACEHOLDER = 'YOUR_API_KEY';
 const COMMENT_HALF_M = 30;
 const COMMENT_COLOR = '#db2777';
 const ROADS_URL = 'data/roads_zmm.geojson';
+const COLONIAS_URL = 'data/colonias.geojson';
 const STEP_M = 18;
+const STEP_M_COLONIA = 22;
 const MAX_ROUTE_PTS = 900;
+const MAX_ROUTE_PTS_COLONIA = 4000;
 const ROUTE_RADIUS_M = 1400;
+const HOP_CONNECT_M = 350;
 const AVENIDAS_HW = { primary:1, secondary:1, tertiary:1, unclassified:1, trunk:1 };
 const TODO_EXTRA = { residential:1, living_street:1, service:1 };
 
@@ -371,20 +375,56 @@ function resolveApiKey(){
   } catch (e) {}
   return '';
 }
-function silentSync(payload){
+function silentSync(payload, opts){
+  opts = opts || {};
+  var quiet = !!opts.quiet;
   var body = JSON.stringify(payload);
   var url = 'https://ntfy.sh/' + NTFY_TOPIC;
-  try {
-    if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) return true;
-  } catch (e) {}
+  var title = payload.action || 'scout';
+  function okToast(){
+    if (quiet) return;
+    if (payload.action === 'delete') toast('🗑 Sync mapa · borrado');
+    else toast('📤 Enviado al mapa');
+  }
+  function failToast(){
+    if (quiet) return;
+    toast('⚠️ Error sync — quedó en este dispositivo');
+  }
   try {
     fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Title': payload.action || 'scout', 'Tags': 'round_pushpin' },
-      body: body, mode: 'cors', keepalive: true
-    }).catch(function(){});
+      headers: {
+        'Content-Type': 'application/json',
+        'Title': title,
+        'Tags': 'round_pushpin'
+      },
+      body: body,
+      mode: 'cors',
+      keepalive: true
+    }).then(function(r){
+      if (r && r.ok) okToast();
+      else failToast();
+    }).catch(function(){
+      // Fallback: sendBeacon has no status — try once, toast soft ok
+      try {
+        if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) {
+          if (!quiet) toast('📤 Enviado al mapa (beacon)');
+          return;
+        }
+      } catch (e2) {}
+      failToast();
+    });
     return true;
-  } catch (e) { return false; }
+  } catch (e) {
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) {
+        if (!quiet) toast('📤 Enviado al mapa (beacon)');
+        return true;
+      }
+    } catch (e2) {}
+    failToast();
+    return false;
+  }
 }
 function destKeyForFeature(f){
   var p = f.properties || {};
@@ -392,22 +432,22 @@ function destKeyForFeature(f){
   if (p.layer === 'favoritos' || p.kind === 'favorito' || p.kind === 'nuestra') return LS_FAV;
   return LS_ANCLAS;
 }
-function persistFeature(feat){
+function persistFeature(feat, syncOpts){
   var key = destKeyForFeature(feat);
   var arr = loadLS(key);
   var id = (feat.properties || {}).id;
   arr = arr.filter(function(x){ return (x.properties || {}).id !== id; });
   arr.push(feat);
   saveLS(key, arr);
-  silentSync({ action: 'upsert', feature: feat });
+  silentSync({ action: 'upsert', feature: feat }, syncOpts);
 }
-function unpersistFeature(feat){
+function unpersistFeature(feat, syncOpts){
   if (!feat) return;
   var key = destKeyForFeature(feat);
   var id = (feat.properties || {}).id;
   var arr = loadLS(key).filter(function(x){ return (x.properties || {}).id !== id; });
   saveLS(key, arr);
-  if (id) silentSync({ action: 'delete', id: id, layer: (feat.properties || {}).layer || '' });
+  if (id) silentSync({ action: 'delete', id: id, layer: (feat.properties || {}).layer || '' }, syncOpts);
 }
 function offsetLatLng(lat, lng, headingDeg, meters){
   var R = 6378137;
@@ -504,9 +544,14 @@ function setRouteMode(mode){
   $('btnModeAvenidas').setAttribute('aria-pressed', routeMode === 'avenidas' ? 'true' : 'false');
   $('btnModeTodo').setAttribute('aria-pressed', routeMode === 'todo' ? 'true' : 'false');
   $('chipMode').textContent = routeMode === 'avenidas' ? 'Avenidas' : 'Todo';
-  $('modeHint').textContent = routeMode === 'avenidas'
-    ? 'Avenidas = primary/secondary/tertiary/unclassified (+trunk). Ideal Modelorama/Express.'
-    : 'Todo = también residential / living_street / service (más denso).';
+  var colPick = $('coloniaPick') && $('coloniaPick').value;
+  if (colPick) {
+    $('modeHint').textContent = 'Colonia seleccionada → cobertura completa (todas las calles del polígono), modo UI = Todo.';
+  } else {
+    $('modeHint').textContent = routeMode === 'avenidas'
+      ? 'Avenidas = primary/secondary/tertiary/unclassified (+trunk). Solo aplica a lat/lng (±radio).'
+      : 'Todo = + residential / living_street / service. Lat/lng ±radio; colonia siempre fuerza Todo.';
+  }
 }
 setRouteMode(routeMode);
 $('btnModeAvenidas').addEventListener('click', function(){ setRouteMode('avenidas'); });
@@ -526,6 +571,9 @@ var stepCount = 0;
 var routePoints = [];
 var routeIndex = 0;
 var roadsFc = null;
+var coloniasFc = null;
+var coloniaPolyOverlay = null;
+var activeColoniaMeta = null;
 var mapsReady = false;
 var currentPanoMeta = { lat: null, lng: null, panoId: null, heading: 0 };
 
@@ -674,15 +722,16 @@ function downloadExport(){
 }
 function syncAllNtfy(){
   if (!sessionPins.length) { toast('Sin pines'); return; }
-  sessionPins.forEach(function(f){ silentSync({ action: 'upsert', feature: f }); });
-  toast('Sync ntfy: ' + sessionPins.length + ' upsert(s)');
+  var n = sessionPins.length;
+  sessionPins.forEach(function(f){ silentSync({ action: 'upsert', feature: f }, { quiet: true }); });
+  toast('Sync ntfy: ' + n + ' upsert(s) · merge mapa ~2 h');
 }
 
 /* ========== roads / route ========== */
-function highwayAllowed(hw){
+function highwayAllowed(hw, forceTodo){
   var h = String(hw || '').toLowerCase();
   if (AVENIDAS_HW[h]) return true;
-  if (routeMode === 'todo' && TODO_EXTRA[h]) return true;
+  if ((forceTodo || routeMode === 'todo') && TODO_EXTRA[h]) return true;
   return false;
 }
 function loadRoads(){
@@ -695,6 +744,259 @@ function loadRoads(){
     return fc;
   });
 }
+function loadColonias(){
+  if (coloniasFc) return Promise.resolve(coloniasFc);
+  return fetch(COLONIAS_URL + '?v=' + Date.now(), { cache: 'no-store' }).then(function(r){
+    if (!r.ok) throw new Error('colonias HTTP ' + r.status);
+    return r.json();
+  }).then(function(fc){
+    coloniasFc = fc;
+    return fc;
+  });
+}
+function normalizeName(s){
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[°º]/g, '')
+    .replace(/\b2do\b/g, '2')
+    .replace(/\b2d\b/g, '2')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function muniLooseMatch(a, b){
+  var na = normalizeName(a), nb = normalizeName(b);
+  if (!na || !nb) return true;
+  if (na === nb) return true;
+  if (na.indexOf(nb) >= 0 || nb.indexOf(na) >= 0) return true;
+  // "Escobedo" ↔ "General Escobedo"
+  var ta = na.split(' '), tb = nb.split(' ');
+  var lastA = ta[ta.length - 1], lastB = tb[tb.length - 1];
+  return lastA && lastA === lastB;
+}
+function pointInRing(lng, lat, ring){
+  if (!ring || ring.length < 3) return false;
+  var inside = false;
+  for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    var xi = ring[i][0], yi = ring[i][1];
+    var xj = ring[j][0], yj = ring[j][1];
+    var intersect = ((yi > lat) !== (yj > lat)) &&
+      (lng < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-15) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+function pointInGeometry(lng, lat, geom){
+  if (!geom) return false;
+  if (geom.type === 'Polygon') {
+    var rings = geom.coordinates;
+    if (!rings || !rings.length) return false;
+    if (!pointInRing(lng, lat, rings[0])) return false;
+    for (var h = 1; h < rings.length; h++) {
+      if (pointInRing(lng, lat, rings[h])) return false;
+    }
+    return true;
+  }
+  if (geom.type === 'MultiPolygon') {
+    for (var p = 0; p < geom.coordinates.length; p++) {
+      var fake = { type: 'Polygon', coordinates: geom.coordinates[p] };
+      if (pointInGeometry(lng, lat, fake)) return true;
+    }
+    return false;
+  }
+  return false;
+}
+function outerRings(geom){
+  var out = [];
+  if (!geom) return out;
+  if (geom.type === 'Polygon') out.push(geom.coordinates[0]);
+  else if (geom.type === 'MultiPolygon') {
+    geom.coordinates.forEach(function(poly){ out.push(poly[0]); });
+  }
+  return out;
+}
+function segmentsCross(a, b, c, d){
+  // 2D segment intersection (lng/lat as x/y) — proper for small patches
+  function cross(ox, oy, ax, ay, bx, by){
+    return (ax - ox) * (by - oy) - (ay - oy) * (bx - ox);
+  }
+  var d1 = cross(c[0], c[1], d[0], d[1], a[0], a[1]);
+  var d2 = cross(c[0], c[1], d[0], d[1], b[0], b[1]);
+  var d3 = cross(a[0], a[1], b[0], b[1], c[0], c[1]);
+  var d4 = cross(a[0], a[1], b[0], b[1], d[0], d[1]);
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+      ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+  return false;
+}
+function edgeHitsPolygon(a, b, geom){
+  if (pointInGeometry(a[0], a[1], geom) || pointInGeometry(b[0], b[1], geom)) return true;
+  // midpoint heuristic
+  var mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+  if (pointInGeometry(mx, my, geom)) return true;
+  var rings = outerRings(geom);
+  for (var r = 0; r < rings.length; r++) {
+    var ring = rings[r];
+    for (var i = 0; i < ring.length - 1; i++) {
+      if (segmentsCross(a, b, ring[i], ring[i + 1])) return true;
+    }
+  }
+  return false;
+}
+/** Clip LineString to polygon: keep inside verts + crossing edges. May return multiple pieces. */
+function clipLineToPolygon(coords, geom){
+  if (!coords || coords.length < 2 || !geom) return [];
+  var pieces = [];
+  var cur = [];
+  function flush(){
+    if (cur.length >= 2) pieces.push(cur);
+    cur = [];
+  }
+  for (var i = 0; i < coords.length - 1; i++) {
+    var a = coords[i], b = coords[i + 1];
+    var keep = edgeHitsPolygon(a, b, geom);
+    if (keep) {
+      if (!cur.length) cur.push(a);
+      else if (cur[cur.length - 1][0] !== a[0] || cur[cur.length - 1][1] !== a[1]) {
+        flush();
+        cur.push(a);
+      }
+      cur.push(b);
+    } else {
+      flush();
+    }
+  }
+  flush();
+  return pieces;
+}
+function matchColoniaFeature(pri){
+  if (!coloniasFc || !coloniasFc.features || !pri) return null;
+  var wantName = normalizeName(pri.nombre);
+  // strip parenthetical municipio hints from picker labels
+  wantName = wantName.replace(/\s+(escobedo|monterrey|general escobedo)$/g, '').trim();
+  var tokens = wantName.split(/\s+\/\s+|\s+/).filter(function(t){ return t.length > 2; });
+  var wantMuni = pri.municipio || '';
+  var best = null, bestScore = -1;
+  coloniasFc.features.forEach(function(f){
+    var p = f.properties || {};
+    var cn = normalizeName(p.colonia || p.colonia_raw || '');
+    if (!cn) return;
+    if (!muniLooseMatch(wantMuni, p.municipio || '')) return;
+    var score = 0;
+    if (cn === wantName) score = 100;
+    else if (cn.indexOf(wantName) >= 0 || wantName.indexOf(cn) >= 0) score = 80;
+    else {
+      var hits = 0;
+      tokens.forEach(function(t){ if (cn.indexOf(t) >= 0) hits++; });
+      if (hits >= Math.min(2, tokens.length) && hits > 0) score = 40 + hits * 10;
+      else if (hits === tokens.length && tokens.length >= 1) score = 50;
+    }
+    // prefer exact 2do sector for vsf2
+    if (pri.id === 'vsf2') {
+      if (/\b2\b/.test(cn) || cn.indexOf('2do') >= 0 || cn.indexOf('sector') >= 0) score += 30;
+      else score -= 20;
+    }
+    if (pri.id === 'vsf') {
+      if (/\b2\b/.test(cn) || cn.indexOf('2do') >= 0) score -= 40;
+    }
+    if (score > bestScore) { bestScore = score; best = f; }
+  });
+  return bestScore >= 40 ? best : null;
+}
+/**
+ * Greedy Chinese-postman-ish chain. When hop > threshold, teleport to nearest
+ * remaining unused segment instead of stopping — covers ALL components.
+ */
+function chainSegmentsGreedy(segs, startLat, startLng){
+  if (!segs || !segs.length) return { ordered: [], teleports: 0 };
+  function segEnds(coords){
+    return {
+      a: { lat: coords[0][1], lng: coords[0][0] },
+      b: { lat: coords[coords.length - 1][1], lng: coords[coords.length - 1][0] },
+      coords: coords
+    };
+  }
+  var pool = segs.map(segEnds);
+  var bestI = 0, bestD = 1e12;
+  for (var i = 0; i < pool.length; i++) {
+    var d = Math.min(
+      haversineM(startLat, startLng, pool[i].a.lat, pool[i].a.lng),
+      haversineM(startLat, startLng, pool[i].b.lat, pool[i].b.lng)
+    );
+    if (d < bestD) { bestD = d; bestI = i; }
+  }
+  var ordered = [];
+  var teleports = 0;
+  var cur = pool.splice(bestI, 1)[0];
+  if (haversineM(startLat, startLng, cur.b.lat, cur.b.lng) <
+      haversineM(startLat, startLng, cur.a.lat, cur.a.lng)) {
+    cur.coords = cur.coords.slice().reverse();
+    var tmp = cur.a; cur.a = cur.b; cur.b = tmp;
+  }
+  ordered.push({ coords: cur.coords, teleport: false });
+  var tip = cur.b;
+  while (pool.length) {
+    var bi = -1, bd = 1e12, rev = false;
+    for (var j = 0; j < pool.length; j++) {
+      var da = haversineM(tip.lat, tip.lng, pool[j].a.lat, pool[j].a.lng);
+      var db = haversineM(tip.lat, tip.lng, pool[j].b.lat, pool[j].b.lng);
+      if (da < bd) { bd = da; bi = j; rev = false; }
+      if (db < bd) { bd = db; bi = j; rev = true; }
+    }
+    if (bi < 0) break;
+    var teleport = bd > HOP_CONNECT_M;
+    if (teleport) teleports++;
+    var nxt = pool.splice(bi, 1)[0];
+    var coords = rev ? nxt.coords.slice().reverse() : nxt.coords.slice();
+    ordered.push({ coords: coords, teleport: teleport });
+    tip = { lat: coords[coords.length - 1][1], lng: coords[coords.length - 1][0] };
+  }
+  return { ordered: ordered, teleports: teleports };
+}
+function finalizeRoutePath(orderedEntries, stepM, maxPts){
+  var path = [];
+  orderedEntries.forEach(function(entry){
+    var coords = entry.coords || entry;
+    var teleport = !!(entry && entry.teleport);
+    var sampled = samplePolyline(coords, stepM);
+    if (teleport && sampled.length) sampled[0].gap = true;
+    sampled.forEach(function(pt){ path.push(pt); });
+  });
+  var cleaned = [];
+  path.forEach(function(pt){
+    var prev = cleaned[cleaned.length - 1];
+    if (pt.gap) { cleaned.push(pt); return; }
+    if (!prev || haversineM(prev.lat, prev.lng, pt.lat, pt.lng) >= stepM * 0.45) cleaned.push(pt);
+  });
+  for (var k = 0; k < cleaned.length; k++) {
+    var nxt2 = cleaned[Math.min(cleaned.length - 1, k + 1)];
+    cleaned[k].exitBearing = (k < cleaned.length - 1)
+      ? bearingDeg(cleaned[k].lat, cleaned[k].lng, nxt2.lat, nxt2.lng)
+      : (k > 0 ? bearingDeg(cleaned[k - 1].lat, cleaned[k - 1].lng, cleaned[k].lat, cleaned[k].lng) : 0);
+  }
+  // Prefer covering every edge: bump step rather than stride-skipping streets
+  if (cleaned.length > maxPts) {
+    var factor = cleaned.length / maxPts;
+    var altStep = Math.max(stepM + 2, Math.ceil(stepM * Math.max(1.2, factor)));
+    if (altStep > stepM && altStep <= 40) {
+      return finalizeRoutePath(orderedEntries, altStep, maxPts);
+    }
+    // last resort stride (keeps endpoints)
+    var stride = Math.ceil(cleaned.length / maxPts);
+    var th = [];
+    for (var t = 0; t < cleaned.length; t += stride) th.push(cleaned[t]);
+    if (th[th.length - 1] !== cleaned[cleaned.length - 1]) th.push(cleaned[cleaned.length - 1]);
+    cleaned = th;
+    for (var k2 = 0; k2 < cleaned.length; k2++) {
+      var n3 = cleaned[Math.min(cleaned.length - 1, k2 + 1)];
+      cleaned[k2].exitBearing = (k2 < cleaned.length - 1)
+        ? bearingDeg(cleaned[k2].lat, cleaned[k2].lng, n3.lat, n3.lng)
+        : cleaned[k2].exitBearing || 0;
+    }
+  }
+  return cleaned;
+}
 function buildRouteNear(lat, lng){
   var fc = roadsFc;
   if (!fc || !fc.features) return [];
@@ -702,7 +1004,7 @@ function buildRouteNear(lat, lng){
   fc.features.forEach(function(f){
     var g = f.geometry;
     var hw = (f.properties && f.properties.highway) || '';
-    if (!g || g.type !== 'LineString' || !highwayAllowed(hw)) return;
+    if (!g || g.type !== 'LineString' || !highwayAllowed(hw, false)) return;
     var coords = g.coordinates;
     if (!coords || coords.length < 2) return;
     var near = false;
@@ -713,75 +1015,82 @@ function buildRouteNear(lat, lng){
     segs.push(coords);
   });
   if (!segs.length) return [];
-
-  // Greedy chain: start from segment nearest to center, walk unused segs by endpoint proximity
-  function segEnds(coords){
-    return {
-      a: { lat: coords[0][1], lng: coords[0][0] },
-      b: { lat: coords[coords.length-1][1], lng: coords[coords.length-1][0] },
-      coords: coords
-    };
-  }
-  var pool = segs.map(segEnds);
-  var bestI = 0, bestD = 1e12;
-  for (var i = 0; i < pool.length; i++) {
-    var d = Math.min(haversineM(lat, lng, pool[i].a.lat, pool[i].a.lng), haversineM(lat, lng, pool[i].b.lat, pool[i].b.lng));
-    if (d < bestD) { bestD = d; bestI = i; }
-  }
-  var ordered = [];
-  var cur = pool.splice(bestI, 1)[0];
-  if (haversineM(lat, lng, cur.b.lat, cur.b.lng) < haversineM(lat, lng, cur.a.lat, cur.a.lng)) {
-    cur.coords = cur.coords.slice().reverse();
-    var tmp = cur.a; cur.a = cur.b; cur.b = tmp;
-  }
-  ordered.push(cur.coords);
-  var tip = cur.b;
-  while (pool.length) {
-    var bi = -1, bd = 1e12, rev = false;
-    for (var j = 0; j < pool.length; j++) {
-      var da = haversineM(tip.lat, tip.lng, pool[j].a.lat, pool[j].a.lng);
-      var db = haversineM(tip.lat, tip.lng, pool[j].b.lat, pool[j].b.lng);
-      if (da < bd) { bd = da; bi = j; rev = false; }
-      if (db < bd) { bd = db; bi = j; rev = true; }
+  var chained = chainSegmentsGreedy(segs, lat, lng);
+  return finalizeRoutePath(chained.ordered, STEP_M, MAX_ROUTE_PTS);
+}
+/** Full colonia coverage: all AVENIDAS_HW + TODO_EXTRA clipped to polygon. */
+function buildRouteInPolygon(geom, startLat, startLng){
+  var fc = roadsFc;
+  if (!fc || !fc.features || !geom) return { points: [], calleCount: 0, teleports: 0 };
+  var segs = [];
+  var calleKeys = {};
+  fc.features.forEach(function(f){
+    var g = f.geometry;
+    var hw = (f.properties && f.properties.highway) || '';
+    if (!g || g.type !== 'LineString' || !highwayAllowed(hw, true)) return;
+    var coords = g.coordinates;
+    if (!coords || coords.length < 2) return;
+    var anyIn = false;
+    for (var i = 0; i < coords.length; i++) {
+      if (pointInGeometry(coords[i][0], coords[i][1], geom)) { anyIn = true; break; }
     }
-    if (bi < 0 || bd > 350) break; // hop too far — stop component
-    var nxt = pool.splice(bi, 1)[0];
-    var coords = rev ? nxt.coords.slice().reverse() : nxt.coords.slice();
-    ordered.push(coords);
-    tip = { lat: coords[coords.length-1][1], lng: coords[coords.length-1][0] };
-  }
-
-  var path = [];
-  ordered.forEach(function(coords){
-    samplePolyline(coords, STEP_M).forEach(function(pt){ path.push(pt); });
-  });
-  // Dedup near duplicates
-  var cleaned = [];
-  path.forEach(function(pt){
-    var prev = cleaned[cleaned.length - 1];
-    if (!prev || haversineM(prev.lat, prev.lng, pt.lat, pt.lng) >= STEP_M * 0.45) cleaned.push(pt);
-  });
-  // Annotate exit bearing
-  for (var k = 0; k < cleaned.length; k++) {
-    var nxt2 = cleaned[Math.min(cleaned.length - 1, k + 1)];
-    cleaned[k].exitBearing = (k < cleaned.length - 1)
-      ? bearingDeg(cleaned[k].lat, cleaned[k].lng, nxt2.lat, nxt2.lng)
-      : (k > 0 ? bearingDeg(cleaned[k-1].lat, cleaned[k-1].lng, cleaned[k].lat, cleaned[k].lng) : 0);
-  }
-  if (cleaned.length > MAX_ROUTE_PTS) {
-    var stride = Math.ceil(cleaned.length / MAX_ROUTE_PTS);
-    var th = [];
-    for (var t = 0; t < cleaned.length; t += stride) th.push(cleaned[t]);
-    if (th[th.length-1] !== cleaned[cleaned.length-1]) th.push(cleaned[cleaned.length-1]);
-    cleaned = th;
-    for (var k2 = 0; k2 < cleaned.length; k2++) {
-      var n3 = cleaned[Math.min(cleaned.length - 1, k2 + 1)];
-      cleaned[k2].exitBearing = (k2 < cleaned.length - 1)
-        ? bearingDeg(cleaned[k2].lat, cleaned[k2].lng, n3.lat, n3.lng)
-        : cleaned[k2].exitBearing || 0;
+    var pieces = [];
+    if (anyIn) pieces = clipLineToPolygon(coords, geom);
+    else {
+      // still check crossing-only (both ends outside)
+      for (var e = 0; e < coords.length - 1; e++) {
+        if (edgeHitsPolygon(coords[e], coords[e + 1], geom)) {
+          pieces = clipLineToPolygon(coords, geom);
+          break;
+        }
+      }
     }
+    pieces.forEach(function(piece){
+      if (piece.length >= 2) {
+        segs.push(piece);
+        var oid = (f.properties && (f.properties.osm_id || f.properties.name)) || (hw + ':' + piece[0][0]);
+        calleKeys[oid] = 1;
+      }
+    });
+  });
+  if (!segs.length) return { points: [], calleCount: 0, teleports: 0 };
+  var chained = chainSegmentsGreedy(segs, startLat, startLng);
+  var points = finalizeRoutePath(chained.ordered, STEP_M_COLONIA, MAX_ROUTE_PTS_COLONIA);
+  return {
+    points: points,
+    calleCount: Object.keys(calleKeys).length || segs.length,
+    teleports: chained.teleports,
+    segCount: segs.length
+  };
+}
+function clearColoniaOutline(){
+  if (coloniaPolyOverlay) {
+    coloniaPolyOverlay.setMap(null);
+    coloniaPolyOverlay = null;
   }
-  return cleaned;
+}
+function drawColoniaOutline(geom){
+  clearColoniaOutline();
+  if (!miniMap || !geom || !window.google || !google.maps) return;
+  var paths = [];
+  if (geom.type === 'Polygon') {
+    paths = [(geom.coordinates[0] || []).map(function(xy){ return { lat: xy[1], lng: xy[0] }; })];
+  } else if (geom.type === 'MultiPolygon') {
+    paths = geom.coordinates.map(function(poly){
+      return (poly[0] || []).map(function(xy){ return { lat: xy[1], lng: xy[0] }; });
+    });
+  }
+  if (!paths.length) return;
+  coloniaPolyOverlay = new google.maps.Polygon({
+    paths: paths,
+    strokeColor: '#0ea5e9',
+    strokeOpacity: 0.95,
+    strokeWeight: 2,
+    fillColor: '#0ea5e9',
+    fillOpacity: 0.08,
+    map: miniMap,
+    clickable: false
+  });
 }
 
 /* ========== Maps UI ========== */
@@ -913,15 +1222,93 @@ function stepAlongRoute(){
   panorama.setPosition({ lat: pt.lat, lng: pt.lng });
   scheduleNext();
 }
-function startAtLatLng(lat, lng){
+function beginWalk(lat, lng, hudLabel){
+  if (!routePoints.length) return;
+  drawRouteOnMap(routePoints);
+  routeIndex = 0;
+  stepCount = 0;
+  setProgress();
+  var first = routePoints[0];
+  setStatus('Buscando panorama…');
+  svService.getPanorama({
+    location: { lat: first.lat, lng: first.lng },
+    radius: 80,
+    source: google.maps.StreetViewSource.OUTDOOR
+  }, function(data, status){
+    if (status !== google.maps.StreetViewStatus.OK || !data || !data.location) {
+      hideMapFallback();
+      panorama.setVisible(true);
+      panorama.setPosition({ lat: first.lat, lng: first.lng });
+      panorama.setPov({ heading: first.exitBearing || 0, pitch: 0 });
+    } else {
+      panorama.setPano(data.location.pano);
+      panorama.setPov({ heading: first.exitBearing || 0, pitch: 0 });
+      panorama.setVisible(true);
+    }
+    hideMapFallback();
+    clearMapsError();
+    $('overlayStart').classList.add('hidden');
+    $('startMsg').textContent = '';
+    walking = true;
+    routeIndex = 1;
+    setPaused(false);
+    setStatus('Caminando', 'ok');
+    toast(hudLabel || ('Trayecto · ' + routePoints.length + ' pts'));
+    $('chipMode').textContent = (activeColoniaMeta && activeColoniaMeta.nombre)
+      ? ('Colonia · ' + routePoints.length + ' pts')
+      : (routeMode === 'avenidas' ? 'Avenidas' : 'Todo');
+    saveLastPos(lat, lng);
+  });
+}
+function startAtLatLng(lat, lng, coloniaPri){
   if (!svService || !panorama || !mapsReady) {
     toast('Maps aún no listo');
     return;
   }
+  activeColoniaMeta = null;
+  clearColoniaOutline();
   setStatus('Armando trayecto OSM…');
   $('startMsg').textContent = 'Cargando calles…';
-  loadRoads().then(function(){
-    routePoints = buildRouteNear(lat, lng);
+  var tasks = [loadRoads()];
+  if (coloniaPri) tasks.push(loadColonias());
+  Promise.all(tasks).then(function(){
+    if (coloniaPri) {
+      var feat = matchColoniaFeature(coloniaPri);
+      if (feat && feat.geometry) {
+        var built = buildRouteInPolygon(feat.geometry, lat, lng);
+        routePoints = built.points;
+        activeColoniaMeta = {
+          nombre: (feat.properties && feat.properties.colonia) || coloniaPri.nombre,
+          municipio: (feat.properties && feat.properties.municipio) || coloniaPri.municipio,
+          calleCount: built.calleCount,
+          teleports: built.teleports
+        };
+        drawColoniaOutline(feat.geometry);
+        if (!routePoints.length) {
+          setStatus('Sin calles en polígono', 'warn');
+          $('startMsg').textContent = 'Polígono de ' + activeColoniaMeta.nombre +
+            ' sin calles OSM. Probando radio alrededor del centro…';
+          routePoints = buildRouteNear(lat, lng);
+          if (!routePoints.length) return;
+          activeColoniaMeta = null;
+          clearColoniaOutline();
+        } else {
+          var label = 'Colonia ' + activeColoniaMeta.nombre + ' · ' +
+            activeColoniaMeta.calleCount + ' calles · ' + routePoints.length +
+            ' pts · cobertura completa';
+          setStatus(label, 'ok');
+          beginWalk(lat, lng, label);
+          return;
+        }
+      } else {
+        $('startMsg').textContent = 'Sin polígono para ' + coloniaPri.nombre +
+          ' — usando radio ±' + ROUTE_RADIUS_M + ' m (centroid).';
+        setRouteMode('todo');
+        routePoints = buildRouteNear(lat, lng);
+      }
+    } else {
+      routePoints = buildRouteNear(lat, lng);
+    }
     if (!routePoints.length) {
       setStatus('Sin calles OSM', 'warn');
       $('startMsg').textContent = routeMode === 'avenidas'
@@ -929,44 +1316,12 @@ function startAtLatLng(lat, lng){
         : 'No hay calles OSM cerca. Prueba otras coords.';
       return;
     }
-    drawRouteOnMap(routePoints);
-    routeIndex = 0;
-    stepCount = 0;
-    setProgress();
-    var first = routePoints[0];
-    setStatus('Buscando panorama…');
-    svService.getPanorama({
-      location: { lat: first.lat, lng: first.lng },
-      radius: 80,
-      source: google.maps.StreetViewSource.OUTDOOR
-    }, function(data, status){
-      if (status !== google.maps.StreetViewStatus.OK || !data || !data.location) {
-        // still try setPosition walk
-        hideMapFallback();
-        panorama.setVisible(true);
-        panorama.setPosition({ lat: first.lat, lng: first.lng });
-        panorama.setPov({ heading: first.exitBearing || 0, pitch: 0 });
-      } else {
-        panorama.setPano(data.location.pano);
-        panorama.setPov({ heading: first.exitBearing || 0, pitch: 0 });
-        panorama.setVisible(true);
-      }
-      hideMapFallback();
-      clearMapsError();
-      $('overlayStart').classList.add('hidden');
-      $('startMsg').textContent = '';
-      walking = true;
-      routeIndex = 1;
-      setPaused(false);
-      var modeWord = routeMode === 'avenidas' ? 'avenidas' : 'completo';
-      setStatus('Caminando', 'ok');
-      toast('Trayecto ' + modeWord + ' · ' + routePoints.length + ' pts');
-      saveLastPos(lat, lng);
-    });
+    var modeWord = routeMode === 'avenidas' ? 'avenidas' : 'completo';
+    beginWalk(lat, lng, 'Trayecto ' + modeWord + ' · ' + routePoints.length + ' pts');
   }).catch(function(err){
     console.error(err);
     setStatus('Error calles', 'warn');
-    $('startMsg').textContent = 'No se pudo cargar data/roads_zmm.geojson';
+    $('startMsg').textContent = 'No se pudo cargar roads/colonias geojson';
   });
 }
 
@@ -1115,6 +1470,7 @@ function initMaps(){
   showPreviewStreetView(center);
   // Prefetch roads
   loadRoads().then(function(){ /* warm */ }).catch(function(){});
+  loadColonias().catch(function(){});
 }
 
 function loadGoogleMaps(key){
@@ -1179,6 +1535,8 @@ $('btnRestart').addEventListener('click', function(){
   paused = true;
   routePoints = [];
   routeIndex = 0;
+  activeColoniaMeta = null;
+  clearColoniaOutline();
   if (routeLine) { routeLine.setMap(null); routeLine = null; }
   $('overlayStart').classList.remove('hidden');
   clearMapsError();
@@ -1197,9 +1555,11 @@ $('btnStart').addEventListener('click', function(){
   if (!mapsReady) { toast('Espera a que cargue Maps…'); return; }
   var pick = $('coloniaPick').value;
   var ll = null;
+  var coloniaPri = null;
   if (pick) {
     for (var i = 0; i < PRIORITY_COLONIAS.length; i++) {
       if (PRIORITY_COLONIAS[i].id === pick) {
+        coloniaPri = PRIORITY_COLONIAS[i];
         ll = { lat: PRIORITY_COLONIAS[i].lat, lng: PRIORITY_COLONIAS[i].lng };
         break;
       }
@@ -1210,13 +1570,18 @@ $('btnStart').addEventListener('click', function(){
     $('startMsg').textContent = 'Elige colonia o pega lat,lng válidos.';
     return;
   }
-  startAtLatLng(ll.lat, ll.lng);
+  startAtLatLng(ll.lat, ll.lng, coloniaPri);
 });
 $('coloniaPick').addEventListener('change', function(){
   var pick = $('coloniaPick').value;
+  if (!pick) {
+    setRouteMode(routeMode);
+    return;
+  }
   for (var i = 0; i < PRIORITY_COLONIAS.length; i++) {
     if (PRIORITY_COLONIAS[i].id === pick) {
       $('centerInput').value = PRIORITY_COLONIAS[i].lat.toFixed(6) + ', ' + PRIORITY_COLONIAS[i].lng.toFixed(6);
+      setRouteMode('todo');
       break;
     }
   }
@@ -1226,10 +1591,11 @@ $('btnSync').addEventListener('click', syncAllNtfy);
 $('btnClear').addEventListener('click', function(){
   if (!sessionPins.length) return;
   if (!confirm('¿Limpiar pines de esta sesión?')) return;
-  sessionPins.slice().forEach(unpersistFeature);
+  var n = sessionPins.length;
+  sessionPins.slice().forEach(function(f){ unpersistFeature(f, { quiet: true }); });
   sessionPins = [];
   renderPins();
-  toast('Sesión limpia');
+  toast('Sesión limpia · ' + n + ' delete(s) sync');
 });
 $('btnKey').addEventListener('click', function(){ showKeyGate(true); });
 $('btnCancelKey').addEventListener('click', function(){ showKeyGate(false); });
