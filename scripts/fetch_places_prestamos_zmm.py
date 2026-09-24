@@ -1,31 +1,21 @@
 #!/usr/bin/env python3
-"""Fetch commercial anchors for ZMM via Places API (New) Text Search.
+"""Fetch préstamo / empeño / financiera anchors for ZMM via Places API (New).
+
+Same pattern as fetch_places_anclas_zmm.py — Text Search tiles, not dense grid.
+Soft budget ~400–800 requests (default 700).
 
 Usage:
-  python3 scripts/fetch_places_anclas_zmm.py
-  GOOGLE_MAPS_API_KEY=... python3 scripts/fetch_places_anclas_zmm.py
-  python3 scripts/fetch_places_anclas_zmm.py --dry-run
-  python3 scripts/fetch_places_anclas_zmm.py --brands modelorama,express
-
-Key resolution (first hit):
-  1) env GOOGLE_MAPS_API_KEY / MAPS_API_KEY
-  2) .env in repo root (gitignored)
-  3) config/maps-key.js (window.PURIF_MAPS_KEY)
+  python3 scripts/fetch_places_prestamos_zmm.py
+  python3 scripts/fetch_places_prestamos_zmm.py --dry-run
+  python3 scripts/fetch_places_prestamos_zmm.py --brands empeno,financiera
+  python3 scripts/fetch_places_prestamos_zmm.py --cap 600
 
 Writes:
-  data/places_anclas_zmm.geojson
+  data/places_prestamos_zmm.geojson
 
-Sibling (préstamo/empeño/financiera):
-  scripts/fetch_places_prestamos_zmm.py → data/places_prestamos_zmm.geojson
-
-Strategy (cheap / free-tier friendly, soft cap ~2000 req):
-  - Text Search Pro → places.googleapis.com/v1/places:searchText
-  - Non-overlapping coarse tiles over data/colonias.geojson bbox (+ pad)
-  - Pagination (≤3 pages / tile); Oxxo/farmacia auto-split once if saturated
-  - Deduplicate by place id; clip to ZMM bbox
-  - Spanish MX brand queries only — no invented places
-
-Do not commit API keys into tracked files.
+Kinds: empeno | financiera | prestamo
+Banco Azteca is skipped here (already complete in places_anclas_zmm.geojson).
+Dedupes by place_id within this file; optionally exclude ids already in anclas.
 """
 from __future__ import annotations
 
@@ -43,7 +33,8 @@ from typing import Any
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COLONIAS = os.path.join(ROOT, "data", "colonias.geojson")
-OUT = os.path.join(ROOT, "data", "places_anclas_zmm.geojson")
+ANCLAS = os.path.join(ROOT, "data", "places_anclas_zmm.geojson")
+OUT = os.path.join(ROOT, "data", "places_prestamos_zmm.geojson")
 MAPS_KEY_JS = os.path.join(ROOT, "config", "maps-key.js")
 ENV_FILE = os.path.join(ROOT, ".env")
 
@@ -62,46 +53,108 @@ FIELD_MASK = ",".join(
 
 PAGE_SIZE = 20
 MAX_PAGES_PER_TILE = 3
-REQUEST_SOFT_CAP = 2000
+REQUEST_SOFT_CAP = 700
 PAD = 0.02
-# Coarse grid over colonias bbox (prefer over 500 m grid / overlapping munis)
 GRID_COLS = 3
 GRID_ROWS = 3
 SLEEP_SEC = 0.08
 PAGE_TOKEN_SLEEP = 2.05
 
-# (kind, text_query)
+# (kind, text_query) — MX / Monterrey Spanish brands + categories
 BRANDS: list[tuple[str, str]] = [
-    ("modelorama", "Modelorama"),
-    ("express", "Bodega Aurrera Express"),
-    ("soriana_express", "Soriana Express"),
-    ("oxxo", "Oxxo"),
-    ("six", "Six"),
-    ("extra", "Tienda Extra"),
-    ("banco", "Banco Azteca"),
-    ("farmacia", "Farmacia Guadalajara"),
-    ("farmacia", "Farmacia Benavides"),
+    ("empeno", "Casa de empeño"),
+    ("empeno", "Monte de Piedad"),
+    ("empeno", "Prendamex"),
+    ("empeno", "Empeños"),
+    ("empeno", "Baúl de Empeños"),
+    ("empeno", "Empeño Fácil"),
+    ("financiera", "Financiera Independencia"),
+    ("financiera", "ConCredito"),
+    ("financiera", "Credilikeme"),
+    ("financiera", "Crediclub"),
+    ("prestamo", "Préstamos personales"),
+    ("prestamo", "Prestamos"),
 ]
 
-SIX_REJECT = ("sixth", "sixteen", "sixt", "essex", "sussex")
-EXTRA_REJECT = (
-    "extraordinario",
-    "extraccion",
-    "extracción",
-    "extract",
-    "extraviado",
-    "hotel",
-    "motel",
-)
-CONV_TYPES = {
-    "convenience_store",
-    "supermarket",
-    "grocery_store",
-    "store",
-    "food_store",
-    "liquor_store",
-    "market",
+FINANCE_TYPES = {
+    "bank",
+    "atm",
+    "finance",
+    "accounting",
+    "insurance_agency",
+    "loan_agency",
+    "money_transfer",
+    "point_of_interest",
+    "establishment",
+    "finance",
+    "credit_union",
 }
+
+EMPENO_OK = (
+    "empeño",
+    "empeno",
+    "prendamex",
+    "monte de piedad",
+    "montepiedad",
+    "baúl",
+    "baul",
+    "casa de empe",
+)
+EMPENO_REJECT = (
+    "hospital",
+    "escuela",
+    "iglesia",
+    "restaurante",
+    "farmacia",
+    "oxxo",
+    "hotel",
+)
+
+FIN_OK_BRANDS = (
+    "independencia",
+    "concredito",
+    "con crédito",
+    "con credito",
+    "credilikeme",
+    "credi like me",
+    "crediclub",
+    "credi club",
+)
+FIN_REJECT = (
+    "banco azteca",
+    "bbva",
+    "banorte",
+    "santander",
+    "hsbc",
+    "citibanamex",
+    "scotiabank",
+    "banregio",
+    "afirme",
+)
+
+PRESTAMO_OK = (
+    "préstamo",
+    "prestamo",
+    "crédito",
+    "credito",
+    "financiera",
+    "crediclub",
+    "concredito",
+    "credilikeme",
+    "independencia",
+)
+PRESTAMO_REJECT = EMPENO_REJECT + (
+    "banco azteca",
+    "bbva",
+    "banorte",
+    "santander",
+    "hsbc",
+    "citibanamex",
+    "auto",
+    "hipotecario",
+    "inmobiliaria",
+    "casa de bolsa",
+)
 
 
 def load_key() -> str:
@@ -183,50 +236,92 @@ def split_rect(
     return grid_tiles(rect, cols, rows)
 
 
+def load_existing_place_ids(path: str) -> set[str]:
+    if not os.path.isfile(path):
+        return set()
+    with open(path, encoding="utf-8") as f:
+        fc = json.load(f)
+    ids: set[str] = set()
+    for ft in fc.get("features") or []:
+        pid = (ft.get("properties") or {}).get("place_id") or ""
+        if pid:
+            ids.add(pid)
+    return ids
+
+
 def name_ok(kind: str, query: str, name: str, types: list[str]) -> bool:
     n = (name or "").lower().strip()
     if not n:
         return False
-    if kind == "modelorama":
-        return "modelorama" in n
-    if kind == "express":
-        return "aurrera" in n and "express" in n
-    if kind == "soriana_express":
-        if "dhl" in n or "courier" in (types or []):
+    n_norm = (
+        n.replace("é", "e")
+        .replace("á", "a")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ú", "u")
+    )
+    q = (query or "").lower()
+    tset = set(types or [])
+
+    if kind == "empeno":
+        if any(x in n_norm for x in EMPENO_REJECT):
             return False
-        return "soriana" in n and "express" in n
-    if kind == "oxxo":
-        return "oxxo" in n and "oxxoport" not in n.replace(" ", "")
-    if kind == "six":
-        if any(x in n for x in SIX_REJECT):
+        if "prendamex" in q:
+            return "prendamex" in n_norm
+        if "monte de piedad" in q or "montepiedad" in q.replace(" ", ""):
+            return "monte" in n_norm and "piedad" in n_norm
+        if "baul" in q.replace("ú", "u").replace(" ", "") or "baúl" in q:
+            return "baul" in n_norm or "baúl" in n
+        if "facil" in q.replace("á", "a") or "fácil" in q:
+            return ("empeno" in n_norm or "empeño" in n) and (
+                "facil" in n_norm or "fácil" in n
+            )
+        # Casa de empeño / Empeños generic
+        return any(tok in n or tok in n_norm for tok in EMPENO_OK)
+
+    if kind == "financiera":
+        if any(x in n_norm for x in FIN_REJECT):
             return False
-        if not re.search(r"(^|[^a-záéíóúñ0-9])six([^a-záéíóúñ0-9]|$)", n):
+        if "infonavit" in n_norm or "traspaso" in n_norm or "asesor" in n_norm:
             return False
-        tset = set(types or [])
-        if tset & {"lodging", "hotel", "church", "school", "hospital", "bank", "atm", "university"}:
+        if "independencia" in q:
+            return "independencia" in n_norm and (
+                "financiera" in n_norm or "credito" in n_norm or "crédito" in n
+            )
+        if "concredito" in q.replace(" ", "") or "con credito" in q:
+            # Brand ConCredito only — not realtor "con crédito Infonavit"
+            compact = n_norm.replace(" ", "")
+            if "infonavit" in n_norm:
+                return False
+            return "concredito" in compact
+        if "credilikeme" in q.replace(" ", ""):
+            return "credilike" in n_norm.replace(" ", "") or "credi like me" in n_norm
+        if "crediclub" in q.replace(" ", ""):
+            return "crediclub" in n_norm.replace(" ", "") or "credi club" in n_norm
+        return any(b in n_norm for b in FIN_OK_BRANDS)
+
+    if kind == "prestamo":
+        if "infonavit" in n_norm and "hipoteca" in n_norm:
             return False
-        return True
-    if kind == "extra":
-        if "oxxo" in n or "modelorama" in n or "corona" in n or "bazar" in n:
+        if any(x in n_norm for x in PRESTAMO_REJECT):
             return False
-        if any(x in n for x in EXTRA_REJECT):
-            return False
-        # Cadena Comercial Extra only — avoid Corona Extra / random "extra"
-        if re.search(r"\btienda\s+extra\b", n):
+        # Prefer names that look like loan shops / financieras
+        if any(x in n_norm for x in PRESTAMO_OK) or any(
+            x in n for x in ("préstamo", "crédito", "empeño")
+        ):
+            # Drop pure banks already covered elsewhere
+            if "banco" in n_norm and "azteca" not in n_norm:
+                if not any(
+                    b in n_norm
+                    for b in ("financiera", "prestamo", "préstamo", "crediclub")
+                ):
+                    return False
             return True
-        if re.search(r"^extra\b", n) and "televisa" not in n:
-            tset = set(types or [])
-            return bool(tset & CONV_TYPES) or True
+        # typed finance POIs with crédito-ish primary
+        if tset & {"bank", "atm"} and "financiera" not in n_norm:
+            return False
         return False
-    if kind == "banco":
-        return "azteca" in n and ("banco" in n or "baz" in n)
-    if kind == "farmacia":
-        q = query.lower()
-        if "guadalajara" in q:
-            return "guadalajara" in n
-        if "benavides" in q:
-            return "benavides" in n
-        return "farmacia" in n
+
     return True
 
 
@@ -328,10 +423,11 @@ def fetch_tile(
     clip: tuple[float, float, float, float],
     budget: Budget,
     by_id: dict[str, dict],
+    exclude_ids: set[str],
     fetched_at: str,
     stats: dict,
 ) -> bool:
-    """Returns True if tile looked saturated (likely truncated)."""
+    """Returns True if tile looked saturated."""
     token = None
     pages = 0
     last_count = 0
@@ -371,6 +467,9 @@ def fetch_tile(
             pid = feat["properties"]["place_id"]
             if not pid:
                 continue
+            if pid in exclude_ids:
+                stats["excluded_anclas"] += 1
+                continue
             if pid in by_id:
                 stats["dupes"] += 1
                 continue
@@ -391,22 +490,33 @@ def fetch_brand_tiles(
     clip: tuple[float, float, float, float],
     budget: Budget,
     by_id: dict[str, dict],
+    exclude_ids: set[str],
     fetched_at: str,
     stats: dict,
 ) -> None:
-    dense = kind in ("oxxo", "farmacia", "banco", "modelorama")
+    # Generic category queries can saturate — allow one split
+    dense = kind in ("empeno", "prestamo")
     for tile in tiles:
         if budget.hit():
             return
         saturated = fetch_tile(
-            key, kind, query, tile, clip, budget, by_id, fetched_at, stats
+            key, kind, query, tile, clip, budget, by_id, exclude_ids, fetched_at, stats
         )
         if saturated and dense:
             for sub in split_rect(tile, 2, 2):
                 if budget.hit():
                     return
                 fetch_tile(
-                    key, kind, query, sub, clip, budget, by_id, fetched_at, stats
+                    key,
+                    kind,
+                    query,
+                    sub,
+                    clip,
+                    budget,
+                    by_id,
+                    exclude_ids,
+                    fetched_at,
+                    stats,
                 )
 
 
@@ -415,13 +525,11 @@ def parse_brands_arg(s: str | None) -> list[tuple[str, str]]:
         return list(BRANDS)
     want = {x.strip().lower() for x in s.split(",") if x.strip()}
     alias = {
-        "aurrera": "express",
-        "aurrera_express": "express",
-        "bodega": "express",
-        "soriana": "soriana_express",
-        "azteca": "banco",
-        "guadalajara": "farmacia",
-        "benavides": "farmacia",
+        "empeño": "empeno",
+        "pawn": "empeno",
+        "loan": "prestamo",
+        "préstamo": "prestamo",
+        "finanzas": "financiera",
     }
     want = {alias.get(w, w) for w in want}
     out = [b for b in BRANDS if b[0] in want]
@@ -440,24 +548,35 @@ def main() -> int:
     ap.add_argument("--cols", type=int, default=GRID_COLS)
     ap.add_argument("--rows", type=int, default=GRID_ROWS)
     ap.add_argument("--out", default=OUT)
+    ap.add_argument(
+        "--no-exclude-anclas",
+        action="store_true",
+        help="Do not skip place_ids already in places_anclas_zmm.geojson",
+    )
     args = ap.parse_args()
 
     clip = colonias_bbox(COLONIAS)
     tiles = grid_tiles(clip, args.cols, args.rows)
     brands = parse_brands_arg(args.brands)
+    exclude_ids: set[str] = set()
+    if not args.no_exclude_anclas:
+        exclude_ids = load_existing_place_ids(ANCLAS)
 
     print(
         f"ZMM clip bbox: lon[{clip[0]:.4f},{clip[2]:.4f}] "
         f"lat[{clip[1]:.4f},{clip[3]:.4f}]"
     )
     print(f"Tiles: {len(tiles)} ({args.cols}×{args.rows})")
+    print(f"Exclude anclas place_ids: {len(exclude_ids)}")
     print(f"Brand queries ({len(brands)}):")
     for kind, q in brands:
         print(f"  [{kind}] {q}")
 
     if args.dry_run:
         est = len(tiles) * len(brands)
-        print(f"Dry-run OK. Base requests ≥{est}; with pages/splits typically {est*2}–{est*5}.")
+        print(
+            f"Dry-run OK. Base requests ≥{est}; with pages/splits typically {est*2}–{est*4}."
+        )
         return 0
 
     key = load_key()
@@ -470,6 +589,7 @@ def main() -> int:
         "dupes": 0,
         "filtered": 0,
         "outside_clip": 0,
+        "excluded_anclas": 0,
         "errors": [],
     }
 
@@ -481,7 +601,16 @@ def main() -> int:
         before_kept = stats["kept"]
         print(f"→ {query} ({len(tiles)} tiles) …", flush=True)
         fetch_brand_tiles(
-            key, kind, query, tiles, clip, budget, by_id, fetched_at, stats
+            key,
+            kind,
+            query,
+            tiles,
+            clip,
+            budget,
+            by_id,
+            exclude_ids,
+            fetched_at,
+            stats,
         )
         print(
             f"  req +{budget.n - before} (total {budget.n}) · "
@@ -500,7 +629,7 @@ def main() -> int:
     by_kind = Counter(f["properties"]["kind"] for f in features)
     fc = {
         "type": "FeatureCollection",
-        "name": "places_anclas_zmm",
+        "name": "places_prestamos_zmm",
         "metadata": {
             "fuente": "places_api",
             "endpoint": ENDPOINT,
@@ -510,11 +639,13 @@ def main() -> int:
             "counts_by_kind": dict(sorted(by_kind.items())),
             "filtered_out": stats["filtered"],
             "dupes_skipped": stats["dupes"],
+            "excluded_anclas": stats["excluded_anclas"],
             "outside_clip": stats["outside_clip"],
             "errors": stats["errors"][:20],
             "clip_bbox": list(clip),
             "grid": [args.cols, args.rows],
             "queries": [q for _, q in brands],
+            "note": "Banco Azteca omitted — see places_anclas_zmm kind=banco",
         },
         "features": features,
     }
@@ -529,6 +660,8 @@ def main() -> int:
     print(f"Features: {len(features)}")
     for k, n in sorted(by_kind.items()):
         print(f"  {k}: {n}")
+    if stats["excluded_anclas"]:
+        print(f"Excluded (already in anclas): {stats['excluded_anclas']}")
     if stats["errors"]:
         print(f"Errors: {len(stats['errors'])}")
     return 0

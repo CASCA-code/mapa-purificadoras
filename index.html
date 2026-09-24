@@ -863,6 +863,22 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <button class="tbtn ctx " data-l="places_otro" aria-pressed="false"><i aria-hidden="true" style="background:#718096;border:2px dashed #4a5568;color:#fff;font-size:9px;font-weight:700">·</i><span>Otro (Places)</span></button>
      </div>
     </div>
+    <div class="esc-wrap" id="prestamosWrap">
+     <button type="button" class="tbtn ctx esc-parent" id="prestamosParent" aria-expanded="false" aria-controls="prestamosSub" aria-pressed="false" title="Préstamos / empeño / financieras Places API — fuente Google; no inventadas">
+      <i aria-hidden="true" id="prestamosParentIcon" style="background:#6b46c1;border-color:#44337a;color:#fff;font-size:9px;font-weight:700">$</i>
+      <span>Préstamos / empeño</span>
+      <span class="chev" aria-hidden="true">▾</span>
+     </button>
+     <div class="esc-sub" id="prestamosSub" role="group" aria-label="Anclas Places API préstamos y empeño">
+      <div class="esc-master"><span id="prestamosSummary">todas activas</span>
+        <button type="button" id="prestamosAllOn" title="Activar todas">Todas</button>
+        <button type="button" id="prestamosAllOff" title="Desactivar todas">Ninguna</button>
+      </div>
+      <button class="tbtn ctx on" data-l="prestamos_empeno" aria-pressed="true"><i aria-hidden="true" style="background:#805ad5;border:2px dashed #553c9a;color:#fff;font-size:9px;font-weight:700">E</i><span>Empeño / Monte (Places)</span></button>
+      <button class="tbtn ctx on" data-l="prestamos_financiera" aria-pressed="true"><i aria-hidden="true" style="background:#319795;border:2px dashed #234e52;color:#fff;font-size:9px;font-weight:700">F</i><span>Financieras (Places)</span></button>
+      <button class="tbtn ctx on" data-l="prestamos_prestamo" aria-pressed="true"><i aria-hidden="true" style="background:#6b46c1;border:2px dashed #44337a;color:#fff;font-size:9px;font-weight:700">P</i><span>Préstamos (Places)</span></button>
+     </div>
+    </div>
     <p class="eyebrow" style="margin-top:10px">Tránsito (OSM)</p>
     <button class="tbtn ctx " data-l="semaforos" aria-pressed="false" title="Semáforos OSM — cobertura incompleta">
       <i aria-hidden="true" style="background:#ecc94b;border-color:#975a16;color:#1a202c;font-size:10px;font-weight:700">🚦</i>
@@ -908,6 +924,9 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <div class="row"><span class="sw ico" title="Cerveza" style="background:#d69e2e;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">C</span> Modelorama / Six / cerveza</div>
     <div class="row"><span class="sw ico" title="Bienestar" style="background:#38a169;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">B</span> Banco del Bienestar</div>
     <div class="row"><span class="sw ico" title="Azteca" style="background:#2f855a;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">Z</span> Banco Azteca</div>
+    <div class="row"><span class="sw ico" title="Empeño" style="background:#805ad5;border-radius:50%;border:1px dashed #553c9a;color:#fff;font:700 9px/16px sans-serif;text-align:center">E</span> Empeño / Monte (Places)</div>
+    <div class="row"><span class="sw ico" title="Financiera" style="background:#319795;border-radius:50%;border:1px dashed #234e52;color:#fff;font:700 9px/16px sans-serif;text-align:center">F</span> Financieras (Places)</div>
+    <div class="row"><span class="sw ico" title="Préstamo" style="background:#6b46c1;border-radius:50%;border:1px dashed #44337a;color:#fff;font:700 9px/16px sans-serif;text-align:center">P</span> Préstamos personales (Places)</div>
     <div class="row"><span class="sw ico" title="Semáforo" style="background:#ecc94b;border-radius:50%;border:1px solid #975a16"></span> semáforo (OSM · cobertura incompleta)</div>
     <div class="row"><span class="sw ico" title="Alto" style="background:#e53e3e;border-radius:2px;color:#fff;font:700 8px/16px sans-serif;text-align:center">A</span> alto / yield (OSM · Scout S manual)</div>
     <div class="row"><span class="sw ico" title="Favorito con teléfono" style="background:#0f766e;border-radius:50%;color:#ecfdf5;font:700 11px/16px sans-serif;text-align:center">★</span> Favorito con teléfono (CRM / llamar)</div>
@@ -960,7 +979,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260924-scout-merge';
+window.__PURIF_BUILD = '20260924-prestamos-places';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -1469,6 +1488,153 @@ function updatePlacesParentUI(){
   updatePlacesParentUI();
 })();
 
+
+/* ---------- Places API anchors (préstamos / empeño / financieras) ---------- */
+const PRESTAMOS_KINDS = ['empeno','financiera','prestamo'];
+const PRESTAMOS_LABELS = {
+  empeno:'Empeño / Monte',
+  financiera:'Financiera',
+  prestamo:'Préstamo'
+};
+const PRESTAMOS_STYLE = {
+  empeno:{fill:'#805ad5', stroke:'#553c9a', letter:'E'},
+  financiera:{fill:'#319795', stroke:'#234e52', letter:'F'},
+  prestamo:{fill:'#6b46c1', stroke:'#44337a', letter:'P'}
+};
+function prestamosSvg(kind){
+  const s = PRESTAMOS_STYLE[kind] || PRESTAMOS_STYLE.prestamo;
+  return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    +'<circle cx="9" cy="9" r="7.2" fill="'+s.fill+'" stroke="'+s.stroke+'" stroke-width="1.6" stroke-dasharray="2.2 1.6"/>'
+    +'<text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">'+s.letter+'</text>'
+    +'</svg>';
+}
+function prestamosIcon(kind){
+  return L.divIcon({className:'places-icon ancla-icon prestamos-icon', iconSize:[18,18], iconAnchor:[9,9], popupAnchor:[0,-10],
+    html:'<span class="ai" aria-hidden="true">'+prestamosSvg(kind)+'</span>'});
+}
+const prestamosByKind = {};
+PRESTAMOS_KINDS.forEach(k => { prestamosByKind[k] = L.layerGroup(); });
+let prestamosMasterOn = true;
+function paintPrestamosAnclas(fc){
+  const counts = {};
+  PRESTAMOS_KINDS.forEach(k => { counts[k] = 0; });
+  (fc.features || []).forEach(function(ft){
+    const c = ft.geometry && ft.geometry.coordinates; if (!c) return;
+    const p = ft.properties || {};
+    let kind = p.kind || 'prestamo';
+    if (!prestamosByKind[kind]) kind = 'prestamo';
+    counts[kind] = (counts[kind] || 0) + 1;
+    const name = p.name || PRESTAMOS_LABELS[kind] || kind;
+    const addr = p.address || '';
+    const m = L.marker([c[1], c[0]], { icon: prestamosIcon(kind), keyboard: true });
+    m.bindPopup(
+      '<b>'+name+'</b><br><span class="p-sub">Places · '+ (PRESTAMOS_LABELS[kind]||kind) +' · fuente places_api</span>'
+      +(addr ? '<br>'+addr : '')
+      +(p.place_id ? '<br><span class="p-sub">id '+p.place_id+'</span>' : ''),
+      { maxWidth: 260, autoPan: false }
+    );
+    m.addTo(prestamosByKind[kind]);
+  });
+  PRESTAMOS_KINDS.forEach(function(k){
+    const btn = document.querySelector('.tbtn[data-l="prestamos_'+k+'"] span');
+    if (btn) {
+      const label = btn.textContent.replace(/\s*\(\d+\)\s*$/, '');
+      if (counts[k]) btn.textContent = label + ' (' + counts[k] + ')';
+    }
+  });
+  return counts;
+}
+function syncPrestamosLayer(kind){
+  const lyr = prestamosByKind[kind];
+  const btn = document.querySelector('.tbtn[data-l="prestamos_'+kind+'"]');
+  const want = prestamosMasterOn && btn && btn.classList.contains('on');
+  if (want && !map.hasLayer(lyr)) map.addLayer(lyr);
+  if (!want && map.hasLayer(lyr)) map.removeLayer(lyr);
+}
+function syncAllPrestamosLayers(){ PRESTAMOS_KINDS.forEach(syncPrestamosLayer); }
+function updatePrestamosParentUI(){
+  const parent = document.getElementById('prestamosParent');
+  const summary = document.getElementById('prestamosSummary');
+  if (!parent || !summary) return;
+  const btns = [...document.querySelectorAll('#prestamosSub .tbtn[data-l]')];
+  const nOn = btns.filter(b => b.classList.contains('on')).length;
+  const n = btns.length;
+  parent.classList.toggle('on', prestamosMasterOn && nOn > 0);
+  parent.classList.toggle('partial', prestamosMasterOn && nOn > 0 && nOn < n);
+  parent.setAttribute('aria-pressed', String(prestamosMasterOn && nOn > 0));
+  if (!prestamosMasterOn) summary.textContent = 'ocultas (maestro off)';
+  else if (nOn === n) summary.textContent = 'todas activas';
+  else if (nOn === 0) summary.textContent = 'ningún subtipo';
+  else summary.textContent = nOn+' de '+n+' tipos';
+}
+(function loadPrestamosAnclas(){
+  const bust = window.__PURIF_BUILD || String(Date.now());
+  fetch('data/places_prestamos_zmm.geojson?v=' + encodeURIComponent(bust), { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(function(fc){
+      if (!fc) return;
+      paintPrestamosAnclas(fc);
+      syncAllPrestamosLayers();
+      updatePrestamosParentUI();
+    })
+    .catch(function(){});
+})();
+(function wirePrestamosAccordion(){
+  const parent = document.getElementById('prestamosParent');
+  const sub = document.getElementById('prestamosSub');
+  const icon = document.getElementById('prestamosParentIcon');
+  if (!parent || !sub) return;
+  function enableAllPrestamos(){
+    document.querySelectorAll('#prestamosSub .tbtn[data-l]').forEach(b=>{
+      b.classList.add('on'); b.setAttribute('aria-pressed','true');
+    });
+    prestamosMasterOn = true;
+    syncAllPrestamosLayers();
+    updatePrestamosParentUI();
+  }
+  parent.addEventListener('click', (e)=>{
+    if (e.target === icon || (icon && icon.contains(e.target))) {
+      e.preventDefault();
+      e.stopPropagation();
+      const turningOn = !prestamosMasterOn;
+      if (turningOn) {
+        const nOn = [...document.querySelectorAll('#prestamosSub .tbtn[data-l]')].filter(b=>b.classList.contains('on')).length;
+        if (nOn === 0) enableAllPrestamos();
+        else { prestamosMasterOn = true; syncAllPrestamosLayers(); updatePrestamosParentUI(); }
+      } else {
+        prestamosMasterOn = false; syncAllPrestamosLayers(); updatePrestamosParentUI();
+      }
+      return;
+    }
+    const open = parent.getAttribute('aria-expanded') === 'true';
+    parent.setAttribute('aria-expanded', String(!open));
+    sub.classList.toggle('open', !open);
+  });
+  const allOn = document.getElementById('prestamosAllOn');
+  const allOff = document.getElementById('prestamosAllOff');
+  if (allOn) allOn.addEventListener('click', (e)=>{ e.stopPropagation(); enableAllPrestamos(); });
+  if (allOff) allOff.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.querySelectorAll('#prestamosSub .tbtn[data-l]').forEach(b=>{
+      b.classList.remove('on'); b.setAttribute('aria-pressed','false');
+    });
+    prestamosMasterOn = true;
+    syncAllPrestamosLayers();
+    updatePrestamosParentUI();
+  });
+  document.querySelectorAll('#prestamosSub .tbtn[data-l]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const nowOn = !btn.classList.contains('on');
+      btn.classList.toggle('on', nowOn);
+      btn.setAttribute('aria-pressed', String(nowOn));
+      const kind = btn.dataset.l.replace('prestamos_', '');
+      syncPrestamosLayer(kind);
+      updatePrestamosParentUI();
+    });
+  });
+  updatePrestamosParentUI();
+})();
+
 /* ---------- sidebar ---------- */
 function star(x){ const n = Number(x); return (isFinite(n)?n:0).toFixed(3); }
 function popupHtml(p){
@@ -1652,6 +1818,7 @@ if (searchEl) searchEl.addEventListener('input', ()=> renderToplist(searchEl.val
 /* ---------- layer toggles (live inside the Puntúan / Contexto panels) ---------- */
 const LAYERS = {colonias:colLayer, comp_rec:compRec, comp_ind:compInd, estaciones:estLayer, calor:heat, anillos:rings, etiquetas:labels, anclas_iglesia:anclasIglesia, anclas_hospital:anclasHospital, semaforos:semaforosLayer, stops:stopsLayer};
 PLACES_KINDS.forEach(k => { LAYERS['places_'+k] = placesByKind[k]; });
+PRESTAMOS_KINDS.forEach(k => { LAYERS['prestamos_'+k] = prestamosByKind[k]; });
 ESC_SUBS.forEach(s => { LAYERS['anclas_escuela_'+s] = anclasEscuelaBySub[s]; });
 RETAIL_SUBS.forEach(s => { LAYERS['anclas_'+s] = anclasRetailBySub[s]; });
 

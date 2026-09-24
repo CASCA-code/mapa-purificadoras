@@ -21,6 +21,8 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 | `scripts/fetch_osm_traffic.py` | Regenera semáforos + stops vía Overpass |
 | `data/places_anclas_zmm.geojson` | Anclas comerciales Places API (New) — Modelorama/Express/Oxxo/… |
 | `scripts/fetch_places_anclas_zmm.py` | Regenera Places anclas (key vía `.env` o `config/maps-key.js`) |
+| `data/places_prestamos_zmm.geojson` | Anclas Places API — préstamo / empeño / financiera |
+| `scripts/fetch_places_prestamos_zmm.py` | Regenera Places préstamos (key vía `.env` o `config/maps-key.js`) |
 | `docs/` | Notas operativas (anclas, GPS, SADM, bitácora) |
 | `README.md` | Este archivo |
 
