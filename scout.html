@@ -176,27 +176,17 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
       <span class="chip" id="chipStatus">Cargando…</span>
       <span class="chip" id="chipProgress">0 / 0</span>
       <span class="chip" id="chipCoords">—</span>
-      <span class="chip" id="chipMode">Todo</span>
+      <span class="chip" id="chipMode">Colonia</span>
     </div>
     <div id="overlayStart">
       <div class="card">
         <h2>Empezar recorrido</h2>
-        <p class="hint">Elige colonia (cubre <b>todas las calles</b> del polígono) o pega lat,lng. Scout arma trayecto OSM y camina Street View dinámico; tú sueltas pines con hotkeys.</p>
+        <p class="hint">Elige colonia (cubre <b>todas las calles</b> del polígono). Scout arma trayecto OSM y camina Street View dinámico; tú sueltas pines con hotkeys.</p>
         <div class="sec" style="margin-top:12px">
           <label class="field"><span>Colonia (ZMM · 167)</span>
             <input type="text" id="coloniaFilter" placeholder="Filtrar por nombre o municipio…" autocomplete="off" spellcheck="false" style="margin-bottom:6px">
             <select id="coloniaPick"><option value="">— elegir —</option></select>
           </label>
-          <label class="field"><span>O centro lat,lng</span>
-            <input type="text" id="centerInput" placeholder="25.836071, -100.371121" autocomplete="off" spellcheck="false">
-          </label>
-          <label class="field"><span>Cobertura</span>
-            <div class="btns" style="margin-top:0" role="group">
-              <button type="button" class="btn primary" id="btnModeAvenidas" aria-pressed="true">Avenidas</button>
-              <button type="button" class="btn" id="btnModeTodo" aria-pressed="false">Todo</button>
-            </div>
-          </label>
-          <p class="hint" id="modeHint">Colonia = todas las calles del polígono. Lat/lng: Avenidas o Todo (±radio).</p>
           <div class="btns">
             <button type="button" class="btn primary" id="btnStart">Iniciar Scout</button>
           </div>
@@ -230,7 +220,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
         </div>
         <div class="btns">
           <button type="button" class="btn primary" id="btnPause">Pausar (Space)</button>
-          <button type="button" class="btn" id="btnRestart">Nuevo centro</button>
+          <button type="button" class="btn" id="btnRestart">Cambiar colonia</button>
           <button type="button" class="btn ok" id="btnComment">Comentar zona (C)</button>
         </div>
         <p class="hint">Trayecto OSM prebaked (<code>data/roads_zmm.geojson</code>). Sin Places ni Street View Static — solo Maps JS + Dynamic SV.</p>
@@ -320,12 +310,11 @@ const LS_COMP = 'purificadoras_field_adds_v1';
 const LS_ANCLAS = 'purificadoras_anclas_v1';
 const LS_FAV = 'purificadoras_ours_v1';
 const LS_LAST = 'purif_scout_last_pos';
-const LS_MODE = 'purif_scout_route_mode';
 const LS_CLARITY = 'purif_scout_clarity';
 const LS_HOP = 'purif_scout_hop_m';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
-const SCOUT_VERSION = '1.9.4';
+const SCOUT_VERSION = '1.9.5';
 const HOP_M_DEFAULT = 28;
 const HOP_M_MIN = 15;
 const HOP_M_MAX = 80;
@@ -361,18 +350,6 @@ function loadLS(key){
 function saveLS(key, arr){
   try { localStorage.setItem(key, JSON.stringify(arr)); }
   catch (e) { try { alert('No se pudo guardar en localStorage.'); } catch (e2) {} }
-}
-function parseLatLng(raw){
-  if (!raw) return null;
-  var m = String(raw).trim().match(/(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/);
-  if (!m) return null;
-  var a = Number(m[1]), b = Number(m[2]);
-  if (!isFinite(a) || !isFinite(b)) return null;
-  if (Math.abs(a) <= 90 && Math.abs(b) <= 180) {
-    if (a < -50 && b > 15 && b < 35) return { lat: b, lng: a };
-    return { lat: a, lng: b };
-  }
-  return null;
 }
 function resolveApiKey(){
   // Prefer embedded config (production). localStorage override only if no embed
@@ -519,11 +496,9 @@ function samplePolyline(coordsLngLat, stepM){
   return out;
 }
 
-var routeMode = 'avenidas';
-try {
-  var sm = localStorage.getItem(LS_MODE);
-  if (sm === 'todo' || sm === 'avenidas') routeMode = sm;
-} catch (e) {}
+// Colonia polygon walk is the only start path; routeMode kept for
+// buildRouteNear radius fallback (empty polygon / missing geom).
+var routeMode = 'todo';
 
 (function buildKeymap(){
   var host = $('keymap');
@@ -537,39 +512,6 @@ try {
     host.appendChild(row);
   });
 })();
-(function initCenterDefaults(){
-  try {
-    var last = JSON.parse(localStorage.getItem(LS_LAST) || 'null');
-    if (last && last.lat != null) {
-      $('centerInput').value = Number(last.lat).toFixed(6) + ', ' + Number(last.lng).toFixed(6);
-    } else {
-      $('centerInput').value = '25.836071, -100.371121';
-    }
-  } catch (e) {
-    $('centerInput').value = '25.836071, -100.371121';
-  }
-})();
-
-function setRouteMode(mode){
-  routeMode = mode === 'todo' ? 'todo' : 'avenidas';
-  try { localStorage.setItem(LS_MODE, routeMode); } catch (e) {}
-  $('btnModeAvenidas').classList.toggle('primary', routeMode === 'avenidas');
-  $('btnModeTodo').classList.toggle('primary', routeMode === 'todo');
-  $('btnModeAvenidas').setAttribute('aria-pressed', routeMode === 'avenidas' ? 'true' : 'false');
-  $('btnModeTodo').setAttribute('aria-pressed', routeMode === 'todo' ? 'true' : 'false');
-  $('chipMode').textContent = routeMode === 'avenidas' ? 'Avenidas' : 'Todo';
-  var colPick = $('coloniaPick') && $('coloniaPick').value;
-  if (colPick) {
-    $('modeHint').textContent = 'Colonia seleccionada → cobertura completa (todas las calles del polígono), modo UI = Todo.';
-  } else {
-    $('modeHint').textContent = routeMode === 'avenidas'
-      ? 'Avenidas = primary/secondary/tertiary/unclassified (+trunk). Solo aplica a lat/lng (±radio).'
-      : 'Todo = + residential / living_street / service. Lat/lng ±radio; colonia siempre fuerza Todo.';
-  }
-}
-setRouteMode(routeMode);
-$('btnModeAvenidas').addEventListener('click', function(){ setRouteMode('avenidas'); });
-$('btnModeTodo').addEventListener('click', function(){ setRouteMode('todo'); });
 
 var sessionPins = [];
 var panorama = null;
@@ -1588,7 +1530,7 @@ function beginWalk(lat, lng, hudLabel){
     toast(hudLabel || ('Trayecto · ' + routePoints.length + ' pts'));
     $('chipMode').textContent = (activeColoniaMeta && activeColoniaMeta.nombre)
       ? ('Colonia · ' + routePoints.length + ' pts')
-      : (routeMode === 'avenidas' ? 'Avenidas' : 'Todo');
+      : ('Radio · ' + routePoints.length + ' pts');
     saveLastPos(lat, lng);
   });
 }
@@ -1597,62 +1539,60 @@ function startAtLatLng(lat, lng, coloniaSel){
     toast('Maps aún no listo');
     return;
   }
+  if (!coloniaSel) {
+    $('startMsg').textContent = 'Elige una colonia para iniciar.';
+    return;
+  }
   activeColoniaMeta = null;
   clearColoniaOutline();
   setStatus('Armando trayecto OSM…');
   $('startMsg').textContent = 'Cargando calles…';
-  var tasks = [loadRoads()];
-  if (coloniaSel) tasks.push(loadColonias());
-  Promise.all(tasks).then(function(){
-    if (coloniaSel) {
-      var feat = coloniaSel.feature ||
-        (coloniaSel.id && findColoniaFeatureById(coloniaSel.id)) ||
-        matchColoniaFeature(coloniaSel);
-      if (feat && feat.geometry) {
-        var built = buildRouteInPolygon(feat.geometry, lat, lng);
-        routePoints = built.points;
-        activeColoniaMeta = {
-          nombre: (feat.properties && feat.properties.colonia) || coloniaSel.nombre,
-          municipio: (feat.properties && feat.properties.municipio) || coloniaSel.municipio,
-          calleCount: built.calleCount,
-          teleports: built.teleports,
-          id: coloniaFeatureId(feat)
-        };
-        drawColoniaOutline(feat.geometry);
+  Promise.all([loadRoads(), loadColonias()]).then(function(){
+    var feat = coloniaSel.feature ||
+      (coloniaSel.id && findColoniaFeatureById(coloniaSel.id)) ||
+      matchColoniaFeature(coloniaSel);
+    if (feat && feat.geometry) {
+      var built = buildRouteInPolygon(feat.geometry, lat, lng);
+      routePoints = built.points;
+      activeColoniaMeta = {
+        nombre: (feat.properties && feat.properties.colonia) || coloniaSel.nombre,
+        municipio: (feat.properties && feat.properties.municipio) || coloniaSel.municipio,
+        calleCount: built.calleCount,
+        teleports: built.teleports,
+        id: coloniaFeatureId(feat)
+      };
+      drawColoniaOutline(feat.geometry);
+      if (!routePoints.length) {
+        setStatus('Sin calles en polígono', 'warn');
+        $('startMsg').textContent = 'Polígono de ' + activeColoniaMeta.nombre +
+          ' sin calles OSM. Probando radio alrededor del centroide…';
+        routePoints = buildRouteNear(lat, lng);
         if (!routePoints.length) {
-          setStatus('Sin calles en polígono', 'warn');
-          $('startMsg').textContent = 'Polígono de ' + activeColoniaMeta.nombre +
-            ' sin calles OSM. Probando radio alrededor del centro…';
-          routePoints = buildRouteNear(lat, lng);
-          if (!routePoints.length) return;
-          activeColoniaMeta = null;
-          clearColoniaOutline();
-        } else {
-          var label = 'Colonia ' + activeColoniaMeta.nombre + ' · ' +
-            activeColoniaMeta.calleCount + ' calles · ' + routePoints.length +
-            ' pts · cobertura completa';
-          setStatus(label, 'ok');
-          beginWalk(lat, lng, label);
+          $('startMsg').textContent = 'Sin calles OSM en el polígono ni cerca del centroide. Prueba otra colonia.';
           return;
         }
-      } else {
-        $('startMsg').textContent = 'Sin polígono para ' + (coloniaSel.nombre || coloniaSel.id || 'colonia') +
-          ' — usando radio ±' + ROUTE_RADIUS_M + ' m (centroid).';
-        setRouteMode('todo');
-        routePoints = buildRouteNear(lat, lng);
+        activeColoniaMeta = null;
+        clearColoniaOutline();
+        beginWalk(lat, lng, 'Fallback radio · ' + routePoints.length + ' pts');
+        return;
       }
-    } else {
-      routePoints = buildRouteNear(lat, lng);
-    }
-    if (!routePoints.length) {
-      setStatus('Sin calles OSM', 'warn');
-      $('startMsg').textContent = routeMode === 'avenidas'
-        ? 'No hay avenidas OSM cerca (±' + ROUTE_RADIUS_M + ' m). Prueba Todo u otra colonia.'
-        : 'No hay calles OSM cerca. Prueba otras coords.';
+      var label = 'Colonia ' + activeColoniaMeta.nombre + ' · ' +
+        activeColoniaMeta.calleCount + ' calles · ' + routePoints.length +
+        ' pts · cobertura completa';
+      setStatus(label, 'ok');
+      beginWalk(lat, lng, label);
       return;
     }
-    var modeWord = routeMode === 'avenidas' ? 'avenidas' : 'completo';
-    beginWalk(lat, lng, 'Trayecto ' + modeWord + ' · ' + routePoints.length + ' pts');
+    $('startMsg').textContent = 'Sin polígono para ' + (coloniaSel.nombre || coloniaSel.id || 'colonia') +
+      ' — usando radio ±' + ROUTE_RADIUS_M + ' m (centroid).';
+    routePoints = buildRouteNear(lat, lng);
+    if (!routePoints.length) {
+      setStatus('Sin calles OSM', 'warn');
+      $('startMsg').textContent = 'No hay calles OSM cerca (±' + ROUTE_RADIUS_M +
+        ' m). Prueba otra colonia.';
+      return;
+    }
+    beginWalk(lat, lng, 'Fallback radio · ' + routePoints.length + ' pts');
   }).catch(function(err){
     console.error(err);
     setStatus('Error calles', 'warn');
@@ -1726,7 +1666,7 @@ function showPreviewStreetView(center){
         showMapFallback(center, 'Error al mostrar SV');
         return;
       }
-      setStatus('SV listo — elige centro', 'ok');
+      setStatus('SV listo — elige colonia', 'ok');
     } else {
       // No outdoor imagery at point: keep usable map, not black void
       showMapFallback(center, 'Sin imagery SV aquí — mapa');
@@ -1901,7 +1841,7 @@ $('speedLabel').textContent = speedLabel();
 })();
 try { $('scoutVer').textContent = 'v' + SCOUT_VERSION; } catch (e) {}
 $('btnPause').addEventListener('click', function(){
-  if (!walking) { toast('Primero inicia un centro'); return; }
+  if (!walking) { toast('Primero inicia una colonia'); return; }
   setPaused(!paused);
 });
 $('btnRestart').addEventListener('click', function(){
@@ -1922,42 +1862,34 @@ $('btnRestart').addEventListener('click', function(){
     var last = JSON.parse(localStorage.getItem(LS_LAST) || 'null');
     if (last && last.lat != null) center = { lat: Number(last.lat), lng: Number(last.lng) };
   } catch (e) {}
-  var ll = parseLatLng($('centerInput').value);
-  if (ll) center = ll;
   if (mapsReady) showPreviewStreetView(center);
-  else setStatus('Nuevo centro');
+  else setStatus('Cambiar colonia');
+  $('chipMode').textContent = 'Colonia';
   setProgress();
 });
 $('btnStart').addEventListener('click', function(){
   if (!mapsReady) { toast('Espera a que cargue Maps…'); return; }
   var pick = $('coloniaPick').value;
-  var ll = null;
-  var coloniaSel = null;
-  if (pick) {
-    var feat = findColoniaFeatureById(pick);
-    if (feat) {
-      coloniaSel = selectionFromFeature(feat);
-      if (coloniaSel) ll = { lat: coloniaSel.lat, lng: coloniaSel.lng };
-    }
-  }
-  if (!ll) ll = parseLatLng($('centerInput').value);
-  if (!ll) {
-    $('startMsg').textContent = 'Elige colonia o pega lat,lng válidos.';
-    return;
-  }
-  startAtLatLng(ll.lat, ll.lng, coloniaSel);
-});
-$('coloniaPick').addEventListener('change', function(){
-  var pick = $('coloniaPick').value;
   if (!pick) {
-    setRouteMode(routeMode);
+    $('startMsg').textContent = 'Elige una colonia para iniciar.';
     return;
   }
   var feat = findColoniaFeatureById(pick);
+  var coloniaSel = feat ? selectionFromFeature(feat) : null;
+  if (!coloniaSel) {
+    $('startMsg').textContent = 'Colonia no encontrada en geojson.';
+    return;
+  }
+  startAtLatLng(coloniaSel.lat, coloniaSel.lng, coloniaSel);
+});
+$('coloniaPick').addEventListener('change', function(){
+  var pick = $('coloniaPick').value;
+  if (!pick) return;
+  var feat = findColoniaFeatureById(pick);
   var sel = selectionFromFeature(feat);
-  if (sel) {
-    $('centerInput').value = sel.lat.toFixed(6) + ', ' + sel.lng.toFixed(6);
-    setRouteMode('todo');
+  if (sel && mapsReady) {
+    showPreviewStreetView({ lat: sel.lat, lng: sel.lng });
+    $('chipMode').textContent = sel.nombre || 'Colonia';
   }
 });
 if ($('coloniaFilter')) {
@@ -2010,7 +1942,7 @@ window.addEventListener('keydown', function(ev){
   if ($('commentGate').classList.contains('show') || $('keyGate').classList.contains('show')) return;
   if (ev.code === 'Space' || ev.key === ' ') {
     ev.preventDefault();
-    if (!walking) { toast('Primero inicia un centro'); return; }
+    if (!walking) { toast('Primero inicia una colonia'); return; }
     setPaused(!paused);
     return;
   }
