@@ -1,7 +1,7 @@
 /* Field cache for mapa-purificadoras — app shell + vendor + geojson.
  * Network-first for HTML (cache fallback); stale-while-revalidate for vendor/data.
  * Bump CACHE on each deploy. Do not cache third-party map tiles. */
-const CACHE = 'purif-field-20260924-prestamos-places';
+const CACHE = 'purif-field-20260924-anclas-quiet';
 
 const PRECACHE = [
   './',

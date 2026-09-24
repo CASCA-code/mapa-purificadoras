@@ -19,9 +19,9 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 | `data/semaforos_zmm.geojson` | Semáforos OSM (ZMM) — capa contexto |
 | `data/stops_zmm.geojson` | Altos / yield OSM (ZMM) — capa contexto |
 | `scripts/fetch_osm_traffic.py` | Regenera semáforos + stops vía Overpass |
-| `data/places_anclas_zmm.geojson` | Anclas comerciales Places API (New) — Modelorama/Express/Oxxo/… |
+| `data/places_anclas_zmm.geojson` | Anclas comerciales Places API (New) — Modelorama/Bodega Aurrera Express/Oxxo/… |
 | `scripts/fetch_places_anclas_zmm.py` | Regenera Places anclas (key vía `.env` o `config/maps-key.js`) |
-| `data/places_prestamos_zmm.geojson` | Anclas Places API — préstamo / empeño / financiera |
+| `data/places_prestamos_zmm.geojson` | Anclas Places API — préstamo / casas de empeño / financiera |
 | `scripts/fetch_places_prestamos_zmm.py` | Regenera Places préstamos (key vía `.env` o `config/maps-key.js`) |
 | `docs/` | Notas operativas (anclas, GPS, SADM, bitácora) |
 | `README.md` | Este archivo |
@@ -32,7 +32,7 @@ Fuente de trabajo local (PC Nicolás): `OneDrive/Desktop/purificadora/version2/`
 
 1. Abre el link de Pages en Chrome/Safari.
 2. Toca **Ubicarme** y acepta ubicación.
-3. Enciende/apaga capas de anclas (Aurrera Express, Soriana Express, cerveza, Bienestar, Azteca) en el rail.
+3. Anclas comerciales (Places) y Préstamos / casas de empeño van **apagadas por defecto**; enciéndelas en el rail cuando las necesites (Bodega Aurrera Express, Modelorama, Oxxo, bancos, farmacias, empeño…).
 
 ## Actualización
 
