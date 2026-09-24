@@ -57,7 +57,7 @@ Si ves error de autenticación: confirma en Cloud Console referrers `https://cas
 | **Space** | Pausar / reanudar | — |
 | **Z** / **⌫** | Deshacer último pin | — |
 
-Tras **F**: pide nombre (default «Favorito») y teléfono opcional (8+ dígitos). Tras **Y**: pide precio de **recarga** MXN (campo primario `precio_recarga_mxn`) y opcionalmente garrafón/envase (`precio_garrafon_mxn`); vacío = omitir. El toast y el `name` reflejan el precio (ej. `Comp $12 recarga`). Versión Scout **v1.9.1**.
+Tras **F**: pide nombre (default «Favorito») y teléfono opcional (8+ dígitos). Tras **Y**: pide precio de **recarga** MXN (campo primario `precio_recarga_mxn`) y opcionalmente garrafón/envase (`precio_garrafon_mxn`); vacío = omitir. El toast y el `name` reflejan el precio (ej. `Comp $12 recarga`). Versión Scout **v1.9.2** · checkbox **Nítido** (default on): espera `pano_changed` + dwell 600 ms y salta ~48 m para reducir blur del morph Street View; off = cobertura densa. Fin de ruta: toast/HUD **Colonia completa**.
 
 ## Sync ntfy → mapa principal
 

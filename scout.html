@@ -23,6 +23,10 @@ body{background:var(--map-void);color:var(--ink);
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--accent)}
 #pano, #pano *, #mapMini, #mapMini *{filter:none !important}
+#pano, #pano *{animation:none !important;transition:none !important}
+@media (prefers-reduced-motion: reduce){
+  #pano, #pano *{animation:none !important;transition:none !important}
+}
 #pano{color-scheme:only light;background:#111}
 #app{display:grid;grid-template-columns:1fr minmax(280px,360px);grid-template-rows:auto 1fr;height:100%;}
 #topbar{
@@ -153,7 +157,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
 <div id="app">
   <div id="topbar">
     <div>
-      <h1>Scout <span id="scoutVer" style="font:500 12px/1 IBM Plex Mono,monospace;color:var(--ink-muted);margin-left:6px">v1.9.1</span></h1>
+      <h1>Scout <span id="scoutVer" style="font:500 12px/1 IBM Plex Mono,monospace;color:var(--ink-muted);margin-left:6px">v1.9.2</span></h1>
       <div class="sub">Street View dinámico · colonia = todas las calles · pines → ntfy → mapa · Escobedo / ZMM</div>
     </div>
     <div class="grow"></div>
@@ -212,6 +216,10 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
           <span class="hint" style="margin:0">vel.</span>
           <input type="range" id="speedSlider" min="1" max="10" value="6" aria-label="Velocidad">
           <span id="speedLabel" class="hint" style="margin:0;min-width:3.5em">medio-rápido</span>
+          <label class="hint" style="margin:0;display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap" title="Menos blur: espera el pano y salta ~48 m">
+            <input type="checkbox" id="chkClarity" checked style="margin:0">
+            Nítido
+          </label>
         </div>
         <div class="btns">
           <button type="button" class="btn primary" id="btnPause">Pausar (Space)</button>
@@ -306,9 +314,12 @@ const LS_ANCLAS = 'purificadoras_anclas_v1';
 const LS_FAV = 'purificadoras_ours_v1';
 const LS_LAST = 'purif_scout_last_pos';
 const LS_MODE = 'purif_scout_route_mode';
+const LS_CLARITY = 'purif_scout_clarity';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
-const SCOUT_VERSION = '1.9.1';
+const SCOUT_VERSION = '1.9.2';
+const CLARITY_MIN_HOP_M = 48;
+const minClarityMs = 600;
 const COMMENT_HALF_M = 30;
 const COMMENT_COLOR = '#db2777';
 const ROADS_URL = 'data/roads_zmm.geojson';
@@ -323,12 +334,12 @@ const AVENIDAS_HW = { primary:1, secondary:1, tertiary:1, unclassified:1, trunk:
 const TODO_EXTRA = { residential:1, living_street:1, service:1 };
 
 function $(id){ return document.getElementById(id); }
-function toast(msg){
+function toast(msg, ms){
   var t = $('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toast._tm);
-  toast._tm = setTimeout(function(){ t.classList.remove('show'); }, 1800);
+  toast._tm = setTimeout(function(){ t.classList.remove('show'); }, ms || 1800);
 }
 function uuid(prefix){
   return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
@@ -568,6 +579,16 @@ var pinMarkers = [];
 var walking = false;
 var paused = true;
 var walkTimer = null;
+var clarityListener = null;
+var clarityDwellTimer = null;
+var clarityFallbackTimer = null;
+var lastShownPos = null;
+var clarityOn = true;
+try {
+  var _cl = localStorage.getItem(LS_CLARITY);
+  if (_cl === '0' || _cl === 'false') clarityOn = false;
+  else if (_cl === '1' || _cl === 'true') clarityOn = true;
+} catch (e) {}
 var stepCount = 0;
 var routePoints = [];
 var routeIndex = 0;
@@ -1184,6 +1205,14 @@ function updateCoordsChip(){
 function clearWalkTimer(){
   if (walkTimer) { clearTimeout(walkTimer); walkTimer = null; }
 }
+function clearClarityWait(){
+  if (clarityListener) {
+    try { google.maps.event.removeListener(clarityListener); } catch (e) {}
+    clarityListener = null;
+  }
+  if (clarityDwellTimer) { clearTimeout(clarityDwellTimer); clarityDwellTimer = null; }
+  if (clarityFallbackTimer) { clearTimeout(clarityFallbackTimer); clarityFallbackTimer = null; }
+}
 function speedMs(){
   var v = Number($('speedSlider').value) || 6;
   return Math.round(2400 - (v - 1) * (2050 / 9));
@@ -1200,8 +1229,10 @@ function setPaused(p){
   $('btnPause').textContent = paused ? 'Reanudar (Space)' : 'Pausar (Space)';
   setProgress();
   if (!paused && walking) scheduleNext();
-  else clearWalkTimer();
-  setStatus(paused ? 'Pausado' : 'Caminando', paused ? 'warn' : 'ok');
+  else { clearWalkTimer(); clearClarityWait(); }
+  if (!(paused && walking && routeIndex >= routePoints.length && routePoints.length)) {
+    setStatus(paused ? 'Pausado' : 'Caminando', paused ? 'warn' : 'ok');
+  }
 }
 function saveLastPos(lat, lng){
   try { localStorage.setItem(LS_LAST, JSON.stringify({ lat: lat, lng: lng, ts: Date.now() })); } catch (e) {}
@@ -1276,29 +1307,99 @@ function scheduleNext(){
   if (paused || !walking) return;
   walkTimer = setTimeout(stepAlongRoute, speedMs());
 }
+function endOfRouteMessage(){
+  var name = (activeColoniaMeta && activeColoniaMeta.nombre) || null;
+  if (!name) {
+    try {
+      var pick = $('coloniaPick') && $('coloniaPick').value;
+      if (pick) {
+        for (var i = 0; i < PRIORITY_COLONIAS.length; i++) {
+          if (PRIORITY_COLONIAS[i].id === pick) {
+            name = PRIORITY_COLONIAS[i].nombre;
+            break;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  if (name) return 'Colonia completa · ' + name;
+  if (activeColoniaMeta) return 'Colonia completa';
+  return 'Trayecto completo';
+}
+function waitClarityThenSchedule(){
+  clearClarityWait();
+  if (!clarityOn || !panorama) {
+    scheduleNext();
+    return;
+  }
+  var settled = false;
+  function proceed(){
+    if (settled) return;
+    settled = true;
+    if (clarityListener) {
+      try { google.maps.event.removeListener(clarityListener); } catch (e) {}
+      clarityListener = null;
+    }
+    if (clarityFallbackTimer) { clearTimeout(clarityFallbackTimer); clarityFallbackTimer = null; }
+    clarityDwellTimer = setTimeout(function(){
+      clarityDwellTimer = null;
+      if (paused || !walking) return;
+      scheduleNext();
+    }, minClarityMs);
+  }
+  clarityListener = panorama.addListener('pano_changed', proceed);
+  // Fallback if pano_id unchanged / morph stalls (issuetracker 35829505)
+  clarityFallbackTimer = setTimeout(proceed, Math.max(900, minClarityMs + 200));
+}
 function stepAlongRoute(){
   if (paused || !walking || !panorama) return;
   if (!routePoints.length || routeIndex >= routePoints.length) {
+    var doneMsg = endOfRouteMessage();
     setPaused(true);
-    setStatus('Fin de trayecto', 'ok');
-    toast('Trayecto completo');
+    setStatus(doneMsg, 'ok');
+    toast(doneMsg, 4200);
+    try {
+      var chip = $('chipStatus');
+      if (chip) {
+        chip.classList.add('ok');
+        chip.textContent = doneMsg;
+      }
+    } catch (e) {}
     return;
   }
-  var pt = routePoints[routeIndex];
-  routeIndex++;
-  stepCount++;
+  var pt = null;
+  if (clarityOn) {
+    while (routeIndex < routePoints.length) {
+      pt = routePoints[routeIndex];
+      routeIndex++;
+      stepCount++;
+      var hopOk = !lastShownPos ||
+        haversineM(lastShownPos.lat, lastShownPos.lng, pt.lat, pt.lng) >= CLARITY_MIN_HOP_M;
+      var atEnd = routeIndex >= routePoints.length;
+      if (hopOk || atEnd) break;
+    }
+  } else {
+    pt = routePoints[routeIndex];
+    routeIndex++;
+    stepCount++;
+  }
+  if (!pt) return;
   setProgress();
   var heading = pt.exitBearing != null ? pt.exitBearing : (currentPanoMeta.heading || 0);
   panorama.setPov({ heading: heading, pitch: 0 });
   // Prefer setPosition — Dynamic SV snaps to nearest pano (Maps JS, not Static API)
   panorama.setPosition({ lat: pt.lat, lng: pt.lng });
-  scheduleNext();
+  lastShownPos = { lat: pt.lat, lng: pt.lng };
+  if (clarityOn) waitClarityThenSchedule();
+  else scheduleNext();
 }
 function beginWalk(lat, lng, hudLabel){
   if (!routePoints.length) return;
   drawRouteOnMap(routePoints);
   routeIndex = 0;
   stepCount = 0;
+  lastShownPos = null;
+  clearClarityWait();
   setProgress();
   var first = routePoints[0];
   setStatus('Buscando panorama…');
@@ -1323,6 +1424,7 @@ function beginWalk(lat, lng, hudLabel){
     $('startMsg').textContent = '';
     walking = true;
     routeIndex = 1;
+    lastShownPos = { lat: first.lat, lng: first.lng };
     setPaused(false);
     setStatus('Caminando', 'ok');
     toast(hudLabel || ('Trayecto · ' + routePoints.length + ' pts'));
@@ -1594,19 +1696,41 @@ function showCommentGate(show){
 
 $('speedSlider').addEventListener('input', function(){
   $('speedLabel').textContent = speedLabel();
-  if (!paused && walking) scheduleNext();
+  if (!paused && walking) {
+    clearClarityWait();
+    scheduleNext();
+  }
 });
 $('speedLabel').textContent = speedLabel();
+(function initClarityUi(){
+  var chk = $('chkClarity');
+  if (!chk) return;
+  chk.checked = !!clarityOn;
+  chk.addEventListener('change', function(){
+    clarityOn = !!chk.checked;
+    try { localStorage.setItem(LS_CLARITY, clarityOn ? '1' : '0'); } catch (e) {}
+    toast(clarityOn
+      ? 'Nítido: menos blur, saltos un poco más largos'
+      : 'Nítido off · cobertura densa (más blur)');
+    if (!paused && walking) {
+      clearClarityWait();
+      scheduleNext();
+    }
+  });
+})();
+try { $('scoutVer').textContent = 'v' + SCOUT_VERSION; } catch (e) {}
 $('btnPause').addEventListener('click', function(){
   if (!walking) { toast('Primero inicia un centro'); return; }
   setPaused(!paused);
 });
 $('btnRestart').addEventListener('click', function(){
   clearWalkTimer();
+  clearClarityWait();
   walking = false;
   paused = true;
   routePoints = [];
   routeIndex = 0;
+  lastShownPos = null;
   activeColoniaMeta = null;
   clearColoniaOutline();
   if (routeLine) { routeLine.setMap(null); routeLine = null; }
