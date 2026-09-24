@@ -349,17 +349,27 @@ function parseLatLng(raw){
   return null;
 }
 function resolveApiKey(){
+  // Prefer embedded config (production). localStorage override only if no embed
+  // or user set purif_gmaps_force=1 — stops stale bad keys breaking normal Chrome.
   try {
     var q = new URLSearchParams(location.search).get('key');
     if (q && q.trim() && q.trim() !== API_PLACEHOLDER) return q.trim();
   } catch (e) {}
+  var embedded = '';
+  if (window.PURIF_MAPS_KEY && window.PURIF_MAPS_KEY !== API_PLACEHOLDER) {
+    embedded = String(window.PURIF_MAPS_KEY).trim();
+  }
   try {
+    var force = localStorage.getItem('purif_gmaps_force') === '1';
     var ls = localStorage.getItem(LS_KEY);
-    if (ls && ls.trim() && ls.trim() !== API_PLACEHOLDER) return ls.trim();
+    if (force && ls && ls.trim() && ls.trim() !== API_PLACEHOLDER) return ls.trim();
   } catch (e) {}
-  if (window.PURIF_MAPS_KEY && window.PURIF_MAPS_KEY !== API_PLACEHOLDER) return String(window.PURIF_MAPS_KEY).trim();
-  if (window.__SCOUT_GMAPS_KEY && window.__SCOUT_GMAPS_KEY !== API_PLACEHOLDER) return window.__SCOUT_GMAPS_KEY;
-  return null;
+  if (embedded) return embedded;
+  try {
+    var ls2 = localStorage.getItem(LS_KEY);
+    if (ls2 && ls2.trim() && ls2.trim() !== API_PLACEHOLDER) return ls2.trim();
+  } catch (e) {}
+  return '';
 }
 function silentSync(payload){
   var body = JSON.stringify(payload);
