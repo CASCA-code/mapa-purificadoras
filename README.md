@@ -23,6 +23,8 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 | `scripts/fetch_places_anclas_zmm.py` | Regenera Places anclas (key vía `.env` o `config/maps-key.js`) |
 | `data/places_prestamos_zmm.geojson` | Anclas Places API — préstamo / casas de empeño / financiera |
 | `scripts/fetch_places_prestamos_zmm.py` | Regenera Places préstamos (key vía `.env` o `config/maps-key.js`) |
+| `data/places_purificadoras_zmm.geojson` | Competencia Places API — purificadoras / recarga de garrafón (ZMM) |
+| `scripts/fetch_places_purificadoras_zmm.py` | Regenera Places purificadoras (key vía `.env` o `config/maps-key.js`) |
 | `docs/` | Notas operativas (anclas, GPS, SADM, bitácora) |
 | `README.md` | Este archivo |
 
@@ -32,7 +34,7 @@ Fuente de trabajo local (PC Nicolás): `OneDrive/Desktop/purificadora/version2/`
 
 1. Abre el link de Pages en Chrome/Safari.
 2. Toca **Ubicarme** y acepta ubicación.
-3. Anclas comerciales (Places) y Préstamos / casas de empeño van **apagadas por defecto**; enciéndelas en el rail cuando las necesites (Bodega Aurrera Express, Modelorama, Oxxo, bancos, farmacias, empeño…).
+3. Anclas comerciales (Places), Préstamos / casas de empeño y **Purificadoras (Places)** van **apagadas por defecto**; enciéndelas en el rail cuando las necesites (Bodega Aurrera Express, Modelorama, Oxxo, bancos, farmacias, empeño…).
 
 ## Actualización
 

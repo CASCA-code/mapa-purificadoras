@@ -801,6 +801,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <p class="eyebrow">Anclas</p>
     <button class="tbtn ctx " data-l="comp_rec" aria-pressed="false"><i aria-hidden="true">●</i><span>Competencia (recarga)</span></button>
     <button class="tbtn ctx " data-l="comp_ind" aria-pressed="false"><i aria-hidden="true">▲</i><span>Competencia (planta)</span></button>
+    <button class="tbtn ctx " data-l="comp_places" aria-pressed="false" title="Purificadoras / recarga de garrafón vía Places API (New) — apagada por defecto; no inventadas"><i aria-hidden="true" style="background:#0ea5e9;border:2px dashed #0369a1;color:#fff;font-size:9px;font-weight:700">G</i><span>Purificadoras (Places)</span></button>
     <button class="tbtn ctx " data-l="anclas_iglesia" aria-pressed="false" title="OSM + añadidas con Scout (mismo toggle)"><i aria-hidden="true" style="background:#2b6cb0;border-color:#2b6cb0;color:#fff;font-size:11px">†</i><span>Iglesias</span></button>
     <button class="tbtn ctx " data-l="anclas_hospital" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:10px;font-weight:700">H</i><span>Hospitales</span></button>
     <div class="esc-wrap">
@@ -909,6 +910,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <div class="legend-ends"><span>muy bajo</span><span>muy alto</span></div>
     <div class="row"><span class="sw dot" style="background:#d7191c;border:none"></span> recarga de barrio (DENUE)</div>
     <div class="row"><span class="sw tri"></span> planta / embotellador (peso ×0.15)</div>
+    <div class="row"><span class="sw ico" title="Purificadoras Places" style="background:#0ea5e9;border-radius:50%;border:1px dashed #0369a1;color:#fff;font:700 9px/16px sans-serif;text-align:center">G</span> Purificadoras / garrafón (Places API · opcional)</div>
     <div class="row"><span class="sw ico" title="Iglesia"><svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8.2" fill="#2b6cb0" stroke="#1a4f8a" stroke-width="1"/><path d="M9 3.2v11.6M5.6 7h6.8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span> iglesia</div>
     <div class="row"><span class="sw ico" title="Hospital" style="border-radius:4px"><svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="16" height="16" rx="3.5" fill="#3182ce" stroke="#1a4f8a" stroke-width="1"/><path d="M6.2 5.2h5.6v2.2H11v3.4h2.2v2.2H4.8v-2.2H7V7.4H4.8z" fill="#fff"/></svg></span> hospital (OSM amenity=hospital; sin consultorios/clínicas simples)</div>
     <div class="row"><span class="sw ico" title="Jardín" style="background:#90cdf4;border-radius:50%;color:#1a365d;font:700 9px/16px sans-serif;text-align:center">J</span> jardín de niños</div>
@@ -979,7 +981,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260924-anclas-quiet';
+window.__PURIF_BUILD = '20260924-purif-places';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -1637,6 +1639,55 @@ function updatePrestamosParentUI(){
   updatePrestamosParentUI();
 })();
 
+
+/* ---------- Places API: purificadoras / recarga garrafón (Competencia) ---------- */
+const placesPurifLayer = L.layerGroup();
+function placesPurifSvg(){
+  return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    +'<circle cx="9" cy="9" r="7.2" fill="#0ea5e9" stroke="#0369a1" stroke-width="1.6" stroke-dasharray="2.2 1.6"/>'
+    +'<text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">G</text>'
+    +'</svg>';
+}
+function placesPurifIcon(){
+  return L.divIcon({className:'places-icon ancla-icon places-purif-icon', iconSize:[18,18], iconAnchor:[9,9], popupAnchor:[0,-10],
+    html:'<span class="ai" aria-hidden="true">'+placesPurifSvg()+'</span>'});
+}
+function paintPlacesPurificadoras(fc){
+  let n = 0;
+  (fc.features || []).forEach(function(ft){
+    const c = ft.geometry && ft.geometry.coordinates; if (!c) return;
+    const p = ft.properties || {};
+    const name = p.name || 'Purificadora';
+    const addr = p.address || '';
+    const m = L.marker([c[1], c[0]], { icon: placesPurifIcon(), keyboard: true });
+    m.bindPopup(
+      '<b>'+name+'</b><br><span class="p-sub">Places · purificadora / garrafón · fuente places_api</span>'
+      +(addr ? '<br>'+addr : '')
+      +(p.place_id ? '<br><span class="p-sub">id '+p.place_id+'</span>' : ''),
+      { maxWidth: 260, autoPan: false }
+    );
+    m.addTo(placesPurifLayer);
+    n++;
+  });
+  const btn = document.querySelector('.tbtn[data-l="comp_places"] span');
+  if (btn) {
+    const label = btn.textContent.replace(/\s*\(\d+\)\s*$/, '');
+    btn.textContent = label + ' (' + n + ')';
+  }
+  return n;
+}
+(function loadPlacesPurificadoras(){
+  const bust = window.__PURIF_BUILD || String(Date.now());
+  fetch('data/places_purificadoras_zmm.geojson?v=' + encodeURIComponent(bust), { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(function(fc){
+      if (!fc) return;
+      paintPlacesPurificadoras(fc);
+      /* default OFF — only add when toggle on */
+    })
+    .catch(function(){});
+})();
+
 /* ---------- sidebar ---------- */
 function star(x){ const n = Number(x); return (isFinite(n)?n:0).toFixed(3); }
 function popupHtml(p){
@@ -1818,7 +1869,7 @@ if (searchEl) searchEl.addEventListener('input', ()=> renderToplist(searchEl.val
 })();
 
 /* ---------- layer toggles (live inside the Puntúan / Contexto panels) ---------- */
-const LAYERS = {colonias:colLayer, comp_rec:compRec, comp_ind:compInd, estaciones:estLayer, calor:heat, anillos:rings, etiquetas:labels, anclas_iglesia:anclasIglesia, anclas_hospital:anclasHospital, semaforos:semaforosLayer, stops:stopsLayer};
+const LAYERS = {colonias:colLayer, comp_rec:compRec, comp_ind:compInd, comp_places:placesPurifLayer, estaciones:estLayer, calor:heat, anillos:rings, etiquetas:labels, anclas_iglesia:anclasIglesia, anclas_hospital:anclasHospital, semaforos:semaforosLayer, stops:stopsLayer};
 PLACES_KINDS.forEach(k => { LAYERS['places_'+k] = placesByKind[k]; });
 PRESTAMOS_KINDS.forEach(k => { LAYERS['prestamos_'+k] = prestamosByKind[k]; });
 ESC_SUBS.forEach(s => { LAYERS['anclas_escuela_'+s] = anclasEscuelaBySub[s]; });
