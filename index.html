@@ -3,7 +3,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" data-field-add-cache="v6"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" data-field-add-cache="v7"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mapa Version 2 — purificadoras ZMM</title>
@@ -875,7 +875,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
         <button type="button" id="prestamosAllOn" title="Activar todas">Todas</button>
         <button type="button" id="prestamosAllOff" title="Desactivar todas">Ninguna</button>
       </div>
-      <button class="tbtn ctx " data-l="prestamos_empeno" aria-pressed="false"><i aria-hidden="true" style="background:#805ad5;border:2px dashed #553c9a;color:#fff;font-size:9px;font-weight:700">E</i><span>Casas de empeño / Monte</span></button>
+      <button class="tbtn ctx " data-l="prestamos_empeno" aria-pressed="false" title="Places + Scout campo (mismo toggle)"><i aria-hidden="true" style="background:#805ad5;border:2px dashed #553c9a;color:#fff;font-size:9px;font-weight:700">E</i><span>Casas de empeño / Monte (Places + Scout)</span></button>
       <button class="tbtn ctx " data-l="prestamos_financiera" aria-pressed="false"><i aria-hidden="true" style="background:#319795;border:2px dashed #234e52;color:#fff;font-size:9px;font-weight:700">F</i><span>Financieras</span></button>
       <button class="tbtn ctx " data-l="prestamos_prestamo" aria-pressed="false"><i aria-hidden="true" style="background:#6b46c1;border:2px dashed #44337a;color:#fff;font-size:9px;font-weight:700">P</i><span>Préstamos personales</span></button>
      </div>
@@ -926,7 +926,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <div class="row"><span class="sw ico" title="Cerveza" style="background:#d69e2e;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">C</span> Modelorama / Six / cerveza</div>
     <div class="row"><span class="sw ico" title="Bienestar" style="background:#38a169;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">B</span> Banco del Bienestar</div>
     <div class="row"><span class="sw ico" title="Azteca" style="background:#2f855a;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">Z</span> Banco Azteca</div>
-    <div class="row"><span class="sw ico" title="Casas de empeño" style="background:#805ad5;border-radius:50%;border:1px dashed #553c9a;color:#fff;font:700 9px/16px sans-serif;text-align:center">E</span> Casas de empeño / Monte (Places)</div>
+    <div class="row"><span class="sw ico" title="Casas de empeño" style="background:#805ad5;border-radius:50%;border:1px dashed #553c9a;color:#fff;font:700 9px/16px sans-serif;text-align:center">E</span> Casas de empeño / Monte (Places + Scout)</div>
     <div class="row"><span class="sw ico" title="Financiera" style="background:#319795;border-radius:50%;border:1px dashed #234e52;color:#fff;font:700 9px/16px sans-serif;text-align:center">F</span> Financieras (Places)</div>
     <div class="row"><span class="sw ico" title="Préstamo" style="background:#6b46c1;border-radius:50%;border:1px dashed #44337a;color:#fff;font:700 9px/16px sans-serif;text-align:center">P</span> Préstamos personales (Places)</div>
     <div class="row"><span class="sw ico" title="Semáforo" style="background:#ecc94b;border-radius:50%;border:1px solid #975a16"></span> semáforo (OSM · cobertura incompleta)</div>
@@ -981,7 +981,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260924-purif-places';
+window.__PURIF_BUILD = '20260924-scout-empeno';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -1876,8 +1876,8 @@ ESC_SUBS.forEach(s => { LAYERS['anclas_escuela_'+s] = anclasEscuelaBySub[s]; });
 RETAIL_SUBS.forEach(s => { LAYERS['anclas_'+s] = anclasRetailBySub[s]; });
 
 /* Scout field_adds → same LayerGroup as category toggle (no separate Scout checkbox).
- * escuela → Escuelas parent (no Scout child toggle); iglesia → Iglesias; modelorama/express → Anclas comerciales (Places).
- * Leftover kinds (otro, hospital notes, zone comments) stay in always-on anclas_campo. */
+ * escuela → Escuelas parent; iglesia → Iglesias; modelorama/express → Places comerciales;
+ * empeno → Casas de empeño / Monte (prestamos_empeno). Leftover kinds stay in always-on anclas_campo. */
 function scoutAnclaSvg(kind){
   if (kind === 'escuela') return escuelaSvg('scout');
   if (kind === 'iglesia') {
@@ -1888,6 +1888,9 @@ function scoutAnclaSvg(kind){
   }
   if (kind === 'express') {
     return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="9" cy="9" r="7.2" fill="#dd6b20" stroke="#9c4221" stroke-width="1.6" stroke-dasharray="2.2 1.6"/><text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">A</text></svg>';
+  }
+  if (kind === 'empeno') {
+    return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="9" cy="9" r="7.2" fill="#805ad5" stroke="#553c9a" stroke-width="1.6" stroke-dasharray="2.2 1.6"/><text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">E</text></svg>';
   }
   return placesSvg('otro');
 }
@@ -1904,7 +1907,8 @@ window.__purifKindLayers = {
   escuela: anclasEscuelaScout,
   iglesia: anclasIglesia,
   modelorama: placesByKind.modelorama,
-  express: placesByKind.express
+  express: placesByKind.express,
+  empeno: prestamosByKind.empeno
 };
 window.__purifScoutAnclaIcon = scoutAnclaIcon;
 window.__purifScoutProvenance = 'Añadida con Scout';
@@ -3046,6 +3050,7 @@ window.__purifReady && window.__purifReady.then(function(){
     iglesia: '#7c3aed',
     modelorama: '#ca8a04',
     express: '#ea580c',
+    empeno: '#805ad5',
     otro: '#64748b'
   };
   const ANCHOR_LABELS = {
@@ -3053,6 +3058,7 @@ window.__purifReady && window.__purifReady.then(function(){
     iglesia: 'Iglesia',
     modelorama: 'Modelorama',
     express: 'Bodega Aurrera Express',
+    empeno: 'Casa de empeño',
     otro: 'Otros'
   };
 
@@ -3738,11 +3744,18 @@ window.__purifReady && window.__purifReady.then(function(){
     });
   }
 
+  function resolveScoutAnchorKind(p){
+    var k = p.kind || 'otro';
+    if (k === 'empeno') return 'empeno';
+    var blob = [p.name || '', p.nota_raw || ''].join(' ');
+    if (/empeñ|empeno|monte de piedad|prendamex/i.test(blob)) return 'empeno';
+    return k;
+  }
   function markerFromAnchor(f){
     const p = f.properties || {};
     const c = f.geometry.coordinates;
     const id = p.id;
-    const k = p.kind || 'otro';
+    const k = resolveScoutAnchorKind(p);
     const color = ANCHOR_COLORS[k] || ANCHOR_COLORS.otro;
     const lines = [];
     if (p.nota_raw && p.nota_raw !== p.name) lines.push(p.nota_raw);

@@ -292,7 +292,8 @@ const SCOUT_HOTKEYS = {
   E: { kind: 'express', layer: 'ancla_campo', name: 'Express', label: 'Express', color: '#ea580c' },
   P: { kind: 'iglesia', layer: 'ancla_campo', name: 'Iglesia', label: 'Iglesia', color: '#7c3aed' },
   I: { kind: 'escuela', layer: 'ancla_campo', name: 'Escuela', label: 'Escuela', color: '#2563eb' },
-  H: { kind: 'otro', layer: 'ancla_campo', name: 'Hospital / otro', label: 'Hospital / otro', color: '#64748b' }
+  H: { kind: 'otro', layer: 'ancla_campo', name: 'Hospital / otro', label: 'Hospital / otro', color: '#64748b' },
+  N: { kind: 'empeno', layer: 'ancla_campo', name: 'Empeño', label: 'Empeño / Monte', color: '#805ad5' }
 };
 SCOUT_HOTKEYS.U = Object.assign({}, SCOUT_HOTKEYS.M, { label: 'Modelorama (alias U)' });
 
@@ -314,7 +315,7 @@ const LS_CLARITY = 'purif_scout_clarity';
 const LS_HOP = 'purif_scout_hop_m';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
-const SCOUT_VERSION = '1.9.5';
+const SCOUT_VERSION = '1.9.6';
 const HOP_M_DEFAULT = 28;
 const HOP_M_MIN = 15;
 const HOP_M_MAX = 80;
@@ -502,7 +503,7 @@ var routeMode = 'todo';
 
 (function buildKeymap(){
   var host = $('keymap');
-  ['M','S','F','Y','E','P','I','H'].forEach(function(k){
+  ['M','S','F','Y','E','P','I','H','N'].forEach(function(k){
     var h = SCOUT_HOTKEYS[k];
     if (!h) return;
     var row = document.createElement('div');
