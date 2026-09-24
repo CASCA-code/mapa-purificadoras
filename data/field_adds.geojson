@@ -3024,6 +3024,52 @@
         "pano_id": "1d4GALWDvC0kW3BBKQr2LA",
         "client": "scout.html"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.39479579092936,
+          25.846117159235735
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug5klzx_jn5lid",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T23:18:18.717Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "aG_udvqT16UR7RqNWXYAtw",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.39737147564139,
+          25.845196189431867
+        ]
+      },
+      "properties": {
+        "id": "ancla_mug5l0gw_m4pnp2",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-24T23:18:37.472Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "SlMAPGb9k34TdaVkR2Gfeg",
+        "client": "scout.html"
+      }
     }
   ]
 }
