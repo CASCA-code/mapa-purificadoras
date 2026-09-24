@@ -3,7 +3,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" data-field-add-cache="v5"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" data-field-add-cache="v6"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mapa Version 2 — purificadoras ZMM</title>
@@ -801,12 +801,12 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <p class="eyebrow">Anclas</p>
     <button class="tbtn ctx " data-l="comp_rec" aria-pressed="false"><i aria-hidden="true">●</i><span>Competencia (recarga)</span></button>
     <button class="tbtn ctx " data-l="comp_ind" aria-pressed="false"><i aria-hidden="true">▲</i><span>Competencia (planta)</span></button>
-    <button class="tbtn ctx " data-l="anclas_iglesia" aria-pressed="false" title="OSM + añadidas con Scout"><i aria-hidden="true" style="background:#2b6cb0;border-color:#2b6cb0;color:#fff;font-size:11px">†</i><span>Iglesias (incl. Scout)</span></button>
+    <button class="tbtn ctx " data-l="anclas_iglesia" aria-pressed="false" title="OSM + añadidas con Scout (mismo toggle)"><i aria-hidden="true" style="background:#2b6cb0;border-color:#2b6cb0;color:#fff;font-size:11px">†</i><span>Iglesias</span></button>
     <button class="tbtn ctx " data-l="anclas_hospital" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:10px;font-weight:700">H</i><span>Hospitales</span></button>
     <div class="esc-wrap">
-     <button type="button" class="tbtn ctx esc-parent" id="escuelasParent" aria-expanded="false" aria-controls="escuelasSub" aria-pressed="false" title="Clic en el ícono: mostrar/ocultar todas · clic en la fila: abrir subtipos">
+     <button type="button" class="tbtn ctx esc-parent" id="escuelasParent" aria-expanded="false" aria-controls="escuelasSub" aria-pressed="false" title="OSM + Scout campo · clic ícono: todas on/off · clic fila: subtipos">
       <i aria-hidden="true" id="escuelasParentIcon" style="background:#4299e1;border-color:#2b6cb0;color:#fff;font-size:10px">A</i>
-      <span>Escuelas (incl. Scout)</span>
+      <span>Escuelas</span>
       <span class="chev" aria-hidden="true">▾</span>
      </button>
      <div class="esc-sub" id="escuelasSub" role="group" aria-label="Subtipos de escuela">
@@ -821,7 +821,6 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <button class="tbtn ctx " data-l="anclas_escuela_universidad" aria-pressed="false"><i aria-hidden="true" style="background:#2b6cb0;border-color:#1a4f8a;color:#fff;font-size:9px;font-weight:700">U</i><span>Universidades</span></button>
       <button class="tbtn ctx " data-l="anclas_escuela_college" aria-pressed="false"><i aria-hidden="true" style="background:#2c5282;border-color:#1a365d;color:#fff;font-size:9px;font-weight:700">C</i><span>Colleges / superior</span></button>
       <button class="tbtn ctx " data-l="anclas_escuela_otra" aria-pressed="false"><i aria-hidden="true" style="background:#a0aec0;border-color:#4a5568;color:#fff;font-size:9px;font-weight:700">·</i><span>Otras escuelas</span></button>
-      <button class="tbtn ctx " data-l="anclas_escuela_scout" aria-pressed="false" title="Escuelas añadidas con Scout / campo"><i aria-hidden="true" style="background:#2563eb;border:2px dashed #1e3a8a;color:#fff;font-size:9px;font-weight:700">I</i><span>Scout (campo)</span></button>
      </div>
     </div>
     <div class="esc-wrap" id="retailWrap">
@@ -854,7 +853,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
         <button type="button" id="placesAllOff" title="Desactivar todas">Ninguna</button>
       </div>
       <button class="tbtn ctx " data-l="places_modelorama" aria-pressed="false"><i aria-hidden="true" style="background:#b7791f;border:2px dashed #744210;color:#fff;font-size:9px;font-weight:700">M</i><span>Modelorama (Places + Scout)</span></button>
-      <button class="tbtn ctx " data-l="places_express" aria-pressed="false"><i aria-hidden="true" style="background:#dd6b20;border:2px dashed #9c4221;color:#fff;font-size:9px;font-weight:700">A</i><span>Aurrera Express (Places)</span></button>
+      <button class="tbtn ctx " data-l="places_express" aria-pressed="false"><i aria-hidden="true" style="background:#dd6b20;border:2px dashed #9c4221;color:#fff;font-size:9px;font-weight:700">A</i><span>Aurrera Express (Places + Scout)</span></button>
       <button class="tbtn ctx " data-l="places_soriana_express" aria-pressed="false"><i aria-hidden="true" style="background:#ed8936;border:2px dashed #c05621;color:#fff;font-size:9px;font-weight:700">S</i><span>Soriana Express (Places)</span></button>
       <button class="tbtn ctx " data-l="places_oxxo" aria-pressed="false"><i aria-hidden="true" style="background:#e53e3e;border:2px dashed #9b2c2c;color:#fff;font-size:9px;font-weight:700">O</i><span>Oxxo (Places)</span></button>
       <button class="tbtn ctx " data-l="places_six" aria-pressed="false"><i aria-hidden="true" style="background:#d69e2e;border:2px dashed #744210;color:#1a202c;font-size:9px;font-weight:700">6</i><span>Six (Places)</span></button>
@@ -903,7 +902,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <div class="row"><span class="sw ico" title="Universidad" style="background:#2b6cb0;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">U</span> universidad</div>
     <div class="row"><span class="sw ico" title="College" style="background:#2c5282;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">C</span> college / superior</div>
     <div class="row"><span class="sw ico" title="Otra" style="background:#a0aec0;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">·</span> otra escuela</div>
-    <div class="row"><span class="sw ico" title="Scout" style="background:#2563eb;border-radius:50%;border:2px dashed #1e3a8a;box-sizing:border-box;color:#fff;font:700 8px/14px sans-serif;text-align:center">I</span> Scout / campo (escuela · iglesia · Modelorama)</div>
+    <div class="row"><span class="sw ico" title="Scout" style="background:#2563eb;border-radius:50%;border:2px dashed #1e3a8a;box-sizing:border-box;color:#fff;font:700 8px/14px sans-serif;text-align:center">I</span> borde punteado = añadida con Scout (misma capa que su categoría)</div>
     <div class="row"><span class="sw ico" title="Aurrera Express" style="background:#dd6b20;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">A</span> Bodega Aurrera Express</div>
     <div class="row"><span class="sw ico" title="Soriana Express" style="background:#ed8936;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">S</span> Soriana Express</div>
     <div class="row"><span class="sw ico" title="Cerveza" style="background:#d69e2e;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">C</span> Modelorama / Six / cerveza</div>
@@ -961,7 +960,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260924-scout-anclas';
+window.__PURIF_BUILD = '20260924-scout-merge';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -1181,9 +1180,10 @@ function anclaIcon(tipo, subtipo){
 }
 const anclasIglesia = L.layerGroup();
 const anclasHospital = L.layerGroup();
-const ESC_SUBS = ['jardin','primaria','secundaria','preparatoria','universidad','college','otra','scout'];
+const ESC_SUBS = ['jardin','primaria','secundaria','preparatoria','universidad','college','otra'];
 const anclasEscuelaBySub = {};
 ESC_SUBS.forEach(s => { anclasEscuelaBySub[s] = L.layerGroup(); });
+const anclasEscuelaScout = L.layerGroup(); /* Scout field_adds — no subtype checkbox */
 const ANCLA_GROUPS = {iglesia: anclasIglesia, hospital: anclasHospital};
 (ANCLAS.features || []).forEach(ft => {
   const p = ft.properties || {};
@@ -1655,7 +1655,9 @@ PLACES_KINDS.forEach(k => { LAYERS['places_'+k] = placesByKind[k]; });
 ESC_SUBS.forEach(s => { LAYERS['anclas_escuela_'+s] = anclasEscuelaBySub[s]; });
 RETAIL_SUBS.forEach(s => { LAYERS['anclas_'+s] = anclasRetailBySub[s]; });
 
-/* Scout field_adds (escuela/iglesia/modelorama) → matching toggles; express/otro stay in anclas_campo */
+/* Scout field_adds → same LayerGroup as category toggle (no separate Scout checkbox).
+ * escuela → Escuelas parent (no Scout child toggle); iglesia → Iglesias; modelorama/express → Places.
+ * Leftover kinds (otro, hospital notes, zone comments) stay in always-on anclas_campo. */
 function scoutAnclaSvg(kind){
   if (kind === 'escuela') return escuelaSvg('scout');
   if (kind === 'iglesia') {
@@ -1663,6 +1665,9 @@ function scoutAnclaSvg(kind){
   }
   if (kind === 'modelorama') {
     return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="9" cy="9" r="7.2" fill="#ca8a04" stroke="#713f12" stroke-width="1.6" stroke-dasharray="2.2 1.6"/><text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">M</text></svg>';
+  }
+  if (kind === 'express') {
+    return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="9" cy="9" r="7.2" fill="#dd6b20" stroke="#9c4221" stroke-width="1.6" stroke-dasharray="2.2 1.6"/><text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">A</text></svg>';
   }
   return placesSvg('otro');
 }
@@ -1676,9 +1681,10 @@ function scoutAnclaIcon(kind){
   });
 }
 window.__purifKindLayers = {
-  escuela: anclasEscuelaBySub.scout,
+  escuela: anclasEscuelaScout,
   iglesia: anclasIglesia,
-  modelorama: placesByKind.modelorama
+  modelorama: placesByKind.modelorama,
+  express: placesByKind.express
 };
 window.__purifScoutAnclaIcon = scoutAnclaIcon;
 window.__purifScoutProvenance = 'Añadida con Scout';
@@ -1690,7 +1696,15 @@ function syncEscuelaLayer(sub){
   if (want && !map.hasLayer(lyr)) map.addLayer(lyr);
   if (!want && map.hasLayer(lyr)) map.removeLayer(lyr);
 }
-function syncAllEscuelaLayers(){ ESC_SUBS.forEach(syncEscuelaLayer); }
+/* Scout escuelas: same parent Escuelas — on iff master on AND category is active (any subtype on, or master alone after icon toggle with prior subtypes). Hidden on Ninguna / master off. No separate checkbox. */
+function syncEscuelaScoutLayer(){
+  const btns = [...document.querySelectorAll('#escuelasSub .tbtn[data-l]')];
+  const anySubOn = btns.some(b => b.classList.contains('on'));
+  const want = escuelasMasterOn && anySubOn;
+  if (want && !map.hasLayer(anclasEscuelaScout)) map.addLayer(anclasEscuelaScout);
+  if (!want && map.hasLayer(anclasEscuelaScout)) map.removeLayer(anclasEscuelaScout);
+}
+function syncAllEscuelaLayers(){ ESC_SUBS.forEach(syncEscuelaLayer); syncEscuelaScoutLayer(); }
 function updateEscuelasParentUI(){
   const parent = document.getElementById('escuelasParent');
   const summary = document.getElementById('escuelasSummary');
@@ -3513,7 +3527,7 @@ window.__purifReady && window.__purifReady.then(function(){
     if (p.nota_raw && p.nota_raw !== p.name) lines.push(p.nota_raw);
     const kindLayers = window.__purifKindLayers || {};
     const kindLayer = kindLayers[k];
-    const isScoutKind = !!(kindLayer && (k === 'escuela' || k === 'iglesia' || k === 'modelorama'));
+    const isScoutKind = !!kindLayer; /* mapped kinds share category toggle; rest → anclas_campo */
     if (isScoutKind) {
       lines.push(window.__purifScoutProvenance || 'Añadida con Scout');
       lines.push(ANCHOR_LABELS[k] || 'Ancla');
