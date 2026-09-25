@@ -5283,6 +5283,30 @@
         "client": "scout.html",
         "source": "scout"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.36009946597396,
+          25.77106928201774
+        ]
+      },
+      "properties": {
+        "id": "ancla_muhide64_xq5t4h",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T22:04:23.164Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "pdsp1ufTHWnkCzlRndJRyw",
+        "client": "scout.html",
+        "source": "scout"
+      }
     }
   ]
 }
