@@ -4222,6 +4222,213 @@
         "pano_id": "gyH4AMUNLJSCQIHB4PfE5w",
         "client": "scout.html"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37766245111283,
+          25.78513420497632
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh1y0mm_9xfrxa",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:24:31.918Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "2YhHGxDWjWlo9VOZ82J1Mw",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37773999813881,
+          25.785075635485207
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh1y3vg_kvr9jq",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:24:36.124Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "ci9an2cxXtiCL794dtRt6w",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37694388040127,
+          25.783027170599976
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh1yqiy_1l571s",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:25:05.482Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "EC6ZKFT5rtBNzg98JZXZxQ",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37103264082745,
+          25.770517702816402
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh2acwl_e6kn24",
+        "kind": "alto",
+        "name": "Alto",
+        "nota_raw": "Alto",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:34:07.701Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "ipH5zcJsABeb0-qfdTG0Eg",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37234331249998,
+          25.771668097115324
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh2bnl8_s2iuq4",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:35:08.204Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "3J9wGhRPO9lJUhRBX-skbw",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3763351648245,
+          25.780265069539237
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh2er8e_7jz488",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:37:32.894Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "cMf-ZnmFRpPABbNMXoqysw",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37736425985413,
+          25.78249175311047
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh2ffb4_ipodgx",
+        "kind": "alto",
+        "name": "Alto",
+        "nota_raw": "Alto",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:38:04.096Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "KcyRh4kg3bE7ks-K-kCQow",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3774563734281,
+          25.782679596688254
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh2flcz_xqigl0",
+        "kind": "alto",
+        "name": "Alto",
+        "nota_raw": "Alto",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:38:11.939Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "ctr4kKom_Fxo2HcjkWX_CA",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37807529339419,
+          25.784826973697495
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh2gj61_lqmp8h",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:38:55.753Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "DxsMKegQmqQClUTtO0a9eQ",
+        "client": "scout.html"
+      }
     }
   ]
 }
