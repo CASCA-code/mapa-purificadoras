@@ -14,8 +14,9 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 | `scout-sv.html` | Redirect → `scout.html` |
 | `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.9.1** F Favorito + Y precios; Avenidas-first vs Todo) |
 | `extension/` + `extension-dist/*.zip` | **REQUERIDA**: ArrowUp/Left/Right vía `chrome.debugger` |
-| `data/roads_zmm.geojson` | Calles OSM prebaked (Escobedo) para trayecto scout |
-| `scripts/prebake_roads_zmm.py` | Regenera `roads_zmm.geojson` vía Overpass |
+| `data/roads_zmm.geojson` | Calles OSM prebaked (Escobedo + Monterrey) para trayecto scout |
+| `scripts/prebake_roads_zmm.py` | Regenera `roads_zmm.geojson` vía Overpass (por municipio) |
+| `scripts/dryrun_colonia_route.py` | Cuenta metros OSM + pts de ruta Scout por colonia |
 | `data/semaforos_zmm.geojson` | Semáforos OSM (ZMM) — capa contexto |
 | `data/stops_zmm.geojson` | Altos / yield OSM (ZMM) — capa contexto |
 | `scripts/fetch_osm_traffic.py` | Regenera semáforos + stops vía Overpass |

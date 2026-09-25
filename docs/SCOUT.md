@@ -59,7 +59,7 @@ Si ves error de autenticación: confirma en Cloud Console referrers `https://cas
 | **Space** | Pausar / reanudar | — |
 | **Z** / **⌫** | Deshacer último pin | — |
 
-Tras **F**: pide nombre (default «Favorito») y teléfono opcional (8+ dígitos). Tras **Y**: pide precio de **recarga** MXN (campo primario `precio_recarga_mxn`) y opcionalmente garrafón/envase (`precio_garrafon_mxn`); vacío = omitir. El toast y el `name` reflejan el precio (ej. `Comp $12 recarga`). Versión Scout **v1.9.7** · checkbox **Nítido** (default on): espera `pano_changed` + dwell 600 ms y salta ~48 m para reducir blur del morph Street View; off = cobertura densa. Fin de ruta: toast/HUD **Colonia completa**.
+Tras **F**: pide nombre (default «Favorito») y teléfono opcional (8+ dígitos). Tras **Y**: pide precio de **recarga** MXN (campo primario `precio_recarga_mxn`) y opcionalmente garrafón/envase (`precio_garrafon_mxn`); vacío = omitir. El toast y el `name` reflejan el precio (ej. `Comp $12 recarga`). Versión Scout **v1.9.8** · checkbox **Nítido** (default on): espera `pano_changed` + dwell 600 ms y salta ~48 m para reducir blur del morph Street View; off = cobertura densa. Fin de ruta: toast/HUD **Colonia completa**.
 
 ## Sync ntfy → mapa principal
 
@@ -69,10 +69,12 @@ Al soltar pin: upsert ntfy + `localStorage` (`purificadoras_field_adds_v1` / `pu
 
 ## Trayecto OSM
 
-- Fuente calles: `data/roads_zmm.geojson` (prebaked Escobedo/ZMM).
-- Fuente polígonos: `data/colonias.geojson` — match por nombre (acentos/espacios) + municipio.
-- **Colonia seleccionada:** clip de segmentos al polígono (punto dentro o arista que cruza); fuerza AVENIDAS + residential/living_street/service; cadena greedy con **teleport** entre componentes (no abandona manzanas sueltas). Muestreo ~22 m; tope ~4000 pts (si hace falta, sube el paso antes de stride).
+- Fuente calles: `data/roads_zmm.geojson` (prebaked **Escobedo + Monterrey** vía `scripts/prebake_roads_zmm.py`; otras munis se pueden añadir con `--muni`).
+- Fuente polígonos: `data/colonias.geojson` — match por `cve_col` (picker) / nombre + municipio.
+- **Colonia seleccionada:** clip al polígono con buffer **~25 m** (calles del borde); AVENIDAS + residential/living_street/service; cadena greedy con **teleport** entre componentes. Muestreo ~22 m; tope ~4000 pts.
+- **Pocas calles prebaked (<40 pts):** Scout pide Overpass en vivo para el bbox de la colonia y re-arma el trayecto (mismo clip).
 - **Lat/lng sin colonia:** radio ~1.4 km; modo Avenidas o Todo; muestreo ~18 m; tope ~900 pts.
+- Dry-run: `python3 scripts/dryrun_colonia_route.py --cve 19039_0167` (Croc).
 - Mini-mapa: ruta + outline del polígono + pines + pegman.
 
 ## Sync → mapa principal

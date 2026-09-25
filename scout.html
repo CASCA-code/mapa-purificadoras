@@ -223,7 +223,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
           <button type="button" class="btn" id="btnRestart">Cambiar colonia</button>
           <button type="button" class="btn ok" id="btnComment">Comentar zona (C)</button>
         </div>
-        <p class="hint">Trayecto OSM prebaked (<code>data/roads_zmm.geojson</code>). Sin Places ni Street View Static — solo Maps JS + Dynamic SV.</p>
+        <p class="hint">Trayecto OSM prebaked (<code>data/roads_zmm.geojson</code>, todas las colonias). Si el polígono tiene pocas calles, Overpass en vivo. Sin Places ni SV Static.</p>
       </section>
       <section class="sec">
         <h2>Teclado</h2>
@@ -316,7 +316,7 @@ const LS_CLARITY = 'purif_scout_clarity';
 const LS_HOP = 'purif_scout_hop_m';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
-const SCOUT_VERSION = '1.9.7';
+const SCOUT_VERSION = '1.9.8';
 const HOP_M_DEFAULT = 28;
 const HOP_M_MIN = 15;
 const HOP_M_MAX = 80;
@@ -333,6 +333,14 @@ const ROUTE_RADIUS_M = 1400;
 const HOP_CONNECT_M = 350;
 const AVENIDAS_HW = { primary:1, secondary:1, tertiary:1, unclassified:1, trunk:1 };
 const TODO_EXTRA = { residential:1, living_street:1, service:1 };
+const CLIP_BUFFER_M = 25; // soften colonia edge so border streets aren't dropped
+const MIN_COLONIA_ROUTE_PTS = 40; // below this → live Overpass refresh for colonia bbox
+const OVERPASS_URLS = [
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter'
+];
+const OVERPASS_HW_RE = '^(primary|secondary|tertiary|residential|unclassified|living_street|service)$';
 
 function $(id){ return document.getElementById(id); }
 function toast(msg, ms){
@@ -1011,6 +1019,35 @@ function pointInGeometry(lng, lat, geom){
   }
   return false;
 }
+function distPointToSegM(lat, lng, aLat, aLng, bLat, bLng){
+  // Equirectangular local projection for short segments
+  var toMLat = 111320;
+  var toMLng = 111320 * Math.cos(lat * Math.PI / 180);
+  var ax = (aLng - lng) * toMLng, ay = (aLat - lat) * toMLat;
+  var bx = (bLng - lng) * toMLng, by = (bLat - lat) * toMLat;
+  var dx = bx - ax, dy = by - ay;
+  var len2 = dx * dx + dy * dy;
+  if (len2 < 1e-6) return Math.sqrt(ax * ax + ay * ay);
+  var t = Math.max(0, Math.min(1, (-ax * dx + -ay * dy) / len2));
+  var px = ax + t * dx, py = ay + t * dy;
+  return Math.sqrt(px * px + py * py);
+}
+/** Point inside polygon OR within bufferM of an outer-ring edge (soft clip). */
+function pointNearGeometry(lng, lat, geom, bufferM){
+  if (pointInGeometry(lng, lat, geom)) return true;
+  var buf = (bufferM == null) ? CLIP_BUFFER_M : bufferM;
+  if (!buf || buf <= 0 || !geom) return false;
+  var rings = outerRings(geom);
+  for (var r = 0; r < rings.length; r++) {
+    var ring = rings[r];
+    for (var i = 0; i < ring.length - 1; i++) {
+      if (distPointToSegM(lat, lng, ring[i][1], ring[i][0], ring[i + 1][1], ring[i + 1][0]) <= buf) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 function outerRings(geom){
   var out = [];
   if (!geom) return out;
@@ -1034,10 +1071,10 @@ function segmentsCross(a, b, c, d){
   return false;
 }
 function edgeHitsPolygon(a, b, geom){
-  if (pointInGeometry(a[0], a[1], geom) || pointInGeometry(b[0], b[1], geom)) return true;
-  // midpoint heuristic
+  if (pointNearGeometry(a[0], a[1], geom) || pointNearGeometry(b[0], b[1], geom)) return true;
+  // midpoint heuristic (+ buffer)
   var mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-  if (pointInGeometry(mx, my, geom)) return true;
+  if (pointNearGeometry(mx, my, geom)) return true;
   var rings = outerRings(geom);
   for (var r = 0; r < rings.length; r++) {
     var ring = rings[r];
@@ -1221,6 +1258,92 @@ function buildRouteNear(lat, lng){
   var chained = chainSegmentsGreedy(segs, lat, lng);
   return finalizeRoutePath(chained.ordered, STEP_M, MAX_ROUTE_PTS);
 }
+function geomBboxPad(geom, padDeg){
+  var rings = outerRings(geom);
+  var minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+  rings.forEach(function(ring){
+    ring.forEach(function(xy){
+      if (xy[0] < minLng) minLng = xy[0];
+      if (xy[0] > maxLng) maxLng = xy[0];
+      if (xy[1] < minLat) minLat = xy[1];
+      if (xy[1] > maxLat) maxLat = xy[1];
+    });
+  });
+  var pad = padDeg == null ? 0.003 : padDeg;
+  return { south: minLat - pad, west: minLng - pad, north: maxLat + pad, east: maxLng + pad };
+}
+function mergeOverpassWaysIntoRoads(elements){
+  if (!roadsFc) roadsFc = { type: 'FeatureCollection', features: [] };
+  if (!roadsFc.features) roadsFc.features = [];
+  var have = {};
+  roadsFc.features.forEach(function(f){
+    var oid = f.properties && f.properties.osm_id;
+    if (oid != null) have[String(oid)] = true;
+  });
+  var added = 0;
+  (elements || []).forEach(function(el){
+    if (!el || el.type !== 'way' || !el.geometry || el.geometry.length < 2) return;
+    var oid = el.id;
+    if (oid != null && have[String(oid)]) return;
+    var tags = el.tags || {};
+    var hw = tags.highway || '';
+    var svc = String(tags.service || '').toLowerCase();
+    if (hw === 'service' && (svc.indexOf('parking') >= 0 || svc.indexOf('driveway') >= 0)) return;
+    if (!highwayAllowed(hw, true)) return;
+    var coords = el.geometry.map(function(g){ return [g.lon, g.lat]; });
+    roadsFc.features.push({
+      type: 'Feature',
+      properties: { highway: hw, osm_id: oid, oneway: tags.oneway || '', service: tags.service || '' },
+      geometry: { type: 'LineString', coordinates: coords }
+    });
+    if (oid != null) have[String(oid)] = true;
+    added++;
+  });
+  return added;
+}
+function fetchOverpassHighways(bbox){
+  var q = '[out:json][timeout:60];\n' +
+    'way["highway"~"' + OVERPASS_HW_RE + '"](' +
+    bbox.south + ',' + bbox.west + ',' + bbox.north + ',' + bbox.east + ');\n' +
+    'out geom;';
+  var body = 'data=' + encodeURIComponent(q);
+  var i = 0;
+  function next(){
+    if (i >= OVERPASS_URLS.length) return Promise.reject(new Error('Overpass falló'));
+    var url = OVERPASS_URLS[i++];
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body
+    }).then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).catch(function(err){
+      console.warn('[scout] Overpass mirror fail', url, err && err.message);
+      return next();
+    });
+  }
+  return next();
+}
+function ensureColoniaRoadCoverage(geom, built, startLat, startLng){
+  if (!geom) return Promise.resolve(built);
+  var pts = (built && built.points) ? built.points.length : 0;
+  if (pts >= MIN_COLONIA_ROUTE_PTS) return Promise.resolve(built);
+  var bbox = geomBboxPad(geom, 0.003);
+  setStatus('Pocas calles prebaked (' + pts + ') — Overpass…', 'warn');
+  return fetchOverpassHighways(bbox).then(function(data){
+    var added = mergeOverpassWaysIntoRoads(data.elements || []);
+    var rebuilt = buildRouteInPolygon(geom, startLat, startLng);
+    rebuilt._overpassAdded = added;
+    rebuilt._source = added ? 'overpass' : 'prebaked';
+    return rebuilt;
+  }).catch(function(err){
+    console.warn('[scout] Overpass refresh failed', err && err.message);
+    if (built) built._source = 'prebaked';
+    return built;
+  });
+}
+
 /** Full colonia coverage: all AVENIDAS_HW + TODO_EXTRA clipped to polygon. */
 function buildRouteInPolygon(geom, startLat, startLng){
   var fc = roadsFc;
@@ -1235,7 +1358,7 @@ function buildRouteInPolygon(geom, startLat, startLng){
     if (!coords || coords.length < 2) return;
     var anyIn = false;
     for (var i = 0; i < coords.length; i++) {
-      if (pointInGeometry(coords[i][0], coords[i][1], geom)) { anyIn = true; break; }
+      if (pointNearGeometry(coords[i][0], coords[i][1], geom)) { anyIn = true; break; }
     }
     var pieces = [];
     if (anyIn) pieces = clipLineToPolygon(coords, geom);
@@ -1554,36 +1677,38 @@ function startAtLatLng(lat, lng, coloniaSel){
       (coloniaSel.id && findColoniaFeatureById(coloniaSel.id)) ||
       matchColoniaFeature(coloniaSel);
     if (feat && feat.geometry) {
-      var built = buildRouteInPolygon(feat.geometry, lat, lng);
-      routePoints = built.points;
-      activeColoniaMeta = {
-        nombre: (feat.properties && feat.properties.colonia) || coloniaSel.nombre,
-        municipio: (feat.properties && feat.properties.municipio) || coloniaSel.municipio,
-        calleCount: built.calleCount,
-        teleports: built.teleports,
-        id: coloniaFeatureId(feat)
-      };
-      drawColoniaOutline(feat.geometry);
-      if (!routePoints.length) {
-        setStatus('Sin calles en polígono', 'warn');
-        $('startMsg').textContent = 'Polígono de ' + activeColoniaMeta.nombre +
-          ' sin calles OSM. Probando radio alrededor del centroide…';
-        routePoints = buildRouteNear(lat, lng);
+      var built0 = buildRouteInPolygon(feat.geometry, lat, lng);
+      return ensureColoniaRoadCoverage(feat.geometry, built0, lat, lng).then(function(built){
+        routePoints = built.points;
+        activeColoniaMeta = {
+          nombre: (feat.properties && feat.properties.colonia) || coloniaSel.nombre,
+          municipio: (feat.properties && feat.properties.municipio) || coloniaSel.municipio,
+          calleCount: built.calleCount,
+          teleports: built.teleports,
+          id: coloniaFeatureId(feat)
+        };
+        drawColoniaOutline(feat.geometry);
         if (!routePoints.length) {
-          $('startMsg').textContent = 'Sin calles OSM en el polígono ni cerca del centroide. Prueba otra colonia.';
+          setStatus('Sin calles en polígono', 'warn');
+          $('startMsg').textContent = 'Polígono de ' + activeColoniaMeta.nombre +
+            ' sin calles OSM. Probando radio alrededor del centroide…';
+          routePoints = buildRouteNear(lat, lng);
+          if (!routePoints.length) {
+            $('startMsg').textContent = 'Sin calles OSM en el polígono ni cerca del centroide. Prueba otra colonia.';
+            return;
+          }
+          activeColoniaMeta = null;
+          clearColoniaOutline();
+          beginWalk(lat, lng, 'Fallback radio · ' + routePoints.length + ' pts');
           return;
         }
-        activeColoniaMeta = null;
-        clearColoniaOutline();
-        beginWalk(lat, lng, 'Fallback radio · ' + routePoints.length + ' pts');
-        return;
-      }
-      var label = 'Colonia ' + activeColoniaMeta.nombre + ' · ' +
-        activeColoniaMeta.calleCount + ' calles · ' + routePoints.length +
-        ' pts · cobertura completa';
-      setStatus(label, 'ok');
-      beginWalk(lat, lng, label);
-      return;
+        var src = built._source === 'overpass' ? ' · OSM live' : '';
+        var label = 'Colonia ' + activeColoniaMeta.nombre + ' · ' +
+          activeColoniaMeta.calleCount + ' calles · ' + routePoints.length +
+          ' pts · cobertura completa' + src;
+        setStatus(label, 'ok');
+        beginWalk(lat, lng, label);
+      });
     }
     $('startMsg').textContent = 'Sin polígono para ' + (coloniaSel.nombre || coloniaSel.id || 'colonia') +
       ' — usando radio ±' + ROUTE_RADIUS_M + ' m (centroid).';
