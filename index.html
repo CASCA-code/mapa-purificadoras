@@ -981,7 +981,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 </div>
 
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260924-dedupe10m';
+window.__PURIF_BUILD = '20260925-dedupe15m';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -1163,14 +1163,19 @@ MUNS.forEach(([name,la,lo])=> L.marker([la,lo], {interactive:false, keyboard:fal
 labels.addTo(map); /* default ON: etiquetas de municipio */
 
 
-/* ---------- Scout ↔ Places/OSM 10 m dedupe (Nicolás) ----------
- * DEDUPE_M = 10 — if a Scout field_add and a Places/OSM feature of the same
- * kind lie within ~10 m (haversine), treat as ONE place for display/flow:
+/* ---------- Scout ↔ Places/OSM 15 m dedupe (Nicolás) ----------
+ * DEDUPE_M = 15 (was 10; aligned with Scout v2.0.0 EXIST_DEDUPE_M) — if a Scout
+ * field_add and a Places/OSM feature of the same
+ * kind lie within ~15 m (haversine), treat as ONE place for display/flow:
  * Scout wins (field truth, dashed pin); hide the Places/OSM twin.
  * Applies to modelorama, express, iglesia, escuela, empeno (any kind where
- * Scout + Places or OSM can overlap). Favoritos unchanged. Map-display only
- * for now (no separate flow-count script yet). */
-const DEDUPE_M = 10;
+ * Scout + Places or OSM can overlap), plus alto (OSM stops) and purificadora
+ * (Scout Y pins vs Places purificadoras). Scout vs Scout is NEVER deduped
+ * (2 Scout pins close together = 2 real places). Favoritos unchanged.
+ * Layer counts (toggle labels) are recomputed from the deduped layers via
+ * recountDedupe(). DENUE competencia (scored layer, painted before this block)
+ * is not touched. */
+const DEDUPE_M = 15;
 function haversineM(lat1, lng1, lat2, lng2){
   const R = 6371000;
   const toRad = Math.PI / 180;
@@ -1183,7 +1188,32 @@ function haversineM(lat1, lng1, lat2, lng2){
 }
 const _dedupeBase = {};  /* kind -> [{lat,lng,marker,layer,suppressed}] */
 const _dedupeScout = {}; /* kind -> [{lat,lng}] */
-const DEDUPE_KINDS = { modelorama:1, express:1, iglesia:1, escuela:1, empeno:1 };
+const DEDUPE_KINDS = { modelorama:1, express:1, iglesia:1, escuela:1, empeno:1, alto:1, purificadora:1 };
+/* Recompute toggle-label counts from deduped layers (Scout + non-absorbed bot) */
+function _setCountLabel(sel, n, fixedLabel){
+  const span = document.querySelector(sel);
+  if (!span) return;
+  const label = fixedLabel || span.textContent.replace(/\s*\(\d+\)\s*$/, '');
+  span.textContent = label + ' (' + n + ')';
+}
+function recountDedupe(kind){
+  try {
+    if (kind === 'modelorama' || kind === 'express') {
+      if (typeof placesByKind !== 'undefined' && placesByKind[kind])
+        _setCountLabel('.tbtn[data-l="places_'+kind+'"] span', placesByKind[kind].getLayers().length);
+    } else if (kind === 'empeno') {
+      if (typeof prestamosByKind !== 'undefined' && prestamosByKind.empeno)
+        _setCountLabel('.tbtn[data-l="prestamos_empeno"] span', prestamosByKind.empeno.getLayers().length);
+    } else if (kind === 'alto') {
+      if (typeof stopsLayer !== 'undefined')
+        _setCountLabel('.tbtn[data-l="stops"] span', stopsLayer.getLayers().length, 'Altos / stops');
+    } else if (kind === 'purificadora') {
+      if (typeof placesPurifLayer !== 'undefined')
+        _setCountLabel('.tbtn[data-l="comp_places"] span', placesPurifLayer.getLayers().length);
+    }
+  } catch (e) {}
+}
+window.__purifRecountDedupe = recountDedupe;
 function registerBaseAnchor(kind, lat, lng, marker, layer){
   if (!DEDUPE_KINDS[kind] || !marker) return;
   if (!_dedupeBase[kind]) _dedupeBase[kind] = [];
@@ -1222,7 +1252,9 @@ function registerScoutAnchor(kind, lat, lng){
   if (!DEDUPE_KINDS[kind]) return 0;
   if (!_dedupeScout[kind]) _dedupeScout[kind] = [];
   _dedupeScout[kind].push({ lat: +lat, lng: +lng });
-  return suppressBaseTwins(kind, +lat, +lng);
+  const n = suppressBaseTwins(kind, +lat, +lng);
+  recountDedupe(kind);
+  return n;
 }
 window.__purifDedupeM = DEDUPE_M;
 window.__purifHasBaseTwin = hasBaseTwin;
@@ -1382,9 +1414,13 @@ function paintStops(fc){
     const c = ft.geometry && ft.geometry.coordinates; if (!c) return;
     const p = ft.properties || {};
     const label = (p.highway === 'give_way') ? 'Ceda el paso (give_way)' : 'Alto (stop)';
+    const isStop = p.highway !== 'give_way';
+    /* Scout wins: skip OSM stop twin ≤ DEDUPE_M */
+    if (isStop && hasScoutTwin('alto', c[1], c[0])) return;
     const m = L.marker([c[1], c[0]], { icon: stopIcon(), keyboard: false, interactive: true });
     m.bindPopup(trafficPopup(p, label), { maxWidth: 240, autoPan: false });
     m.addTo(stopsLayer);
+    if (isStop) registerBaseAnchor('alto', c[1], c[0], m, stopsLayer);
   });
 }
 (function loadTrafficOsm(){
@@ -1401,7 +1437,7 @@ function paintStops(fc){
     const bs = document.querySelector('.tbtn[data-l="semaforos"] span');
     const bt = document.querySelector('.tbtn[data-l="stops"] span');
     if (bs && nS) bs.textContent = 'Semáforos (' + nS + ')';
-    if (bt && nT) bt.textContent = 'Altos / stops (' + nT + ')';
+    if (bt && nT) recountDedupe('alto'); /* deduped: OSM stops (non-absorbed) + Scout altos */
   }).catch(function(){});
 })();
 
@@ -1473,6 +1509,7 @@ function paintPlacesAnclas(fc){
       if (counts[k]) btn.textContent = label + ' (' + counts[k] + ')';
     }
   });
+  ['modelorama','express','empeno'].forEach(recountDedupe);
   return counts;
 }
 function syncPlacesLayer(kind){
@@ -1623,6 +1660,7 @@ function paintPrestamosAnclas(fc){
       if (counts[k]) btn.textContent = label + ' (' + counts[k] + ')';
     }
   });
+  ['modelorama','express','empeno'].forEach(recountDedupe);
   return counts;
 }
 function syncPrestamosLayer(kind){
@@ -1736,6 +1774,8 @@ function paintPlacesPurificadoras(fc){
     const p = ft.properties || {};
     const name = p.name || 'Purificadora';
     const addr = p.address || '';
+    /* Scout wins: skip Places purificadora twin ≤ DEDUPE_M (Scout Y pin) */
+    if (hasScoutTwin('purificadora', c[1], c[0])) return;
     const m = L.marker([c[1], c[0]], { icon: placesPurifIcon(), keyboard: true });
     m.bindPopup(
       '<b>'+name+'</b><br><span class="p-sub">Places · purificadora / garrafón · fuente places_api</span>'
@@ -1744,6 +1784,7 @@ function paintPlacesPurificadoras(fc){
       { maxWidth: 260, autoPan: false }
     );
     m.addTo(placesPurifLayer);
+    registerBaseAnchor('purificadora', c[1], c[0], m, placesPurifLayer);
     n++;
   });
   const btn = document.querySelector('.tbtn[data-l="comp_places"] span');
@@ -3563,6 +3604,10 @@ window.__purifReady && window.__purifReady.then(function(){
     if (p.precio_galon_mxn != null) lines.push('Galón $' + p.precio_galon_mxn);
     if (p.nota_raw) lines.push(p.nota_raw);
     lines.push('Competencia');
+    if (/^scout/.test(p.fuente || '') || p.source === 'scout') lines.push(window.__purifScoutProvenance || 'Añadida con Scout');
+    if (typeof window.__purifRegisterScoutAnchor === 'function') {
+      window.__purifRegisterScoutAnchor('purificadora', c[1], c[0]);
+    }
     addVisibleMarker([c[1], c[0]], '#0f766e', p.name || 'Competencia', lines, markersComp, id, layerComp, function(){
       var feat = null;
       var prev = loadLS(LS_COMP);

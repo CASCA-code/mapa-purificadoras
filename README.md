@@ -9,7 +9,7 @@ Sitio público del **Mapa Version 2** — site selection de estaciones de recarg
 | Archivo | Qué es |
 |---|---|
 | `index.html` | Mapa Leaflet offline (score_100, capas, Ubicarme) |
-| `scout.html` | **Scout** Maps JS + Dynamic Street View (key en `config/maps-key.js`, cero paste) |
+| `scout.html` | **Scout v2.0.0** Maps JS + Dynamic Street View (key en `config/maps-key.js`, cero paste); muestra puntos ya existentes (Scout/Places/OSM/DENUE) |
 | `config/maps-key.js` | Key Maps JS embebida (restringir referrer `https://casca-code.github.io/*`) |
 | `scout-sv.html` | Redirect → `scout.html` |
 | `userscripts/purificadoras-scout.user.js` | Tampermonkey Scout sobre google.com/maps (**cero** API key; **v1.9.1** F Favorito + Y precios; Avenidas-first vs Todo) |
@@ -66,5 +66,5 @@ Capas gratuitas de OpenStreetMap en el panel **Anclas → Tránsito**: **Semáfo
 La consulta incluye `highway=traffic_signals` en nodos/vías y `crossing=traffic_signals` (cruce señalizado), además de `highway=stop|give_way` y `traffic_sign=stop` en nodos/vías. No son cobertura completa (OSM incompleto en ZMM); no puntúan. Para marcas manuales de campo sigue usando Scout **S**.
 Refrescar datos: `python3 scripts/fetch_osm_traffic.py` → commit de `data/semaforos_zmm.geojson` + `data/stops_zmm.geojson`.
 
-## Dedupe 10 m (Scout vs Places/OSM)
-`DEDUPE_M = 10` en `index.html`: si Scout y Places/OSM del mismo kind están a ≤10 m, el mapa muestra solo Scout (no doble conteo visual). Ver [`docs/SCOUT.md`](docs/SCOUT.md).
+## Dedupe 15 m (Scout vs Places/OSM)
+`DEDUPE_M = 15` en `index.html`: si Scout y Places/OSM del mismo kind están a ≤15 m, el mapa muestra solo Scout y los contadores usan el set deduplicado. Scout↔Scout nunca se deduplica. Scout **v2.0.0** muestra en mini-mapa/HUD lo que ya existe (Scout sólido, Places/OSM/DENUE hueco) para no re-scoutear. Ver [`docs/SCOUT.md`](docs/SCOUT.md).

@@ -33,4 +33,4 @@ Las capas Semáforos / Altos del mapa vienen de OSM (`data/semaforos_zmm.geojson
 La cobertura OSM sigue incompleta; Scout **S** sigue siendo la vía para altos/semáforos vistos en campo. Regenerar: `python3 scripts/fetch_osm_traffic.py`.
 
 ## Dedupe display (Scout vs Places/OSM)
-Mapa: `DEDUPE_M = 10` — Scout gana sobre Places/OSM mismo kind ≤10 m. Ver [`SCOUT.md`](SCOUT.md). Sin script de flow-count aún.
+Mapa: `DEDUPE_M = 15` — Scout gana sobre Places/OSM mismo kind ≤15 m; contadores de capa sobre set deduplicado. Scout v2.0.0 añade `source:"scout"` a cada pin (merge lo rellena para clientes Scout viejos). Ver [`SCOUT.md`](SCOUT.md).

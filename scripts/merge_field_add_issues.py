@@ -105,6 +105,11 @@ def main():
         feat = payload.get('feature') if action == 'upsert' else payload
         if isinstance(feat, dict) and feat.get('type') == 'Feature':
             props = feat.get('properties') or {}
+            # Scout v2.0.0 sends source:"scout"; backfill for older Scout clients
+            # (fuente scout_maps / scout_userscript). Additive only — format unchanged.
+            if isinstance(props, dict) and not props.get('source') and str(props.get('fuente') or '').startswith('scout'):
+                props['source'] = 'scout'
+                feat['properties'] = props
             pid = props.get('id')
             # Upsert after delete = restore (undo / re-add). Tombstones still block
             # bare reappearance until an explicit upsert feature arrives.

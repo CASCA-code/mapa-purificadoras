@@ -1,3 +1,9 @@
+## 2026-09-25 (scout v2.0.0 — Ya existe + dedupe 15 m)
+
+- Scout carga (lazy, bbox trayecto +300 m) field_adds + Places anclas/préstamos/purificadoras + DENUE + OSM semáforos/altos/anclas → mini-mapa (Scout sólido, bot hueco) + HUD «Cerca: … (≤40 m)».
+- Pines Scout siempre válidos, sin bloqueo ni guard Scout↔Scout. Scout↔bot mismo kind ≤15 m: bot absorbido, toast «Ya estaba (X) — se cuenta como 1, queda tu pin».
+- Payload `source:"scout"`; merge rellena para clientes viejos. Mapa principal: `DEDUPE_M` 10→15, +alto (OSM stops) +purificadora (Places), contadores de toggles sobre set deduplicado.
+
 ## 2026-09-21 (scout v1.9.0 — Avenidas primero)
 
 - Nicolás: trayecto debe serpentear avenidas comerciales (Modeloramas), no callejones residential.

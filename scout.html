@@ -158,7 +158,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
 <div id="app">
   <div id="topbar">
     <div>
-      <h1>Scout <span id="scoutVer" style="font:500 12px/1 IBM Plex Mono,monospace;color:var(--ink-muted);margin-left:6px">v1.9.2</span></h1>
+      <h1>Scout <span id="scoutVer" style="font:500 12px/1 IBM Plex Mono,monospace;color:var(--ink-muted);margin-left:6px">v2.0.0</span></h1>
       <div class="sub">Street View dinámico · colonia = todas las calles · pines → ntfy → mapa · Escobedo / ZMM</div>
     </div>
     <div class="grow"></div>
@@ -177,6 +177,8 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
       <span class="chip" id="chipProgress">0 / 0</span>
       <span class="chip" id="chipCoords">—</span>
       <span class="chip" id="chipMode">Colonia</span>
+      <span class="chip" id="chipExist" title="Puntos previos en el bbox de la colonia (+300 m). Sólido = Scout/campo · hueco = Places/OSM/DENUE">Ya existen: —</span>
+      <span class="chip" id="chipNear" style="display:none;background:rgba(202,138,4,.92)" title="Puntos previos ≤40 m del panorama"></span>
     </div>
     <div id="overlayStart">
       <div class="card">
@@ -316,7 +318,7 @@ const LS_CLARITY = 'purif_scout_clarity';
 const LS_HOP = 'purif_scout_hop_m';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
-const SCOUT_VERSION = '1.9.8';
+const SCOUT_VERSION = '2.0.0';
 const HOP_M_DEFAULT = 28;
 const HOP_M_MIN = 15;
 const HOP_M_MAX = 80;
@@ -600,6 +602,7 @@ function renderPins(){
     ul.appendChild(li);
   });
   refreshPinMarkers();
+  if (typeof renderExistingMarkers === 'function' && existPts.length) { renderExistingMarkers(); updateNearHud(); }
 }
 
 function parsePriceMxn(raw){
@@ -664,7 +667,8 @@ function makeFeature(def, lat, lng, extraProps){
       status: 'inbox',
       layer: def.layer,
       pano_id: currentPanoMeta.panoId || null,
-      client: 'scout.html'
+      client: 'scout.html',
+      source: 'scout'
   };
   if (isFav) props.favorito = true;
   if (extraProps && typeof extraProps === 'object') {
@@ -699,7 +703,8 @@ function makeCommentFeature(text, lat, lng, heading){
       layer: 'comentario_zona',
       heading: heading,
       pano_id: currentPanoMeta.panoId || null,
-      client: 'scout.html'
+      client: 'scout.html',
+      source: 'scout'
     }
   };
 }
@@ -722,6 +727,8 @@ function dropPin(def){
   if (p.precio_recarga_mxn != null) msg += ' · recarga $' + p.precio_recarga_mxn;
   else if (p.precio_garrafon_mxn != null) msg += ' · garrafón $' + p.precio_garrafon_mxn;
   if (p.telefono) msg += ' · ☎';
+  var twin = botTwinNote(def, currentPanoMeta.lat, currentPanoMeta.lng);
+  if (twin) { toast('📍 ' + twin, 3600); return; }
   toast(msg);
 }
 function dropComment(text){
@@ -1484,6 +1491,7 @@ function onPanoChanged(){
   if (pid) currentPanoMeta.panoId = pid;
   updateCoordsChip();
   updatePeg();
+  updateNearHud();
 }
 function updatePeg(){
   if (!pegMarker || currentPanoMeta.lat == null) return;
@@ -1534,6 +1542,225 @@ function refreshPinMarkers(){
       }));
     }
   });
+}
+/* ---------- v2.0.0 · Ya existe: puntos previos (Scout + bot) ----------
+ * Carga lazy (1ª colonia) field_adds + Places + OSM + DENUE, filtra al bbox
+ * del trayecto + ~300 m. Scout/campo = sólido (siempre válido, sin guard entre
+ * pines Scout). Bot (Places/OSM/DENUE) = hueco gris; si un pin Scout del mismo
+ * kind cae ≤ EXIST_DEDUPE_M, el bot se absorbe (cuenta como 1, queda el Scout).
+ * Nunca bloquea envío. */
+const EXIST_DEDUPE_M = 15;
+const EXIST_NEAR_M = 40;
+const EXIST_BBOX_PAD_M = 300;
+const EXIST_KIND_LABEL = {
+  modelorama: 'Modelorama', semaforo: 'Semáforo', alto: 'Alto', express: 'Express',
+  iglesia: 'Iglesia', escuela: 'Escuela', hospital: 'Hospital', empeno: 'Empeño',
+  purificadora: 'Purificadora', favorito: 'Favorito', otro: 'Otro'
+};
+const EXIST_KIND_COLOR = {
+  modelorama: '#ca8a04', semaforo: '#64748b', alto: '#e53e3e', express: '#ea580c',
+  iglesia: '#7c3aed', escuela: '#2563eb', hospital: '#0284c7', empeno: '#805ad5',
+  purificadora: '#0f766e', favorito: '#f59e0b', otro: '#64748b'
+};
+/* Bot sources → Scout kind. Kinds without a Scout hotkey are skipped. */
+const EXIST_BOT_SOURCES = [
+  { url: 'data/places_anclas_zmm.geojson', src: 'Places', map: function(p){
+      return ({ modelorama: 'modelorama', express: 'express' })[p.kind] || null; } },
+  { url: 'data/places_prestamos_zmm.geojson', src: 'Places', map: function(p){
+      return p.kind === 'empeno' ? 'empeno' : null; } },
+  { url: 'data/places_purificadoras_zmm.geojson', src: 'Places', map: function(){ return 'purificadora'; } },
+  { url: 'data/compet.geojson', src: 'DENUE', map: function(){ return 'purificadora'; } },
+  { url: 'data/semaforos_zmm.geojson', src: 'OSM', map: function(p){
+      return p.highway === 'traffic_signals' ? 'semaforo' : null; } },
+  { url: 'data/stops_zmm.geojson', src: 'OSM', map: function(p){
+      return p.highway === 'stop' ? 'alto' : null; } },
+  { url: 'data/anclas.geojson', src: 'OSM', map: function(p){
+      return ({ escuela: 'escuela', iglesia: 'iglesia', hospital: 'hospital' })[p.tipo] || null; } }
+];
+const FIELD_ADDS_URL = 'data/field_adds.geojson';
+var existRaw = null;        /* Promise → [{lat,lng,kind,src,name,bot,id}] (ZMM) */
+var existPts = [];          /* filtered to active bbox */
+var existMarkers = [];
+var existBbox = null;
+
+/* Scout pin (feature props) → dedupe kind */
+function scoutKindOf(p){
+  p = p || {};
+  var k = p.kind || 'otro';
+  if (k === 'stop') return 'alto';
+  if (k === 'comentario_zona') return null;
+  if (k === 'otro' || k === 'ancla') {
+    var blob = [p.name || '', p.nota_raw || ''].join(' ');
+    if (/sem[aá]foro/i.test(blob)) return 'semaforo';
+    if (/\balto\b|stop sign|señal de alto/i.test(blob)) return 'alto';
+    if (/hospital|cl[ií]nica/i.test(blob)) return 'hospital';
+    if (/empe[ñn]|monte de piedad|prendamex/i.test(blob)) return 'empeno';
+    return 'otro';
+  }
+  if (p.layer === 'competencia') return 'purificadora';
+  return k;
+}
+/* Hotkey def → dedupe kind (S = otro+Semáforo, H = Hospital/otro) */
+function hotkeyDedupeKind(def){
+  if (def.nota_raw === 'Semáforo') return 'semaforo';
+  if (def.kind === 'otro' && /hospital/i.test(def.name || '')) return 'hospital';
+  return scoutKindOf({ kind: def.kind, layer: def.layer, name: def.name, nota_raw: def.nota_raw });
+}
+function fetchGeo(url){
+  return fetch(url + '?v=' + encodeURIComponent(SCOUT_VERSION + '-' + Math.floor(Date.now() / 600000)), { cache: 'no-store' })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .catch(function(){ return null; });
+}
+function loadExistingAll(){
+  if (existRaw) return existRaw;
+  var jobs = EXIST_BOT_SOURCES.map(function(s){
+    return fetchGeo(s.url).then(function(fc){
+      var out = [];
+      ((fc && fc.features) || []).forEach(function(f){
+        var g = f.geometry;
+        if (!g || g.type !== 'Point') return;
+        var p = f.properties || {};
+        var k = s.map(p);
+        if (!k) return;
+        out.push({ lat: +g.coordinates[1], lng: +g.coordinates[0], kind: k, src: s.src,
+          name: p.name || p.nombre || EXIST_KIND_LABEL[k], bot: true });
+      });
+      return out;
+    });
+  });
+  jobs.push(fetchGeo(FIELD_ADDS_URL).then(function(fc){
+    var out = [];
+    var seen = {};
+    function push(f, srcHint){
+      var g = f && f.geometry;
+      if (!g || g.type !== 'Point') return;
+      var p = f.properties || {};
+      if (p.id && seen[p.id]) return;
+      if (p.id) seen[p.id] = 1;
+      var k = scoutKindOf(p);
+      if (!k) return;
+      var src = srcHint || (/^scout/.test(p.fuente || '') || p.source === 'scout' ? 'Scout' : 'Campo');
+      out.push({ lat: +g.coordinates[1], lng: +g.coordinates[0], kind: k, src: src,
+        name: p.name || EXIST_KIND_LABEL[k], bot: false, id: p.id || null });
+    }
+    ((fc && fc.features) || []).forEach(function(f){ push(f); });
+    /* local, not-yet-merged pins from this browser (sessionPins excluded — drawn live) */
+    [LS_ANCLAS, LS_COMP, LS_FAV].forEach(function(key){
+      loadLS(key).forEach(function(f){
+        var pid = f && f.properties && f.properties.id;
+        if (pid && sessionPins.some(function(s){ return s.properties && s.properties.id === pid; })) return;
+        push(f, 'Scout local');
+      });
+    });
+    return out;
+  }));
+  existRaw = Promise.all(jobs).then(function(parts){
+    return parts.reduce(function(a, b){ return a.concat(b); }, []);
+  });
+  return existRaw;
+}
+function bboxFromPoints(pts, padM){
+  var s = Infinity, w = Infinity, n = -Infinity, e = -Infinity;
+  pts.forEach(function(p){
+    if (p.lat < s) s = p.lat; if (p.lat > n) n = p.lat;
+    if (p.lng < w) w = p.lng; if (p.lng > e) e = p.lng;
+  });
+  if (!isFinite(s)) return null;
+  var dLat = padM / 111320;
+  var dLng = padM / (111320 * Math.cos(((s + n) / 2) * Math.PI / 180));
+  return { south: s - dLat, north: n + dLat, west: w - dLng, east: e + dLng };
+}
+function inBbox(b, lat, lng){
+  return lat >= b.south && lat <= b.north && lng >= b.west && lng <= b.east;
+}
+/* All Scout-side points (prior Scout/campo + this session) for absorb test */
+function scoutPointsAll(){
+  var arr = existPts.filter(function(x){ return !x.bot; });
+  sessionPins.forEach(function(f){
+    if (isCommentLine(f)) return;
+    var c = f.geometry.coordinates;
+    var k = scoutKindOf(f.properties);
+    if (k) arr.push({ lat: c[1], lng: c[0], kind: k, src: 'Scout (sesión)', bot: false });
+  });
+  return arr;
+}
+function isAbsorbed(bp, scoutPts){
+  for (var i = 0; i < scoutPts.length; i++) {
+    var s = scoutPts[i];
+    if (s.kind === bp.kind && haversineM(bp.lat, bp.lng, s.lat, s.lng) <= EXIST_DEDUPE_M) return true;
+  }
+  return false;
+}
+function setExistingForRoute(points){
+  existBbox = bboxFromPoints(points || [], EXIST_BBOX_PAD_M);
+  existPts = [];
+  renderExistingMarkers();
+  updateNearHud();
+  if (!existBbox) return Promise.resolve();
+  var b = existBbox;
+  return loadExistingAll().then(function(all){
+    if (existBbox !== b) return;
+    existPts = all.filter(function(x){ return inBbox(b, x.lat, x.lng); });
+    renderExistingMarkers();
+    updateNearHud();
+    var nBot = existPts.filter(function(x){ return x.bot; }).length;
+    var nSc = existPts.length - nBot;
+    $('chipExist').textContent = 'Ya existen: ' + nSc + ' Scout · ' + nBot + ' bot';
+  }).catch(function(e){ console.warn('existing load', e); });
+}
+function renderExistingMarkers(){
+  existMarkers.forEach(function(m){ m.setMap(null); });
+  existMarkers = [];
+  if (!miniMap || !window.google) return;
+  var scoutPts = scoutPointsAll();
+  existPts.forEach(function(x){
+    var col = EXIST_KIND_COLOR[x.kind] || '#64748b';
+    if (x.bot && isAbsorbed(x, scoutPts)) return; /* cuenta como 1 → queda Scout */
+    existMarkers.push(new google.maps.Marker({
+      position: { lat: x.lat, lng: x.lng },
+      map: miniMap,
+      zIndex: x.bot ? 1 : 2,
+      title: (EXIST_KIND_LABEL[x.kind] || x.kind) + ' (' + x.src + ')' + (x.name ? ' · ' + x.name : ''),
+      icon: x.bot ? {
+        path: google.maps.SymbolPath.CIRCLE, scale: 4.5,
+        fillColor: '#ffffff', fillOpacity: 0.15, strokeColor: col, strokeOpacity: 0.9, strokeWeight: 2
+      } : {
+        path: google.maps.SymbolPath.CIRCLE, scale: 4.5,
+        fillColor: col, fillOpacity: 0.95, strokeColor: '#111', strokeWeight: 1
+      }
+    }));
+  });
+}
+function nearbyExisting(lat, lng, maxM, kind){
+  var out = [];
+  existPts.forEach(function(x){
+    if (kind && x.kind !== kind) return;
+    var d = haversineM(lat, lng, x.lat, x.lng);
+    if (d <= maxM) out.push({ p: x, d: d });
+  });
+  out.sort(function(a, b){ return a.d - b.d; });
+  return out;
+}
+function updateNearHud(){
+  var el = $('chipNear');
+  if (!el) return;
+  if (currentPanoMeta.lat == null || !existPts.length) { el.style.display = 'none'; return; }
+  var scoutPts = scoutPointsAll();
+  var near = nearbyExisting(currentPanoMeta.lat, currentPanoMeta.lng, EXIST_NEAR_M)
+    .filter(function(n){ return !(n.p.bot && isAbsorbed(n.p, scoutPts)); });
+  if (!near.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.textContent = 'Cerca: ' + near.slice(0, 4).map(function(n){
+    return (EXIST_KIND_LABEL[n.p.kind] || n.p.kind) + ' (' + n.p.src + ') ' + Math.round(n.d) + ' m';
+  }).join(' · ') + (near.length > 4 ? ' · +' + (near.length - 4) : '');
+}
+/* After a pin: if same-kind bot point ≤ EXIST_DEDUPE_M → informative toast (never blocks) */
+function botTwinNote(def, lat, lng){
+  var k = hotkeyDedupeKind(def);
+  if (!k) return null;
+  var hit = nearbyExisting(lat, lng, EXIST_DEDUPE_M, k).filter(function(n){ return n.p.bot; })[0];
+  if (!hit) return null;
+  return 'Ya estaba (' + hit.p.src + ') a ' + Math.round(hit.d) + ' m — se cuenta como 1, queda tu pin';
 }
 function scheduleNext(){
   clearWalkTimer();
@@ -1621,6 +1848,7 @@ function stepAlongRoute(){
 function beginWalk(lat, lng, hudLabel){
   if (!routePoints.length) return;
   drawRouteOnMap(routePoints);
+  setExistingForRoute(routePoints);
   routeIndex = 0;
   stepCount = 0;
   lastShownPos = null;

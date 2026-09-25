@@ -1,6 +1,6 @@
 # Scout — Street View dinámico (Maps JavaScript API)
 
-Actualizado: 2026-09-24
+Actualizado: 2026-09-25
 
 **Live:** https://casca-code.github.io/mapa-purificadoras/scout.html  
 Cache-bust tip: añade `?v=<commit-sha>` tras un deploy.
@@ -59,7 +59,7 @@ Si ves error de autenticación: confirma en Cloud Console referrers `https://cas
 | **Space** | Pausar / reanudar | — |
 | **Z** / **⌫** | Deshacer último pin | — |
 
-Tras **F**: pide nombre (default «Favorito») y teléfono opcional (8+ dígitos). Tras **Y**: pide precio de **recarga** MXN (campo primario `precio_recarga_mxn`) y opcionalmente garrafón/envase (`precio_garrafon_mxn`); vacío = omitir. El toast y el `name` reflejan el precio (ej. `Comp $12 recarga`). Versión Scout **v1.9.8** · checkbox **Nítido** (default on): espera `pano_changed` + dwell 600 ms y salta ~48 m para reducir blur del morph Street View; off = cobertura densa. Fin de ruta: toast/HUD **Colonia completa**.
+Tras **F**: pide nombre (default «Favorito») y teléfono opcional (8+ dígitos). Tras **Y**: pide precio de **recarga** MXN (campo primario `precio_recarga_mxn`) y opcionalmente garrafón/envase (`precio_garrafon_mxn`); vacío = omitir. El toast y el `name` reflejan el precio (ej. `Comp $12 recarga`). Versión Scout **v2.0.0** · checkbox **Nítido** (default on): espera `pano_changed` + dwell 600 ms y salta ~48 m para reducir blur del morph Street View; off = cobertura densa. Fin de ruta: toast/HUD **Colonia completa**.
 
 ## Sync ntfy → mapa principal
 
@@ -102,9 +102,30 @@ Userscript Tampermonkey + extensión Chrome sobre `google.com/maps`: [`SCOUT_USE
 - Notas antiguas: [`SCOUT_SV.md`](SCOUT_SV.md).
 
 
-## Dedupe Scout ↔ Places/OSM (10 m)
+## Ya existe (v2.0.0) — no re-scoutear
 
-`DEDUPE_M = 10` en `index.html`: si un pin Scout (`field_adds`) y un feature Places/OSM del **mismo kind** están a ≤ ~10 m (haversine), se trata como **un solo lugar**. Gana Scout (verdad de campo, borde punteado); se oculta el gemelo Places/OSM. Aplica a modelorama, express, iglesia, escuela, empeno. Favoritos no cambian. Por ahora solo dedupe de **display** en el mapa (aún no hay script de conteo de flujo).
+Al iniciar colonia, Scout carga **lazy** (una vez por sesión, luego filtra al bbox del trayecto **+300 m**):
+
+| Fuente | Archivo | → kind Scout | Icono mini-mapa |
+|---|---|---|---|
+| Scout / campo previos | `data/field_adds.geojson` + LS local no mergeado | kind del pin (S→semaforo, A→alto, H→hospital) | **sólido** color kind |
+| Places anclas | `data/places_anclas_zmm.geojson` | modelorama, express (oxxo/six/farmacia/banco: skip) | **hueco** |
+| Places préstamos | `data/places_prestamos_zmm.geojson` | empeno (prestamo/financiera: skip) | hueco |
+| Places purificadoras | `data/places_purificadoras_zmm.geojson` | purificadora (Y) | hueco |
+| DENUE | `data/compet.geojson` | purificadora (Y) | hueco |
+| OSM semáforos | `data/semaforos_zmm.geojson` | semaforo (solo `traffic_signals`) | hueco |
+| OSM altos | `data/stops_zmm.geojson` | alto (solo `stop`) | hueco |
+| OSM anclas | `data/anclas.geojson` | escuela, iglesia, hospital | hueco |
+
+- HUD: chip **Ya existen: N Scout · M bot** y chip **Cerca: Modelorama (Places) 12 m · …** (≤ **40 m** del pano, top 4).
+- **Pines Scout siempre válidos**: nunca se bloquea el envío; no hay guard Scout↔Scout (2 Modeloramas Scout juntos = 2 reales).
+- **Dedupe solo Scout ↔ bot, mismo kind, ≤ 15 m**: el punto bot se absorbe (se oculta del mini-mapa; cuenta como 1, queda tu pin). Al soltar pin encima de uno bot: toast **«Ya estaba (Places) a X m — se cuenta como 1, queda tu pin»**. Sin Shift-force (no hace falta).
+- Cada payload Scout lleva `source: "scout"` (además de `fuente: "scout_maps"`, `client: "scout.html"`). El merge (`scripts/merge_field_add_issues.py`) pasa props tal cual y rellena `source:"scout"` si falta y `fuente` empieza con `scout` (clientes viejos). Formato sin cambios.
+- Huecos de datos: OSM `stops_zmm` ≈ 38 pts (casi solo Monterrey); semáforos OSM escasos en García (2); DENUE solo 93 purificadoras formales. Favorito / Hospital-otro sin fuente bot (solo Scout previos).
+
+## Dedupe Scout ↔ Places/OSM (15 m) — mapa principal
+
+`DEDUPE_M = 15` en `index.html` (antes 10; igual que Scout). Si un pin Scout (`field_adds`) y un feature Places/OSM del **mismo kind** están a ≤ ~15 m (haversine), se trata como **un solo lugar**: gana Scout (borde punteado, «Añadida con Scout»), se oculta el gemelo. Aplica a modelorama, express, iglesia, escuela, empeno, **alto** (OSM stops) y **purificadora** (Scout Y vs Places purificadoras). Scout↔Scout nunca se deduplica. Los contadores de los toggles (Modelorama, Express, Empeño, Altos / stops, Purificadoras Places) se recalculan sobre el set deduplicado. No toca DENUE (capa puntuada) ni `score_100` (precalculado). Semáforo Scout (kind `otro`) aún no entra al dedupe del mapa principal.
 
 ## ToS
 
