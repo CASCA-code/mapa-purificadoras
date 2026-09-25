@@ -5211,6 +5211,78 @@
         "client": "scout.html",
         "source": "scout"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.32646589680759,
+          25.733629295201897
+        ]
+      },
+      "properties": {
+        "id": "ancla_muhd492z_auipnf",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T19:37:18.587Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "ZDQk1Z2MMQJjHg8lDO8_5w",
+        "client": "scout.html",
+        "source": "scout"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.32932079066582,
+          25.733967995609447
+        ]
+      },
+      "properties": {
+        "id": "ancla_muhd5ga4_j14bnt",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T19:38:14.572Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "1uv0yVtIreMTm4WjnJrwTg",
+        "client": "scout.html",
+        "source": "scout"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3330465224243,
+          25.73440975717987
+        ]
+      },
+      "properties": {
+        "id": "ancla_muhd81iw_m0i35g",
+        "kind": "otro",
+        "name": "Semáforo",
+        "nota_raw": "Semáforo",
+        "accuracy_m": null,
+        "ts": "2026-09-25T19:40:15.416Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "06Ty5Nb9RM0ykD6W3aQYrQ",
+        "client": "scout.html",
+        "source": "scout"
+      }
     }
   ]
 }
