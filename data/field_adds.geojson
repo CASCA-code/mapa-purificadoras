@@ -4130,6 +4130,98 @@
         "pano_id": "T1bkpXkI3Wmb8vWyLUKfiw",
         "client": "scout.html"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.36844005688145,
+          25.772419335701112
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh1c189_oo64u7",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:07:26.265Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "B282uSCl3WeRZKGaG0qOsQ",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37299235778234,
+          25.7759644538033
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh1et1m_3uuu4i",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:09:35.626Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "9R80KqlyGapRm7XCYw9I9w",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.3740014503874,
+          25.777639723215273
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh1hg73_snxcvw",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:11:38.943Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "8bnE1tIZoMI1C_hP7bLeSg",
+        "client": "scout.html"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.37589671049614,
+          25.782230320412626
+        ]
+      },
+      "properties": {
+        "id": "ancla_muh1ue9p_ib4ae1",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-25T14:21:42.973Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "gyH4AMUNLJSCQIHB4PfE5w",
+        "client": "scout.html"
+      }
     }
   ]
 }
