@@ -5307,6 +5307,96 @@
         "client": "scout.html",
         "source": "scout"
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.35839113040382,
+          25.631910597596754
+        ]
+      },
+      "properties": {
+        "id": "ancla_muj6totv_3jvdcy",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": 40,
+        "ts": "2026-09-27T02:16:40.435Z",
+        "fuente": "campo",
+        "status": "inbox",
+        "layer": "ancla_campo"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.35839113040382,
+          25.631910597596754
+        ]
+      },
+      "properties": {
+        "id": "ancla_muj6tsmv_uj7s87",
+        "kind": "modelorama",
+        "name": "Modelorama",
+        "nota_raw": "",
+        "accuracy_m": 40,
+        "ts": "2026-09-27T02:16:45.367Z",
+        "fuente": "campo",
+        "status": "inbox",
+        "layer": "ancla_campo"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.32817611600815,
+          25.734578834986277
+        ]
+      },
+      "properties": {
+        "id": "ancla_muj6yam6_vqtbwt",
+        "kind": "escuela",
+        "name": "Escuela",
+        "nota_raw": "",
+        "accuracy_m": null,
+        "ts": "2026-09-27T02:20:15.294Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "f21QUHMCQ1TA4lQzRXAZ9g",
+        "client": "scout.html",
+        "source": "scout"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -100.33217012269881,
+          25.7343272917413
+        ]
+      },
+      "properties": {
+        "id": "ancla_muj73d18_g0xqkd",
+        "kind": "alto",
+        "name": "Alto",
+        "nota_raw": "Alto",
+        "accuracy_m": null,
+        "ts": "2026-09-27T02:24:11.708Z",
+        "fuente": "scout_maps",
+        "status": "inbox",
+        "layer": "ancla_campo",
+        "pano_id": "Hrn1osFyYxm3IXgUj9lrmw",
+        "client": "scout.html",
+        "source": "scout"
+      }
     }
   ]
 }
