@@ -119,6 +119,18 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
   font-weight:600;font-size:13px;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s;
 }
 #toast.show{opacity:1}
+#favEdit{
+  position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:45;
+  width:min(420px,calc(100% - 24px));background:var(--surface);color:var(--ink);
+  border:2px solid #f59e0b;border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);display:none;
+}
+#favEdit.show{display:block}
+#favEdit .fe-title{font-weight:700;font-size:13px;margin:0 0 6px}
+#favEdit .fe-row{display:flex;gap:6px}
+#favEdit input{flex:1;min-width:0;padding:7px 8px;border:1px solid var(--rule,#ccc);border-radius:8px;font:500 13px system-ui}
+#favEdit .fe-btns{display:flex;gap:6px;margin-top:6px;justify-content:flex-end}
+#favEdit button{padding:6px 12px;border-radius:8px;border:1px solid #d6d3d1;background:#fff;font:600 12px system-ui;cursor:pointer}
+#favEdit button.primary{background:#f59e0b;border-color:#b45309;color:#fff}
 #keyGate,#commentGate{
   position:fixed;inset:0;z-index:40;background:rgba(23,21,15,.72);
   display:none;align-items:center;justify-content:center;padding:16px;color-scheme:only light;
@@ -158,7 +170,7 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
 <div id="app">
   <div id="topbar">
     <div>
-      <h1>Scout <span id="scoutVer" style="font:500 12px/1 IBM Plex Mono,monospace;color:var(--ink-muted);margin-left:6px">v2.0.0</span></h1>
+      <h1>Scout <span id="scoutVer" style="font:500 12px/1 IBM Plex Mono,monospace;color:var(--ink-muted);margin-left:6px">v2.1.0</span></h1>
       <div class="sub">Street View dinámico · colonia = todas las calles · pines → ntfy → mapa · Escobedo / ZMM</div>
     </div>
     <div class="grow"></div>
@@ -252,6 +264,17 @@ button.btn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color
 </div>
 
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="favEdit" role="dialog" aria-label="Completar favorito (opcional)">
+  <p class="fe-title">★ Favorito guardado · nombre / teléfono opcionales</p>
+  <div class="fe-row">
+    <input id="favEditName" type="text" placeholder="Nombre (opcional)" autocomplete="off"/>
+    <input id="favEditTel" type="tel" inputmode="tel" placeholder="Teléfono (opcional)" autocomplete="off"/>
+  </div>
+  <div class="fe-btns">
+    <button type="button" id="favEditSkip">Omitir (Esc)</button>
+    <button type="button" id="favEditSave" class="primary">Actualizar (Enter)</button>
+  </div>
+</div>
 
 <div id="keyGate" role="dialog" aria-modal="true" aria-labelledby="keyGateTitle">
   <div class="card">
@@ -318,7 +341,7 @@ const LS_CLARITY = 'purif_scout_clarity';
 const LS_HOP = 'purif_scout_hop_m';
 const NTFY_TOPIC = 'purif-zmm-campo-casca-v1';
 const API_PLACEHOLDER = 'YOUR_API_KEY';
-const SCOUT_VERSION = '2.0.0';
+const SCOUT_VERSION = '2.1.0';
 const HOP_M_DEFAULT = 28;
 const HOP_M_MIN = 15;
 const HOP_M_MAX = 80;
@@ -614,24 +637,67 @@ function parsePriceMxn(raw){
   var n = Number(m[1]);
   return (isFinite(n) && n >= 0) ? n : null;
 }
-function promptFavoritoExtras(def){
-  var nameIn = window.prompt('Nombre del favorito (opcional):', def.name || 'Favorito');
-  if (nameIn === null) return null;
-  var name = String(nameIn).trim() || 'Favorito';
-  var telIn = window.prompt('Teléfono (opcional, 8+ dígitos):', '');
-  if (telIn === null) return null;
-  telIn = String(telIn).trim();
-  var extra = { favorito: true, name: name };
-  if (telIn) {
-    var digits = telIn.replace(/\D/g, '');
-    if (digits.length < 8) {
-      toast('Teléfono: mínimo 8 dígitos (o déjalo vacío)');
-      return null;
-    }
-    extra.telefono = telIn;
-  }
-  return extra;
+/* v2.1.0 · F = Favorito se GUARDA al instante (sin prompts bloqueantes, sin teléfono forzado,
+ * sin placeholder 8000…). Luego aparece #favEdit (no bloquea hotkeys mientras no escribas):
+ * nombre / teléfono opcionales → «Actualizar» re-envía el mismo id (upsert). Se oculta solo a los 15 s. */
+function isRealPhone(raw){
+  var dig = String(raw == null ? '' : raw).replace(/\D/g, '');
+  if (dig.length < 8) return false;
+  if (/^0+$/.test(dig) || /^(\d)\1+$/.test(dig) || /^80+$/.test(dig)) return false;
+  return true;
 }
+var favEditFeat = null, favEditTimer = null;
+function hideFavEdit(){
+  favEditFeat = null;
+  clearTimeout(favEditTimer);
+  try { $('favEdit').classList.remove('show'); } catch (e) {}
+  try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
+}
+function armFavEditTimer(){
+  clearTimeout(favEditTimer);
+  favEditTimer = setTimeout(function(){
+    var a = document.activeElement;
+    if (a && (a.id === 'favEditName' || a.id === 'favEditTel')) return; /* typing: stay */
+    hideFavEdit();
+  }, 15000);
+}
+function showFavEdit(feat){
+  favEditFeat = feat;
+  $('favEditName').value = '';
+  $('favEditTel').value = '';
+  $('favEdit').classList.add('show');
+  armFavEditTimer();
+}
+function saveFavEdit(){
+  var feat = favEditFeat;
+  if (!feat) { hideFavEdit(); return; }
+  var p = feat.properties || {};
+  var nm = String($('favEditName').value || '').trim();
+  var tel = String($('favEditTel').value || '').trim();
+  if (nm) p.name = nm;
+  if (tel && isRealPhone(tel)) p.telefono = tel;
+  else { delete p.telefono; if (tel) toast('Teléfono no válido — guardado sin teléfono'); }
+  persistFeature(feat, { quiet: true });
+  renderPins();
+  hideFavEdit();
+  toast('★ ' + (p.name || 'Favorito') + (p.telefono ? ' · ☎' : '') + ' actualizado');
+}
+(function wireFavEdit(){
+  function onKey(ev){
+    if (ev.key === 'Enter') { ev.preventDefault(); saveFavEdit(); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); hideFavEdit(); }
+  }
+  function bind(){
+    if (!$('favEdit')) { setTimeout(bind, 50); return; }
+    $('favEditName').addEventListener('keydown', onKey);
+    $('favEditTel').addEventListener('keydown', onKey);
+    $('favEditName').addEventListener('input', armFavEditTimer);
+    $('favEditTel').addEventListener('input', armFavEditTimer);
+    $('favEditSave').addEventListener('click', function(e){ e.preventDefault(); saveFavEdit(); });
+    $('favEditSkip').addEventListener('click', function(e){ e.preventDefault(); hideFavEdit(); });
+  }
+  bind();
+})();
 function promptCompetenciaExtras(def){
   var recIn = window.prompt('Precio de recarga MXN (ej. Recarga $12) — vacío = omitir:', '');
   if (recIn === null) return null;
@@ -711,9 +777,9 @@ function makeCommentFeature(text, lat, lng, heading){
 function dropPin(def){
   if (currentPanoMeta.lat == null) { toast('Sin panorama aún'); return; }
   var extra = null;
-  if (def.layer === 'favoritos' || def.kind === 'favorito') {
-    extra = promptFavoritoExtras(def);
-    if (!extra) return;
+  var isFavPin = (def.layer === 'favoritos' || def.kind === 'favorito');
+  if (isFavPin) {
+    extra = { favorito: true, name: def.name || 'Favorito' }; /* save now; name/phone later, optional */
   } else if (def.layer === 'competencia') {
     extra = promptCompetenciaExtras(def);
     if (!extra) return;
@@ -727,6 +793,7 @@ function dropPin(def){
   if (p.precio_recarga_mxn != null) msg += ' · recarga $' + p.precio_recarga_mxn;
   else if (p.precio_garrafon_mxn != null) msg += ' · garrafón $' + p.precio_garrafon_mxn;
   if (p.telefono) msg += ' · ☎';
+  if (isFavPin) showFavEdit(feat);
   var twin = botTwinNote(def, currentPanoMeta.lat, currentPanoMeta.lng);
   if (twin) { toast('📍 ' + twin, 3600); return; }
   toast(msg);
@@ -2295,6 +2362,7 @@ window.addEventListener('keydown', function(ev){
   var tag = (ev.target && ev.target.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ev.target && ev.target.isContentEditable)) return;
   if ($('commentGate').classList.contains('show') || $('keyGate').classList.contains('show')) return;
+  if (ev.key === 'Escape' && favEditFeat) { hideFavEdit(); return; }
   if (ev.code === 'Space' || ev.key === ' ') {
     ev.preventDefault();
     if (!walking) { toast('Primero inicia una colonia'); return; }

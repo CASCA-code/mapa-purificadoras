@@ -725,16 +725,17 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 <div id="oursAddSheet" role="dialog" aria-modal="true" aria-labelledby="oursAddTitle" hidden>
   <button type="button" id="oursAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
-  <h2 id="oursAddTitle">Favoritos</h2>
+  <h2 id="oursAddTitle">★ Favorito guardado</h2>
   <p class="hint" id="oursAddCoords">Activa Ubicarme para usar tu GPS.</p>
-  <label for="oursName">Nombre</label>
-  <input id="oursName" type="text" placeholder="ej. Estación Ana" autocomplete="name"/>
-  <label for="oursPhone">Teléfono (para llamar)</label>
+  <p class="hint" style="margin-top:-4px">Ya quedó guardado. Nombre y teléfono son opcionales: llena lo que quieras o cierra con ×.</p>
+  <label for="oursName">Nombre (opcional)</label>
+  <input id="oursName" type="text" placeholder="Favorito" autocomplete="off"/>
+  <label for="oursPhone">Teléfono (opcional)</label>
   <input id="oursPhone" type="tel" inputmode="tel" placeholder="81…" autocomplete="tel"/>
-  <label for="oursDesc">Descripción</label>
+  <label for="oursDesc">Descripción (opcional)</label>
   <textarea id="oursDesc" rows="3" placeholder="Notas cortas: horario, anfitrión, etc."></textarea>
   <div class="row">
-    <button type="button" class="btnSave" id="oursAddSave" disabled>Guardar</button>
+    <button type="button" class="btnSave" id="oursAddSave">Actualizar</button>
   </div>
 </div>
 
@@ -799,9 +800,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   <div id="panelHost" hidden>
    <div class="mpanel" id="p-anclas" data-for="anclas">
     <p class="eyebrow">Anclas</p>
-    <button class="tbtn ctx " data-l="comp_rec" aria-pressed="false"><i aria-hidden="true">●</i><span>Competencia (recarga)</span></button>
-    <button class="tbtn ctx " data-l="comp_ind" aria-pressed="false"><i aria-hidden="true">▲</i><span>Competencia (planta)</span></button>
-    <button class="tbtn ctx " data-l="comp_places" aria-pressed="false" title="Competencia: purificadoras / recarga de garrafón vía Places API + añadidas con Scout (mismo toggle, dedupe 15 m) — apagada por defecto"><i aria-hidden="true" style="background:#0ea5e9;border:2px dashed #0369a1;color:#fff;font-size:9px;font-weight:700">G</i><span>Purificadoras (Places + Scout)</span></button>
+    <button class="tbtn ctx " data-l="comp_places" aria-pressed="false" title="Una sola capa: DENUE (recarga / planta chica) + Places + Scout Comp/Y. Dedupe ~30 m (Scout &gt; DENUE &gt; Places). Sin plantas embotelladoras industriales (ver docs/COMPETENCIA.md). Apagada por defecto"><i aria-hidden="true" style="background:#0ea5e9;border:2px solid #0369a1;color:#fff;font-size:9px;font-weight:700">G</i><span>Purificadoras (competencia)</span></button>
     <button class="tbtn ctx " data-l="anclas_iglesia" aria-pressed="false" title="OSM + añadidas con Scout (mismo toggle)"><i aria-hidden="true" style="background:#2b6cb0;border-color:#2b6cb0;color:#fff;font-size:11px">†</i><span>Iglesias</span></button>
     <button class="tbtn ctx " data-l="anclas_hospital" aria-pressed="false" title="OSM + añadidas con Scout (mismo toggle)"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:10px;font-weight:700">H</i><span>Hospitales</span></button>
     <div class="esc-wrap">
@@ -824,28 +823,10 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <button class="tbtn ctx " data-l="anclas_escuela_otra" aria-pressed="false"><i aria-hidden="true" style="background:#a0aec0;border-color:#4a5568;color:#fff;font-size:9px;font-weight:700">·</i><span>Otras escuelas</span></button>
      </div>
     </div>
-    <div class="esc-wrap" id="retailWrap">
-     <button type="button" class="tbtn ctx esc-parent" id="retailParent" aria-expanded="false" aria-controls="retailSub" aria-pressed="false" title="Retail / bancos — sí entran a Anclas*">
-      <i aria-hidden="true" id="retailParentIcon" style="background:#c05621;border-color:#9c4221;color:#fff;font-size:10px">$</i>
-      <span>Retail / bancos</span>
-      <span class="chev" aria-hidden="true">▾</span>
-     </button>
-     <div class="esc-sub" id="retailSub" role="group" aria-label="Anclas retail y bancos">
-      <div class="esc-master"><span id="retailSummary">todas activas</span>
-        <button type="button" id="retailAllOn" title="Activar todas">Todas</button>
-        <button type="button" id="retailAllOff" title="Desactivar todas">Ninguna</button>
-      </div>
-      <button class="tbtn ctx " data-l="anclas_aurrera_express" aria-pressed="false"><i aria-hidden="true" style="background:#dd6b20;border-color:#c05621;color:#fff;font-size:9px;font-weight:700">A</i><span>Bodega Aurrera Express (69)</span></button>
-      <button class="tbtn ctx " data-l="anclas_soriana_express" aria-pressed="false"><i aria-hidden="true" style="background:#ed8936;border-color:#c05621;color:#fff;font-size:9px;font-weight:700">S</i><span>Soriana Express (3)</span></button>
-      <button class="tbtn ctx " data-l="anclas_modelorama_six_cerveza" aria-pressed="false"><i aria-hidden="true" style="background:#d69e2e;border-color:#975a16;color:#fff;font-size:9px;font-weight:700">C</i><span>Modelorama / Six / cerveza (21)</span></button>
-      <button class="tbtn ctx " data-l="anclas_banco_bienestar" aria-pressed="false"><i aria-hidden="true" style="background:#38a169;border-color:#276749;color:#fff;font-size:9px;font-weight:700">B</i><span>Banco del Bienestar (3)</span></button>
-      <button class="tbtn ctx " data-l="anclas_banco_azteca" aria-pressed="false"><i aria-hidden="true" style="background:#2f855a;border-color:#276749;color:#fff;font-size:9px;font-weight:700">Z</i><span>Banco Azteca (22)</span></button>
-     </div>
-    </div>
     <div class="esc-wrap" id="placesWrap">
-     <button type="button" class="tbtn ctx esc-parent" id="placesParent" aria-expanded="false" aria-controls="placesSub" aria-pressed="false" title="Anclas comerciales Places API — Modelorama, Bodega Aurrera Express, Oxxo, bancos, farmacias… · apagadas por defecto">
+     <button type="button" class="tbtn ctx esc-parent" id="placesParent" aria-expanded="false" aria-controls="placesSub" aria-pressed="false" title="Anclas comerciales — UNA categoría por marca (Places + OSM + Scout, dedupe ~30 m) · apagadas por defecto">
       <i aria-hidden="true" id="placesParentIcon" style="background:#805ad5;border-color:#553c9a;color:#fff;font-size:9px;font-weight:700">P</i>
-      <span>Anclas comerciales (Places)</span>
+      <span>Anclas comerciales (por marca)</span>
       <span class="chev" aria-hidden="true">▾</span>
      </button>
      <div class="esc-sub" id="placesSub" role="group" aria-label="Anclas comerciales Places por marca">
@@ -853,15 +834,16 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
         <button type="button" id="placesAllOn" title="Activar todas">Todas</button>
         <button type="button" id="placesAllOff" title="Desactivar todas">Ninguna</button>
       </div>
-      <button class="tbtn ctx " data-l="places_modelorama" aria-pressed="false"><i aria-hidden="true" style="background:#b7791f;border:2px dashed #744210;color:#fff;font-size:9px;font-weight:700">M</i><span>Modelorama (Places + Scout)</span></button>
-      <button class="tbtn ctx " data-l="places_express" aria-pressed="false"><i aria-hidden="true" style="background:#dd6b20;border:2px dashed #9c4221;color:#fff;font-size:9px;font-weight:700">A</i><span>Bodega Aurrera Express (Places + Scout)</span></button>
-      <button class="tbtn ctx " data-l="places_soriana_express" aria-pressed="false"><i aria-hidden="true" style="background:#ed8936;border:2px dashed #c05621;color:#fff;font-size:9px;font-weight:700">S</i><span>Soriana Express (Places)</span></button>
-      <button class="tbtn ctx " data-l="places_oxxo" aria-pressed="false"><i aria-hidden="true" style="background:#e53e3e;border:2px dashed #9b2c2c;color:#fff;font-size:9px;font-weight:700">O</i><span>Oxxo (Places)</span></button>
-      <button class="tbtn ctx " data-l="places_six" aria-pressed="false"><i aria-hidden="true" style="background:#d69e2e;border:2px dashed #744210;color:#1a202c;font-size:9px;font-weight:700">6</i><span>Six (Places)</span></button>
-      <button class="tbtn ctx " data-l="places_extra" aria-pressed="false"><i aria-hidden="true" style="background:#319795;border:2px dashed #234e52;color:#fff;font-size:9px;font-weight:700">E</i><span>Extra (Places)</span></button>
-      <button class="tbtn ctx " data-l="places_banco" aria-pressed="false"><i aria-hidden="true" style="background:#2f855a;border:2px dashed #276749;color:#fff;font-size:9px;font-weight:700">Z</i><span>Bancos Azteca (Places)</span></button>
-      <button class="tbtn ctx " data-l="places_farmacia" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border:2px dashed #2c5282;color:#fff;font-size:9px;font-weight:700">F</i><span>Farmacias (Places)</span></button>
-      <button class="tbtn ctx " data-l="places_otro" aria-pressed="false"><i aria-hidden="true" style="background:#718096;border:2px dashed #4a5568;color:#fff;font-size:9px;font-weight:700">·</i><span>Otro (Places)</span></button>
+      <button class="tbtn ctx " data-l="places_modelorama" aria-pressed="false"><i aria-hidden="true" style="background:#b7791f;border:2px dashed #744210;color:#fff;font-size:9px;font-weight:700">M</i><span>Modelorama</span></button>
+      <button class="tbtn ctx " data-l="places_express" aria-pressed="false"><i aria-hidden="true" style="background:#dd6b20;border:2px dashed #9c4221;color:#fff;font-size:9px;font-weight:700">A</i><span>Bodega Aurrera Express</span></button>
+      <button class="tbtn ctx " data-l="places_soriana_express" aria-pressed="false"><i aria-hidden="true" style="background:#ed8936;border:2px dashed #c05621;color:#fff;font-size:9px;font-weight:700">S</i><span>Soriana Express</span></button>
+      <button class="tbtn ctx " data-l="places_oxxo" aria-pressed="false"><i aria-hidden="true" style="background:#e53e3e;border:2px dashed #9b2c2c;color:#fff;font-size:9px;font-weight:700">O</i><span>Oxxo</span></button>
+      <button class="tbtn ctx " data-l="places_six" aria-pressed="false"><i aria-hidden="true" style="background:#d69e2e;border:2px dashed #744210;color:#1a202c;font-size:9px;font-weight:700">6</i><span>Six (Tecate)</span></button>
+      <button class="tbtn ctx " data-l="places_extra" aria-pressed="false"><i aria-hidden="true" style="background:#319795;border:2px dashed #234e52;color:#fff;font-size:9px;font-weight:700">E</i><span>Tiendas Extra (conveniencia)</span></button>
+      <button class="tbtn ctx " data-l="places_banco" aria-pressed="false"><i aria-hidden="true" style="background:#2f855a;border:2px dashed #276749;color:#fff;font-size:9px;font-weight:700">Z</i><span>Banco Azteca</span></button>
+      <button class="tbtn ctx " data-l="places_bienestar" aria-pressed="false"><i aria-hidden="true" style="background:#38a169;border:2px dashed #276749;color:#fff;font-size:9px;font-weight:700">B</i><span>Banco del Bienestar</span></button>
+      <button class="tbtn ctx " data-l="places_farmacia" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border:2px dashed #2c5282;color:#fff;font-size:9px;font-weight:700">F</i><span>Farmacias</span></button>
+      <button class="tbtn ctx " data-l="places_otro" aria-pressed="false"><i aria-hidden="true" style="background:#718096;border:2px dashed #4a5568;color:#fff;font-size:9px;font-weight:700">·</i><span>Otros (Scout sin categoría)</span></button>
      </div>
     </div>
     <div class="esc-wrap" id="prestamosWrap">
@@ -889,8 +871,8 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <i aria-hidden="true" style="background:#e53e3e;border-color:#9b2c2c;color:#fff;font-size:9px;font-weight:700;border-radius:2px">■</i>
       <span>Altos / stops</span>
     </button>
-    <button type="button" class="tbtn ctx " id="likedZonesToggle" aria-pressed="false" title="Favoritos unificados (campo + me gustó). Verde = teléfono real CRM; ámbar = interés sin teléfono; violeta = spot asegurado (lock)">
-      <i aria-hidden="true" style="background:#0f766e;border-color:#115e59;color:#ecfdf5;font-size:11px;font-weight:700">★</i>
+    <button type="button" class="tbtn ctx " id="likedZonesToggle" aria-pressed="false" title="Favoritos unificados (campo + me gustó). Verde = teléfono real; ámbar = sin teléfono; violeta = spot asegurado (lock)">
+      <i aria-hidden="true" style="background:#16a34a;border-color:#fff;color:#fff;font-size:11px;font-weight:700">★</i>
       <span>Favoritos</span>
     </button>
     <button class="tbtn ctx " data-l="comentarios" aria-pressed="false" title="Comentarios de zona / pin añadidos con Scout — apagado por defecto">
@@ -912,9 +894,9 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <p class="eyebrow">Score_100 (Version 2)</p>
     <div class="legend-scale"><i style="background:#fde0dd"></i><i style="background:#fbb4b9"></i><i style="background:#f768a1"></i><i style="background:#c51b8a"></i><i style="background:#7a0177"></i></div>
     <div class="legend-ends"><span>muy bajo</span><span>muy alto</span></div>
-    <div class="row"><span class="sw dot" style="background:#d7191c;border:none"></span> recarga de barrio (DENUE)</div>
-    <div class="row"><span class="sw tri"></span> planta / embotellador (peso ×0.15)</div>
-    <div class="row"><span class="sw ico" title="Purificadoras Places" style="background:#0ea5e9;border-radius:50%;border:1px dashed #0369a1;color:#fff;font:700 9px/16px sans-serif;text-align:center">G</span> Purificadoras / garrafón (Places API · opcional)</div>
+    <div class="row"><span class="sw ico" title="Purificadora DENUE" style="background:#d7191c;border-radius:50%;border:1px solid #7a0000;color:#fff;font:700 9px/16px sans-serif;text-align:center">D</span> Purificadora (competencia) · DENUE</div>
+    <div class="row"><span class="sw ico" title="Purificadora Places" style="background:#0ea5e9;border-radius:50%;border:1px dashed #0369a1;color:#fff;font:700 9px/16px sans-serif;text-align:center">G</span> Purificadora (competencia) · Places</div>
+    <div class="row"><span class="sw ico" title="Purificadora Scout" style="background:#0f766e;border-radius:50%;border:1px dashed #134e4a;color:#fff;font:700 9px/16px sans-serif;text-align:center">Y</span> Purificadora (competencia) · Añadida con Scout (precios)</div>
     <div class="row"><span class="sw ico" title="Iglesia"><svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8.2" fill="#2b6cb0" stroke="#1a4f8a" stroke-width="1"/><path d="M9 3.2v11.6M5.6 7h6.8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span> iglesia</div>
     <div class="row"><span class="sw ico" title="Hospital" style="border-radius:4px"><svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="16" height="16" rx="3.5" fill="#3182ce" stroke="#1a4f8a" stroke-width="1"/><path d="M6.2 5.2h5.6v2.2H11v3.4h2.2v2.2H4.8v-2.2H7V7.4H4.8z" fill="#fff"/></svg></span> hospital (OSM amenity=hospital; sin consultorios/clínicas simples)</div>
     <div class="row"><span class="sw ico" title="Jardín" style="background:#90cdf4;border-radius:50%;color:#1a365d;font:700 9px/16px sans-serif;text-align:center">J</span> jardín de niños</div>
@@ -927,7 +909,9 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <div class="row"><span class="sw ico" title="Scout" style="background:#2563eb;border-radius:50%;border:2px dashed #1e3a8a;box-sizing:border-box;color:#fff;font:700 8px/14px sans-serif;text-align:center">I</span> borde punteado = añadida con Scout (misma capa que su categoría)</div>
     <div class="row"><span class="sw ico" title="Bodega Aurrera Express" style="background:#dd6b20;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">A</span> Bodega Aurrera Express</div>
     <div class="row"><span class="sw ico" title="Soriana Express" style="background:#ed8936;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">S</span> Soriana Express</div>
-    <div class="row"><span class="sw ico" title="Cerveza" style="background:#d69e2e;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">C</span> Modelorama / Six / cerveza</div>
+    <div class="row"><span class="sw ico" title="Modelorama" style="background:#b7791f;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">M</span> Modelorama</div>
+    <div class="row"><span class="sw ico" title="Six" style="background:#d69e2e;border-radius:50%;color:#1a202c;font:700 9px/16px sans-serif;text-align:center">6</span> Six (Tecate)</div>
+    <div class="row"><span class="sw ico" title="Tiendas Extra" style="background:#319795;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">E</span> Tiendas Extra (conveniencia)</div>
     <div class="row"><span class="sw ico" title="Bienestar" style="background:#38a169;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">B</span> Banco del Bienestar</div>
     <div class="row"><span class="sw ico" title="Azteca" style="background:#2f855a;border-radius:50%;color:#fff;font:700 9px/16px sans-serif;text-align:center">Z</span> Banco Azteca</div>
     <div class="row"><span class="sw ico" title="Casas de empeño" style="background:#805ad5;border-radius:50%;border:1px dashed #553c9a;color:#fff;font:700 9px/16px sans-serif;text-align:center">E</span> Casas de empeño / Monte (Places + Scout)</div>
@@ -935,8 +919,8 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <div class="row"><span class="sw ico" title="Préstamo" style="background:#6b46c1;border-radius:50%;border:1px dashed #44337a;color:#fff;font:700 9px/16px sans-serif;text-align:center">P</span> Préstamos personales (Places)</div>
     <div class="row"><span class="sw ico" title="Semáforo" style="background:#ecc94b;border-radius:50%;border:1px solid #975a16"></span> semáforo (OSM · cobertura incompleta)</div>
     <div class="row"><span class="sw ico" title="Alto" style="background:#e53e3e;border-radius:2px;border:1px dashed #9b2c2c;color:#fff;font:700 8px/16px sans-serif;text-align:center">A</span> alto / yield (OSM + Scout A)</div>
-    <div class="row"><span class="sw ico" title="Favorito con teléfono" style="background:#0f766e;border-radius:50%;color:#ecfdf5;font:700 11px/16px sans-serif;text-align:center">★</span> Favorito con teléfono (CRM / llamar)</div>
-    <div class="row"><span class="sw ico" title="Favorito sin teléfono" style="background:#f59e0b;border-radius:50%;color:#78350f;font:700 11px/16px sans-serif;text-align:center">★</span> Favorito sin teléfono (interés)</div>
+    <div class="row"><span class="sw ico" title="Favorito con teléfono" style="background:#16a34a;border-radius:50%;color:#fff;font:700 11px/16px sans-serif;text-align:center">★</span> Favorito con teléfono real (llamar)</div>
+    <div class="row"><span class="sw ico" title="Favorito sin teléfono" style="background:#f59e0b;border-radius:50%;color:#fff;font:700 11px/16px sans-serif;text-align:center">★</span> Favorito sin teléfono (interés)</div>
     <div class="row"><span class="sw ico" title="Spot asegurado (lock)" style="background:#7c3aed;border-radius:50%;color:#fff;font:700 11px/16px sans-serif;text-align:center">★</span> Spot asegurado (lock) 🔒</div>
     <div class="row"><span class="sw ring"></span> contexto: anillos 5/10/15 km</div>
     <div class="row"><span class="sw line"></span> límite de municipio · <span style="opacity:.6">— — San Pedro (excluido)</span></div>
@@ -987,6 +971,26 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 
 <script>/* 🔒 Lock spots: data/field_adds_overrides.json (id -> props) gana sobre field_adds/liked. Violeta = spot asegurado. */
 window.__purifLockColor = '#7c3aed';
+/* C: ONE favorito star style, 3 colors: verde = teléfono real · ámbar = sin teléfono · violeta = lock */
+window.__purifFavGreen = '#16a34a';
+window.__purifFavAmber = '#f59e0b';
+window.__purifFavColor = function(p, realPhone){
+  if (window.__purifIsLock(p)) return window.__purifLockColor;
+  return realPhone ? window.__purifFavGreen : window.__purifFavAmber;
+};
+window.__purifFavStarIcon = function(color){
+  return L.divIcon({
+    className: 'fav-star-icon', iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -13],
+    html: '<div class="fav-star" style="width:26px;height:26px;border-radius:50%;background:' + color +
+      ';border:2px solid #fff;box-sizing:border-box;display:flex;align-items:center;justify-content:center;' +
+      'font:700 15px/1 system-ui;color:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.4)">★</div>'
+  });
+};
+window.__purifGmapsHref = function(lat, lng, p){
+  var m = p && p.maps ? String(p.maps) : '';
+  if (/^https:\/\/(maps\.app\.goo\.gl|maps\.google\.|www\.google\.[a-z.]+\/maps|goo\.gl\/maps)/i.test(m)) return m;
+  return 'https://www.google.com/maps/search/?api=1&query=' + Number(lat).toFixed(6) + ',' + Number(lng).toFixed(6);
+};
 window.__purifIsLock = function(p){ return !!(p && (p.lock === true || p.status === 'lock')); };
 window.__purifOverrides = window.__purifOverrides || {};
 window.__purifLoadOverrides = function(bust){
@@ -1003,7 +1007,7 @@ window.__purifApplyOverride = function(f, ov){
 };
 </script>
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260928-scout-toggles';
+window.__PURIF_BUILD = '20260928-comp-merge';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -1041,6 +1045,11 @@ window.map.on('dragstart', function(){
 /* purif-drag-unfollow */
 
 
+/* D: points ALWAYS above colonia polygons. overlayPane(400)=polygons; ptsVec(450)=vector/canvas
+ * point markers (circleMarkers, semáforos canvas); markerPane(600)=divIcon pins; popups 700. */
+map.createPane('ptsVec');
+map.getPane('ptsVec').style.zIndex = 450;
+window.__purifPtsPane = 'ptsVec';
 map.attributionControl.setPrefix(false);
 map.attributionControl.addAttribution('CONAPO IMC 2020 · DENUE/INEGI · Censo 2020 · anclas OSM · tránsito OSM');
 
@@ -1129,18 +1138,10 @@ const colLayer = L.geoJSON(COLONIAS, {
 }).addTo(map);
 const colBounds = (()=>{ try { return colLayer.getBounds(); } catch(e){ return null; } })();
 
-/* ---------- SCORED: formal competitors, split by channel ---------- */
+/* ---------- Competencia: DENUE se pinta en la capa única «Purificadoras (competencia)»
+ * (ver bloque «Purificadoras (competencia)» más abajo, después del dedupe). compRec/compInd
+ * quedan vacíos sólo por compatibilidad de LAYERS. ---------- */
 const compRec = L.layerGroup(), compInd = L.layerGroup();
-COMPET.features.forEach(ft => {
-  const c = ft.properties, ll = [ft.geometry.coordinates[1], ft.geometry.coordinates[0]];
-  const industrial = c.canal.indexOf('industrial') === 0;
-  const m = industrial
-    ? L.marker(ll, {icon: L.divIcon({className:'', iconSize:[13,12], iconAnchor:[6,6],
-        html:'<div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:12px solid #d7191c;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))"></div>'})})
-    : L.circleMarker(ll, {radius:4, color:'#7a0000', weight:1, fillColor:'#d7191c', fillOpacity:.92});
-  m.bindPopup('<b>'+c.nombre+'</b><br><span class="p-sub">'+c.canal+' · '+(c.estrato||'s/estrato')+'<br>'+(c.colonia||'')+'</span>');
-  m.addTo(industrial ? compInd : compRec);
-});
 /* default off: competencia */
 
 /* ---------- OPTIONAL: estaciones propias (canibal) ---------- */
@@ -1198,6 +1199,10 @@ labels.addTo(map); /* default ON: etiquetas de municipio */
  * recountDedupe(). DENUE competencia (scored layer, painted before this block)
  * is not touched. */
 const DEDUPE_M = 15;
+/* purificadoras (competencia) + marcas comerciales: ~30 m = mismo negocio (Places/OSM/DENUE
+ * geocodes wander more than a street-level Scout pin). */
+const DEDUPE_M_KIND = { purificadora: 30, modelorama: 30, express: 30, soriana_express: 30, six: 30, extra: 30, banco: 30, bienestar: 30, oxxo: 30, farmacia: 30 };
+function dedupeM(kind){ return DEDUPE_M_KIND[kind] || DEDUPE_M; }
 function haversineM(lat1, lng1, lat2, lng2){
   const R = 6371000;
   const toRad = Math.PI / 180;
@@ -1210,7 +1215,8 @@ function haversineM(lat1, lng1, lat2, lng2){
 }
 const _dedupeBase = {};  /* kind -> [{lat,lng,marker,layer,suppressed}] */
 const _dedupeScout = {}; /* kind -> [{lat,lng}] */
-const DEDUPE_KINDS = { modelorama:1, express:1, iglesia:1, escuela:1, empeno:1, alto:1, purificadora:1, semaforo:1, hospital:1 };
+const DEDUPE_KINDS = { modelorama:1, express:1, iglesia:1, escuela:1, empeno:1, alto:1, purificadora:1, semaforo:1, hospital:1,
+  soriana_express:1, six:1, extra:1, banco:1, bienestar:1, oxxo:1, farmacia:1 };
 /* Recompute toggle-label counts from deduped layers (Scout + non-absorbed bot) */
 function _setCountLabel(sel, n, fixedLabel){
   const span = document.querySelector(sel);
@@ -1220,7 +1226,7 @@ function _setCountLabel(sel, n, fixedLabel){
 }
 function recountDedupe(kind){
   try {
-    if (kind === 'modelorama' || kind === 'express') {
+    if (typeof PLACES_KINDS !== 'undefined' && PLACES_KINDS.indexOf(kind) >= 0 && kind !== 'otro') {
       if (typeof placesByKind !== 'undefined' && placesByKind[kind])
         _setCountLabel('.tbtn[data-l="places_'+kind+'"] span', placesByKind[kind].getLayers().length);
     } else if (kind === 'empeno') {
@@ -1231,7 +1237,7 @@ function recountDedupe(kind){
         _setCountLabel('.tbtn[data-l="stops"] span', stopsLayer.getLayers().length, 'Altos / stops');
     } else if (kind === 'purificadora') {
       if (typeof placesPurifLayer !== 'undefined')
-        _setCountLabel('.tbtn[data-l="comp_places"] span', placesPurifLayer.getLayers().length);
+        _setCountLabel('.tbtn[data-l="comp_places"] span', placesPurifLayer.getLayers().length, 'Purificadoras (competencia)');
     } else if (kind === 'otro') {
       if (typeof placesByKind !== 'undefined' && placesByKind.otro)
         _setCountLabel('.tbtn[data-l="places_otro"] span', placesByKind.otro.getLayers().length);
@@ -1262,7 +1268,7 @@ function registerBaseAnchor(kind, lat, lng, marker, layer){
 function hasScoutTwin(kind, lat, lng){
   const list = _dedupeScout[kind] || [];
   for (let i = 0; i < list.length; i++){
-    if (haversineM(lat, lng, list[i].lat, list[i].lng) <= DEDUPE_M) return true;
+    if (haversineM(lat, lng, list[i].lat, list[i].lng) <= dedupeM(kind)) return true;
   }
   return false;
 }
@@ -1270,7 +1276,7 @@ function hasBaseTwin(kind, lat, lng){
   const list = _dedupeBase[kind] || [];
   for (let i = 0; i < list.length; i++){
     if (list[i].suppressed) continue;
-    if (haversineM(lat, lng, list[i].lat, list[i].lng) <= DEDUPE_M) return true;
+    if (haversineM(lat, lng, list[i].lat, list[i].lng) <= dedupeM(kind)) return true;
   }
   return false;
 }
@@ -1280,7 +1286,7 @@ function suppressBaseTwins(kind, lat, lng){
   for (let i = 0; i < list.length; i++){
     const b = list[i];
     if (b.suppressed) continue;
-    if (haversineM(lat, lng, b.lat, b.lng) <= DEDUPE_M) {
+    if (haversineM(lat, lng, b.lat, b.lng) <= dedupeM(kind)) {
       b.suppressed = true;
       n++;
       try { if (b.layer && b.marker) b.layer.removeLayer(b.marker); } catch (e) {}
@@ -1298,6 +1304,7 @@ function registerScoutAnchor(kind, lat, lng){
 }
 window.__purifDedupeM = DEDUPE_M;
 window.__purifHasBaseTwin = hasBaseTwin;
+window.__purifDedupeMFor = dedupeM;
 window.__purifRegisterScoutAnchor = registerScoutAnchor;
 
 /* ---------- CONTEXT: anclas azules por tipo / subtipo — no puntúan ---------- */
@@ -1404,24 +1411,15 @@ function retailIcon(sub){
 }
 const anclasRetailBySub = {};
 RETAIL_SUBS.forEach(s => { anclasRetailBySub[s] = L.layerGroup(); });
-(RETAIL.features || []).forEach(ft => {
-  const p = ft.properties || {};
-  const sub = (p.subtipo && anclasRetailBySub[p.subtipo]) ? p.subtipo : null;
-  if (!sub) return;
-  const ll = [ft.geometry.coordinates[1], ft.geometry.coordinates[0]];
-  const m = L.marker(ll, {icon: retailIcon(sub), keyboard:true});
-  m.bindPopup('<b>'+(p.name||'(sin nombre)')+'</b><br><span class="p-sub">'+
-    (RETAIL_LABEL[sub]||sub)+' · Anclas* (Version 2)'+
-    '<br>'+(p.fuente||'OSM')+(p.osm_tag?' · '+p.osm_tag:'')+(p.proxy?' · proxy '+p.proxy:'')+'</span>');
-  m.addTo(anclasRetailBySub[sub]);
-});
+/* B: retail.geojson (OSM) ya NO tiene grupo propio — se pinta dentro de «Anclas comerciales (por marca)»
+ * (paintOsmRetailIntoBrands, abajo). Una categoría por marca. */
 /* default off: retail/bancos */
 let retailMasterOn = true;
 
 /* ---------- TRÁNSITO OSM (semáforos + altos) — contexto, no puntúa ---------- */
 const semaforosLayer = L.layerGroup();
 const stopsLayer = L.layerGroup();
-const trafficCanvas = L.canvas({ padding: 0.4 });
+const trafficCanvas = L.canvas({ padding: 0.4, pane: 'ptsVec' });
 function trafficPopup(p, label){
   const nm = p.name ? '<b>'+p.name+'</b><br>' : '';
   return nm+'<span class="p-sub">'+label+' · OSM (cobertura incompleta)'+
@@ -1436,7 +1434,7 @@ function paintSemaforos(fc){
     if (hasScoutTwin('semaforo', c[1], c[0])) return;
     const m = L.circleMarker([c[1], c[0]], {
       radius: 4, weight: 1, color: '#744210', fillColor: '#ecc94b', fillOpacity: 0.9,
-      renderer: trafficCanvas, interactive: true
+      renderer: trafficCanvas, pane: 'ptsVec', interactive: true
     });
     m.bindPopup(trafficPopup(p, 'Semáforo'), { maxWidth: 240, autoPan: false });
     m.addTo(semaforosLayer);
@@ -1485,15 +1483,16 @@ function paintStops(fc){
 })();
 
 /* ---------- Places API anchors (commercial) ---------- */
-const PLACES_KINDS = ['modelorama','express','soriana_express','oxxo','six','extra','banco','farmacia','otro'];
+const PLACES_KINDS = ['modelorama','express','soriana_express','oxxo','six','extra','banco','bienestar','farmacia','otro'];
 const PLACES_LABELS = {
   modelorama:'Modelorama',
   express:'Bodega Aurrera Express',
   soriana_express:'Soriana Express',
   oxxo:'Oxxo',
   six:'Six',
-  extra:'Extra',
+  extra:'Tiendas Extra (conveniencia)',
   banco:'Banco Azteca',
+  bienestar:'Banco del Bienestar',
   farmacia:'Farmacia',
   otro:'Otro'
 };
@@ -1505,6 +1504,7 @@ const PLACES_STYLE = {
   six:{fill:'#d69e2e', stroke:'#744210', letter:'6'},
   extra:{fill:'#319795', stroke:'#234e52', letter:'E'},
   banco:{fill:'#2f855a', stroke:'#276749', letter:'Z'},
+  bienestar:{fill:'#38a169', stroke:'#276749', letter:'B'},
   farmacia:{fill:'#3182ce', stroke:'#2c5282', letter:'F'},
   otro:{fill:'#718096', stroke:'#4a5568', letter:'·'}
 };
@@ -1522,6 +1522,28 @@ function placesIcon(kind){
 const placesByKind = {};
 PLACES_KINDS.forEach(k => { placesByKind[k] = L.layerGroup(); });
 let placesMasterOn = true;
+/* B: OSM retail.geojson → same brand toggle as Places (one category per brand).
+ * Places wins over OSM same brand ≤30 m; Scout wins over both. */
+const OSM_RETAIL_TO_KIND = { aurrera_express:'express', soriana_express:'soriana_express', banco_azteca:'banco', banco_bienestar:'bienestar' };
+function osmRetailKind(p){
+  if (p.subtipo === 'modelorama_six_cerveza') return /six|tecate/i.test(p.name || '') ? 'six' : 'modelorama';
+  return OSM_RETAIL_TO_KIND[p.subtipo] || null;
+}
+function paintOsmRetailIntoBrands(counts){
+  (RETAIL.features || []).forEach(function(ft){
+    const c = ft.geometry && ft.geometry.coordinates; if (!c) return;
+    const p = ft.properties || {};
+    const kind = osmRetailKind(p);
+    if (!kind || !placesByKind[kind]) return;
+    if (hasScoutTwin(kind, c[1], c[0]) || hasBaseTwin(kind, c[1], c[0])) return;
+    counts[kind] = (counts[kind] || 0) + 1;
+    const m = L.marker([c[1], c[0]], { icon: placesIcon(kind), keyboard: true });
+    m.bindPopup('<b>'+(p.name || PLACES_LABELS[kind])+'</b><br><span class="p-sub">OSM · '+PLACES_LABELS[kind]+
+      (p.osm_tag ? ' · '+p.osm_tag : '')+'</span>', { maxWidth: 260, autoPan: false });
+    m.addTo(placesByKind[kind]);
+    registerBaseAnchor(kind, c[1], c[0], m, placesByKind[kind]);
+  });
+}
 function paintPlacesAnclas(fc){
   const counts = {};
   PLACES_KINDS.forEach(k => { counts[k] = 0; });
@@ -1545,6 +1567,7 @@ function paintPlacesAnclas(fc){
     m.addTo(placesByKind[kind]);
     if (DEDUPE_KINDS[kind]) registerBaseAnchor(kind, c[1], c[0], m, placesByKind[kind]);
   });
+  paintOsmRetailIntoBrands(counts);
   PLACES_KINDS.forEach(function(k){
     const btn = document.querySelector('.tbtn[data-l="places_'+k+'"] span');
     if (btn) {
@@ -1552,7 +1575,7 @@ function paintPlacesAnclas(fc){
       if (counts[k]) btn.textContent = label + ' (' + counts[k] + ')';
     }
   });
-  ['modelorama','express','empeno','otro'].forEach(recountDedupe);
+  PLACES_KINDS.concat(['empeno']).forEach(recountDedupe);
   return counts;
 }
 function syncPlacesLayer(kind){
@@ -1582,9 +1605,9 @@ function updatePlacesParentUI(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   fetch('data/places_anclas_zmm.geojson?v=' + encodeURIComponent(bust), { cache: 'no-store' })
     .then(r => r.ok ? r.json() : null)
+    .catch(function(){ return null; })
     .then(function(fc){
-      if (!fc) return;
-      paintPlacesAnclas(fc);
+      paintPlacesAnclas(fc || { features: [] }); /* OSM retail still paints if Places file missing */
       syncAllPlacesLayers();
       updatePlacesParentUI();
     })
@@ -1798,41 +1821,108 @@ function updatePrestamosParentUI(){
 })();
 
 
-/* ---------- Places API: purificadoras / recarga garrafón (Competencia) ---------- */
+/* ---------- A: «Purificadoras (competencia)» — UNA capa ----------
+ * Fuentes (todas archivos estáticos en data/, nunca API en vivo):
+ *   DENUE  data/compet.geojson (recarga de barrio + plantas chicas)
+ *   Places data/places_purificadoras_zmm.geojson
+ *   Scout  field_adds kind=purificadora (Comp / hotkey Y, con precios) — pintado en el bloque field-adds
+ * Dedupe ~30 m mismo negocio, prioridad Scout > DENUE > Places. Popup lista fuentes (+ precios Scout).
+ * EXCLUIDAS: plantas embotelladoras industriales — ver docs/COMPETENCIA.md. */
 const placesPurifLayer = L.layerGroup();
-function placesPurifSvg(){
-  return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
-    +'<circle cx="9" cy="9" r="7.2" fill="#0ea5e9" stroke="#0369a1" stroke-width="1.6" stroke-dasharray="2.2 1.6"/>'
-    +'<text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">G</text>'
-    +'</svg>';
+const COMP_DEDUPE_M = 30;
+const COMP_EXCL_NAME_RE = /bonafont|\bciel\b|\be-?pura\b|santorini|electropura|embotelladora|envasadora|\bcedis\b|industrial|laboratorios|liquitek|coca[- ]?cola|pepsi|bebidas mundiales|arca continental|aqua ?fina|soy sanna/i;
+const COMP_SMALL_ESTRATO_RE = /^(0 a 5|6 a 10) personas/;
+function compExcludeDenue(c){
+  const blob = (c.nombre || '') + ' ' + (c.razon || '');
+  if (COMP_EXCL_NAME_RE.test(blob)) return 'marca/planta industrial';
+  const industrial = String(c.canal || '').indexOf('industrial') === 0;
+  if (industrial && !COMP_SMALL_ESTRATO_RE.test(c.estrato || '')) return 'embotellador SCIAN 312112 ≥11 personas';
+  return null;
 }
-function placesPurifIcon(){
-  return L.divIcon({className:'places-icon ancla-icon places-purif-icon', iconSize:[18,18], iconAnchor:[9,9], popupAnchor:[0,-10],
-    html:'<span class="ai" aria-hidden="true">'+placesPurifSvg()+'</span>'});
+function compExcludePlaces(p){
+  if (COMP_EXCL_NAME_RE.test(p.name || '')) return 'marca/planta industrial';
+  return null;
 }
+window.__purifCompExcluded = [];
+const _compReg = []; /* {lat,lng,src,name,sub,entry} — every DENUE/Places record kept (incl. absorbed) */
+function _esc(t){ return String(t == null ? '' : t).replace(/[&<>"]/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]; }); }
+function compNear(lat, lng, src){
+  let best = null, bd = 1e9;
+  for (let i = 0; i < _compReg.length; i++){
+    const r = _compReg[i];
+    if (src && r.src !== src) continue;
+    const d = haversineM(lat, lng, r.lat, r.lng);
+    if (d <= COMP_DEDUPE_M && d < bd){ bd = d; best = r; }
+  }
+  return best;
+}
+/* Lines «Fuentes: …» for any purificadora position (used by DENUE/Places popups and Scout popup). */
+function compSourcesAt(lat, lng, withScout){
+  const parts = [];
+  if (withScout) parts.push('Scout');
+  const seen = {};
+  _compReg.forEach(function(r){
+    if (haversineM(lat, lng, r.lat, r.lng) > COMP_DEDUPE_M) return;
+    const k = r.src + '|' + r.name;
+    if (seen[k]) return; seen[k] = 1;
+    parts.push(r.src + (r.name ? ' (' + r.name + (r.sub ? ' · ' + r.sub : '') + ')' : ''));
+  });
+  return parts;
+}
+window.__purifCompSourcesAt = compSourcesAt;
+function compDivIcon(letter, fill, stroke, dashed){
+  return L.divIcon({className:'places-icon ancla-icon comp-icon', iconSize:[18,18], iconAnchor:[9,9], popupAnchor:[0,-10],
+    html:'<span class="ai" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="7.2" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.6"'+(dashed?' stroke-dasharray="2.2 1.6"':'')+'/><text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">'+letter+'</text></svg></span>'});
+}
+function compPopupFn(lat, lng, title){
+  return function(){
+    const src = compSourcesAt(lat, lng, false);
+    return '<b>'+_esc(title)+'</b><br><span class="p-sub">Purificadora (competencia)</span>'+
+      '<br><span class="p-sub">Fuentes: '+_esc(src.join(' + ') || '—')+'</span>';
+  };
+}
+/* 1) DENUE (sync — COMPET already loaded) */
+(COMPET.features || []).forEach(function(ft){
+  const c = ft.properties || {}, g = ft.geometry && ft.geometry.coordinates; if (!g) return;
+  const why = compExcludeDenue(c);
+  if (why) { window.__purifCompExcluded.push({src:'DENUE', name:c.nombre, estrato:c.estrato, why:why}); return; }
+  const lat = g[1], lng = g[0];
+  const industrial = String(c.canal || '').indexOf('industrial') === 0;
+  const sub = (industrial ? 'planta chica' : 'recarga') + ' · ' + (c.estrato || 's/estrato');
+  const rec = { lat: lat, lng: lng, src: 'DENUE', name: c.nombre || 'Purificadora', sub: sub };
+  _compReg.push(rec);
+  if (hasScoutTwin('purificadora', lat, lng)) return;
+  const m = L.marker([lat, lng], { icon: compDivIcon('D', '#d7191c', '#7a0000', false), keyboard: true });
+  m.bindPopup(compPopupFn(lat, lng, rec.name), { maxWidth: 280, autoPan: false });
+  m.addTo(placesPurifLayer);
+  registerBaseAnchor('purificadora', lat, lng, m, placesPurifLayer);
+});
+/* 2) Places (async) — absorbed by DENUE or Scout ≤30 m */
 function paintPlacesPurificadoras(fc){
   let n = 0;
   (fc.features || []).forEach(function(ft){
     const c = ft.geometry && ft.geometry.coordinates; if (!c) return;
     const p = ft.properties || {};
+    const why = compExcludePlaces(p);
+    if (why) { window.__purifCompExcluded.push({src:'Places', name:p.name, why:why}); return; }
+    const lat = c[1], lng = c[0];
     const name = p.name || 'Purificadora';
+    const denueTwin = compNear(lat, lng, 'DENUE');
+    _compReg.push({ lat: lat, lng: lng, src: 'Places', name: name, sub: '' });
+    if (denueTwin) return;                           /* DENUE > Places */
+    if (hasScoutTwin('purificadora', lat, lng)) return; /* Scout > Places */
+    const m = L.marker([lat, lng], { icon: compDivIcon('G', '#0ea5e9', '#0369a1', true), keyboard: true });
     const addr = p.address || '';
-    /* Scout wins: skip Places purificadora twin ≤ DEDUPE_M (Scout Y pin) */
-    if (hasScoutTwin('purificadora', c[1], c[0])) return;
-    const m = L.marker([c[1], c[0]], { icon: placesPurifIcon(), keyboard: true });
-    m.bindPopup(
-      '<b>'+name+'</b><br><span class="p-sub">Places · purificadora / garrafón · fuente places_api</span>'
-      +(addr ? '<br>'+addr : '')
-      +(p.place_id ? '<br><span class="p-sub">id '+p.place_id+'</span>' : ''),
-      { maxWidth: 260, autoPan: false }
-    );
+    const base = compPopupFn(lat, lng, name);
+    m.bindPopup(function(){ return base() + (addr ? '<br>'+_esc(addr) : ''); }, { maxWidth: 280, autoPan: false });
     m.addTo(placesPurifLayer);
-    registerBaseAnchor('purificadora', c[1], c[0], m, placesPurifLayer);
+    registerBaseAnchor('purificadora', lat, lng, m, placesPurifLayer);
     n++;
   });
-  recountDedupe('purificadora'); /* deduped: Places (non-absorbed) + Scout */
+  recountDedupe('purificadora');
   return n;
 }
+recountDedupe('purificadora');
 (function loadPlacesPurificadoras(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   fetch('data/places_purificadoras_zmm.geojson?v=' + encodeURIComponent(bust), { cache: 'no-store' })
@@ -2069,7 +2159,7 @@ function scoutAnclaSvg(kind){
   if (kind === 'comentario') {
     return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="9" cy="9" r="7.2" fill="#db2777" stroke="#9d174d" stroke-width="1.6" stroke-dasharray="2.2 1.6"/><text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">C</text></svg>';
   }
-  return placesSvg('otro');
+  return placesSvg(PLACES_STYLE[kind] ? kind : 'otro');
 }
 function scoutAnclaIcon(kind){
   return L.divIcon({
@@ -2092,6 +2182,13 @@ window.__purifKindLayers = {
   semaforo: semaforosLayer,
   purificadora: placesPurifLayer,
   comentario: comentariosLayer,
+  soriana_express: placesByKind.soriana_express,
+  oxxo: placesByKind.oxxo,
+  six: placesByKind.six,
+  extra: placesByKind.extra,
+  banco: placesByKind.banco,
+  bienestar: placesByKind.bienestar,
+  farmacia: placesByKind.farmacia,
   otro: placesByKind.otro
 };
 window.__purifScoutAnclaIcon = scoutAnclaIcon;
@@ -3253,6 +3350,13 @@ window.__purifReady && window.__purifReady.then(function(){
     hospital: 'Hospital',
     semaforo: 'Semáforo',
     comentario: 'Comentario',
+    soriana_express: 'Soriana Express',
+    oxxo: 'Oxxo',
+    six: 'Six (Tecate)',
+    extra: 'Tiendas Extra',
+    banco: 'Banco Azteca',
+    bienestar: 'Banco del Bienestar',
+    farmacia: 'Farmacia',
     otro: 'Otros'
   };
 
@@ -3527,6 +3631,20 @@ window.__purifReady && window.__purifReady.then(function(){
       d.textContent = t;
       wrap.appendChild(d);
     });
+    var dynEl = null;
+    if (typeof opts.dynamicLines === 'function') {
+      dynEl = document.createElement('div');
+      dynEl.style.cssText = 'margin:4px 0;font-size:12px;color:#bae6fd';
+      wrap.appendChild(dynEl);
+    }
+    if (opts.mapsHref) {
+      const ma = document.createElement('a');
+      ma.href = opts.mapsHref; ma.target = '_blank'; ma.rel = 'noopener';
+      ma.className = 'gmaps-link';
+      ma.textContent = '📍 Abrir en Google Maps';
+      ma.style.cssText = 'display:block;margin:6px 0 0;color:#93c5fd!important;font:700 13px system-ui;text-decoration:underline';
+      wrap.appendChild(ma);
+    }
 
     const row = document.createElement('div');
     row.style.cssText = 'margin-top:8px;display:flex;gap:8px;align-items:stretch';
@@ -3560,19 +3678,14 @@ window.__purifReady && window.__purifReady.then(function(){
       });
     } else if (opts.star) {
       circle = L.marker(latlng, {
-        icon: L.divIcon({
-          className: '',
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-          popupAnchor: [0, -12],
-          html: '<div class="scout-star" style="width:22px;height:22px;border-radius:50%;border:2px ' + (opts.scoutDash ? 'dashed' : 'solid') + ' ' + (opts.starBorder || '#fff') + ';background:' + color + ';box-shadow:0 2px 8px rgba(0,0,0,.45);color:' + (opts.starInk || '#111') + ';font:700 13px/18px system-ui;text-align:center">★</div>'
-        }),
-        interactive: true
+        icon: window.__purifFavStarIcon(color),
+        interactive: true,
+        zIndexOffset: 1500
       });
     } else {
       circle = L.circleMarker(latlng, {
         radius: 11, color: '#fff', weight: 3, fillColor: color, fillOpacity: 1,
-        interactive: true
+        pane: 'ptsVec', interactive: true
       });
     }
     circle.bindPopup(wrap, { closeOnClick: false, autoClose: false, autoPan: false, maxWidth: 280, className: 'field-pop' });
@@ -3594,6 +3707,9 @@ window.__purifReady && window.__purifReady.then(function(){
     }
 
     circle.on('popupopen', function(){
+      if (dynEl) {
+        try { dynEl.textContent = (opts.dynamicLines() || []).join(' · '); } catch (e) {}
+      }
       const btn = document.getElementById(btnId) || wrap.querySelector('button');
       if (btn && btn.getAttribute('data-bound') !== '1') {
         btn.setAttribute('data-bound', '1');
@@ -3670,7 +3786,7 @@ window.__purifReady && window.__purifReady.then(function(){
     if (p.precio_medio_garrafon_mxn != null) lines.push('Medio $' + p.precio_medio_garrafon_mxn);
     if (p.precio_galon_mxn != null) lines.push('Galón $' + p.precio_galon_mxn);
     if (p.nota_raw) lines.push(p.nota_raw);
-    lines.push('Competencia · Purificadora');
+    lines.push('Purificadora (competencia)');
     lines.push(window.__purifScoutProvenance || 'Añadida con Scout');
     if (typeof window.__purifRegisterScoutAnchor === 'function') {
       window.__purifRegisterScoutAnchor('purificadora', c[1], c[0]);
@@ -3696,7 +3812,10 @@ window.__purifReady && window.__purifReady.then(function(){
           silentSync({ action: 'upsert', feature: feat });
         }
       });
-    }, null, { scoutKind: 'purificadora', skipEnsure: true });
+    }, null, { scoutKind: 'purificadora', skipEnsure: true, dynamicLines: function(){
+      var src = (window.__purifCompSourcesAt ? window.__purifCompSourcesAt(c[1], c[0], true) : ['Scout']);
+      return ['Fuentes: ' + src.join(' + ')];
+    } });
     if (window.__purifRecountDedupe) window.__purifRecountDedupe('purificadora');
   }
   function saveComp(){
@@ -3720,27 +3839,24 @@ window.__purifReady && window.__purifReady.then(function(){
   }
 
   // ----- Favoritos (LS still purificadoras_ours_v1) -----
+  /* E: tocar ★ = se GUARDA de inmediato (sin nombre ni teléfono obligatorios, sin placeholder).
+   * La hoja queda abierta sólo para completar nombre / teléfono / nota (opcional) → «Actualizar»
+   * re-envía el mismo id (upsert). Cerrar con × deja el favorito como está. */
+  var currentFavFeat = null;
   function validateOurs(){
-    const g = geoOk();
-    const ok = !!g && !!(oursName && (oursName.value || '').trim()) &&
-      !!(oursPhone && String(oursPhone.value || '').replace(/\D/g,'').length >= 8);
-    if (btnSaveOurs) btnSaveOurs.disabled = !ok;
+    if (btnSaveOurs) btnSaveOurs.disabled = !currentFavFeat;
   }
   function closeOurs(){
     hideSheet(sheetOurs);
+    currentFavFeat = null;
     if (!anySheetOpen() && window.__purifCloseSheets) {
       var b = document.getElementById('sheetBackdrop');
       if (b) { b.classList.remove('show'); b.hidden = true; b.style.display = 'none'; }
     }
   }
-  function openFavoritos(){
-    const g = freezeGeo();
-    if (!g) { alert('Primero toca Ubicarme y espera a que te localice.'); return; }
-    hideOthers(sheetOurs);
-    showSheet(sheetOurs);
-    if (window.__purifShowSheetBackdrop) window.__purifShowSheetBackdrop();
-    if (oursCoords) oursCoords.textContent = fmtCoords(g);
-    validateOurs();
+  function cleanPhone(raw){
+    var t = String(raw == null ? '' : raw).trim();
+    return hasRealPhone(t) ? t : null;
   }
   function featureOurs(g){
     return {
@@ -3749,9 +3865,10 @@ window.__purifReady && window.__purifReady.then(function(){
       properties: {
         id: uuid('ours'),
         kind: 'favorito',
-        name: (oursName.value || '').trim(),
-        telefono: String((oursPhone && oursPhone.value) != null ? oursPhone.value : '').trim(),
-        descripcion: (oursDesc && oursDesc.value || '').trim(),
+        name: 'Favorito',
+        telefono: null,
+        descripcion: '',
+        favorito: true,
         accuracy_m: g.accuracy != null ? Math.round(g.accuracy) : null,
         ts: new Date().toISOString(),
         fuente: 'campo',
@@ -3759,6 +3876,30 @@ window.__purifReady && window.__purifReady.then(function(){
         layer: 'favoritos'
       }
     };
+  }
+  function upsertOursLS(feat){
+    var id = (feat.properties || {}).id;
+    var arr = loadLS(LS_OURS).filter(function(x){ return (x.properties || {}).id !== id; });
+    arr.push(feat);
+    saveLS(LS_OURS, arr);
+  }
+  function openFavoritos(){
+    const g = freezeGeo();
+    if (!g) { alert('Primero toca Ubicarme y espera a que te localice.'); return; }
+    if (!accuracyWarnOk(g)) return;
+    const feat = featureOurs(g);
+    upsertOursLS(feat);
+    markerFromOurs(feat);
+    silentSync({ action: 'upsert', feature: feat });
+    currentFavFeat = feat;
+    if (oursName) oursName.value = '';
+    if (oursPhone) oursPhone.value = '';
+    if (oursDesc) oursDesc.value = '';
+    hideOthers(sheetOurs);
+    showSheet(sheetOurs);
+    if (window.__purifShowSheetBackdrop) window.__purifShowSheetBackdrop();
+    if (oursCoords) oursCoords.textContent = '✓ Guardado · ' + fmtCoords(g);
+    validateOurs();
   }
   function markerFromOurs(f){
     const p = f.properties || {};
@@ -3771,9 +3912,9 @@ window.__purifReady && window.__purifReady.then(function(){
     if (isLock) {
       lines.push('🔒 Lock — spot asegurado');
       if (p.contacto) lines.push('Contacto: ' + p.contacto + (p.contacto_rel ? ' (' + p.contacto_rel + ')' : ''));
-      if (p.telefono_contacto) lines.push('Tel contacto: ' + p.telefono_contacto);
-      if (p.anfitrion || p.telefono) lines.push('Anfitrión: ' + (p.anfitrion || '') + (p.telefono ? ' · ' + p.telefono : ''));
-      if (p.telefono_contacto) phoneVal = p.telefono_contacto;
+      if (hasRealPhone(p.telefono_contacto)) lines.push('Tel contacto: ' + p.telefono_contacto);
+      if (p.anfitrion || hasRealPhone(p.telefono)) lines.push('Anfitrión: ' + (p.anfitrion || '') + (hasRealPhone(p.telefono) ? ' · ' + p.telefono : ''));
+      if (hasRealPhone(p.telefono_contacto)) phoneVal = p.telefono_contacto;
     } else {
       if (realTel) {
         var shown = phoneVal || p.telefono;
@@ -3784,7 +3925,7 @@ window.__purifReady && window.__purifReady.then(function(){
     if (p.descripcion) lines.push(p.descripcion);
     lines.push(isLock ? 'Favorito · Lock' : 'Favorito');
     lines.push(window.__purifScoutProvenance || 'Añadida con Scout');
-    var starColor = isLock ? window.__purifLockColor : (realTel ? '#0f766e' : '#f59e0b');
+    var starColor = window.__purifFavColor(p, realTel);
     addVisibleMarker([c[1], c[0]], starColor, p.name || 'Favorito', lines, markersOurs, id, layerOurs, function(){
       var feat = null;
       var prev = loadLS(LS_OURS);
@@ -3805,26 +3946,23 @@ window.__purifReady && window.__purifReady.then(function(){
           silentSync({ action: 'upsert', feature: feat });
         }
       });
-    }, phoneVal, isLock ? { star: true, starInk: '#fff', starBorder: '#ddd6fe', scoutDash: true } : { star: true, scoutDash: true });
+    }, phoneVal, { star: true, mapsHref: window.__purifGmapsHref(c[1], c[0], p) });
     if (window.__purifRecountDedupe) window.__purifRecountDedupe('favorito');
   }
   function saveOurs(){
-    const g = sheetGeo();
-    if (!g || !(oursName && (oursName.value || '').trim())) return;
-    if (!(oursPhone && String(oursPhone.value || '').replace(/\D/g,'').length >= 8)) {
-      alert('Pon un teléfono (mín. 8 dígitos) para poder llamar.');
-      return;
-    }
-    if (!accuracyWarnOk(g)) return;
-    const feat = featureOurs(g);
-    const arr = loadLS(LS_OURS);
-    arr.push(feat);
-    saveLS(LS_OURS, arr);
+    var feat = currentFavFeat;
+    if (!feat) { closeOurs(); return; }
+    var p = feat.properties;
+    p.name = ((oursName && oursName.value) || '').trim() || 'Favorito';
+    p.telefono = cleanPhone(oursPhone && oursPhone.value);
+    p.descripcion = ((oursDesc && oursDesc.value) || '').trim();
+    upsertOursLS(feat);
     markerFromOurs(feat);
     silentSync({ action: 'upsert', feature: feat });
-    oursName.value = '';
+    if (oursName) oursName.value = '';
     if (oursPhone) oursPhone.value = '';
     if (oursDesc) oursDesc.value = '';
+    currentFavFeat = null;
     if (window.__purifCloseSheets) window.__purifCloseSheets();
     else closeOurs();
   }
@@ -3976,6 +4114,14 @@ window.__purifReady && window.__purifReady.then(function(){
       if (/escuela|primaria|secundaria|kinder|jard[ií]n de ni/i.test(blob)) return 'escuela';
       if (/modelorama/i.test(blob)) return 'modelorama';
       if (/aurrera/i.test(blob)) return 'express';
+      if (/soriana/i.test(blob)) return 'soriana_express';
+      if (/\boxxo\b/i.test(blob)) return 'oxxo';
+      if (/\bsix\b|tecate/i.test(blob)) return 'six';
+      if (/tiendas? extra\b/i.test(blob)) return 'extra';
+      if (/bienestar/i.test(blob)) return 'bienestar';
+      if (/azteca|elektra/i.test(blob)) return 'banco';
+      if (/farmacia/i.test(blob)) return 'farmacia';
+      if (/purific|recarga de agua|garraf[oó]n|agua purificada/i.test(blob)) return 'purificadora';
       if (/comentario/i.test(blob)) return 'comentario';
     }
     return k;
@@ -3985,6 +4131,7 @@ window.__purifReady && window.__purifReady.then(function(){
     const c = f.geometry.coordinates;
     const id = p.id;
     const k = resolveScoutAnchorKind(p);
+    if (k === 'purificadora') return markerFromComp(f); /* A: recarga/planta anchors → Purificadoras (competencia) */
     const color = ANCHOR_COLORS[k] || ANCHOR_COLORS.otro;
     const lines = [];
     if (p.nota_raw && p.nota_raw !== p.name) lines.push(p.nota_raw);
@@ -4063,6 +4210,19 @@ window.__purifReady && window.__purifReady.then(function(){
   [oursName, oursPhone, oursDesc].forEach(function(el){
     if (el) el.addEventListener('input', validateOurs);
   });
+  /* × / backdrop con algo escrito = también actualiza (el favorito ya estaba guardado) */
+  function favTyped(){
+    return [oursName, oursPhone, oursDesc].some(function(el){ return el && String(el.value || '').trim(); });
+  }
+  (function(){
+    var xo2 = document.getElementById('oursAddClose');
+    if (xo2) xo2.addEventListener('click', function(){ if (currentFavFeat && favTyped()) saveOurs(); });
+    var bd2 = document.getElementById('sheetBackdrop');
+    if (bd2) bd2.addEventListener('click', function(ev){
+      if (Date.now() < (window.__purifSheetGuardUntil || 0)) return;
+      if (ev.target === bd2 && currentFavFeat && favTyped()) saveOurs();
+    }, true);
+  })();
   if (otroIn) {
     otroIn.addEventListener('keydown', function(e){
       if (e.key === 'Enter') {
@@ -4386,30 +4546,20 @@ window.__purifReady && window.__purifReady.then(function(){
     if (dig.length === 10) dig = '52' + dig;
     return 'tel:+' + dig;
   }
-  function starIcon(color){
-    var fill = color || '#f59e0b';
-    var lockC = window.__purifLockColor;
-    var ink = (fill === '#0f766e') ? '#ecfdf5' : (fill === lockC ? '#fff' : '#78350f');
-    var border = (fill === '#0f766e') ? '#115e59' : (fill === lockC ? '#4c1d95' : '#b45309');
-    return L.divIcon({
-      className: '',
-      iconSize: [28, 28],
-      iconAnchor: [14, 14],
-      html: '<div style="width:28px;height:28px;border-radius:50%;background:'+fill+';border:2px solid '+border+';display:flex;align-items:center;justify-content:center;font:700 16px/1 system-ui;color:'+ink+';box-shadow:0 2px 6px rgba(0,0,0,.35)">★</div>'
-    });
-  }
-  function popupHtml(p){
+  function starIcon(color){ return window.__purifFavStarIcon(color || window.__purifFavAmber); }
+  function popupHtml(p, ll){
     var note = (p.nota || '').replace(/</g,'&lt;');
     var name = (p.name || 'Favorito').replace(/</g,'&lt;');
     var col = (p.colonia || '').replace(/</g,'&lt;');
     var st = p.status === 'liked_rejected' ? '<div style="margin-top:6px;color:#fecaca;font-weight:700">Rechazo en campo</div>' : '';
-    var maps = p.maps ? '<div style="margin-top:8px"><a href="'+String(p.maps).replace(/"/g,'')+'" target="_blank" rel="noopener" style="color:#93c5fd">Abrir en Maps</a></div>' : '';
+    var mh = window.__purifGmapsHref(ll ? ll[0] : 0, ll ? ll[1] : 0, p);
+    var maps = '<div style="margin-top:8px"><a class="gmaps-link" href="'+String(mh).replace(/"/g,'')+'" target="_blank" rel="noopener" style="color:#93c5fd;font-weight:700">📍 Abrir en Google Maps</a></div>';
     var phone = p.telefono || p.phone || '';
     var lock = window.__purifIsLock(p);
-    if (lock && p.telefono_contacto) phone = p.telefono_contacto;
+    if (lock && hasRealPhone(p.telefono_contacto)) phone = p.telefono_contacto;
     var tel = dialHrefLiked(phone);
     var host = (p.anfitrion || '').replace(/</g,'&lt;');
-    var hostLine = host ? '<div style="margin:4px 0;font-size:12px">Anfitrión: '+host+(lock && p.telefono ? ' · '+String(p.telefono).replace(/</g,'&lt;') : '')+'</div>' : '';
+    var hostLine = host ? '<div style="margin:4px 0;font-size:12px">Anfitrión: '+host+(lock && hasRealPhone(p.telefono) ? ' · '+String(p.telefono).replace(/</g,'&lt;') : '')+'</div>' : '';
     var phoneLine = tel ? '<div style="margin:4px 0;font-size:12px">Tel'+(lock?' contacto':'')+': '+String(phone).replace(/</g,'&lt;')+'</div>' : '';
     if (lock) phoneLine = '<div style="margin:4px 0;font-size:12px;font-weight:700;color:#ddd6fe">🔒 Lock — spot asegurado</div>' +
       (p.contacto ? '<div style="margin:4px 0;font-size:12px">Contacto: '+String(p.contacto).replace(/</g,'&lt;')+(p.contacto_rel?' ('+String(p.contacto_rel).replace(/</g,'&lt;')+')':'')+'</div>' : '') + phoneLine;
@@ -4446,9 +4596,9 @@ window.__purifReady && window.__purifReady.then(function(){
       window.__purifApplyOverride(f, window.__purifOverrides || {});
       var p = f.properties || {};
       var phone = p.telefono || p.phone || '';
-      var color = window.__purifIsLock(p) ? window.__purifLockColor : (hasRealPhone(phone) ? '#0f766e' : '#f59e0b');
+      var color = window.__purifFavColor(p, hasRealPhone(phone) || (window.__purifIsLock(p) && hasRealPhone(p.telefono_contacto)));
       var m = L.marker([c[1], c[0]], { icon: starIcon(color), keyboard:false, zIndexOffset: 1500 });
-      m.bindPopup(popupHtml(p), { maxWidth: 280, className: 'field-pop', autoPan: false });
+      m.bindPopup(popupHtml(p, [c[1], c[0]]), { maxWidth: 280, className: 'field-pop', autoPan: false });
       m.on('click', function(ev){
         if (window.__purifRutaPanelOpen && window.__purifRutaPanelOpen() && window.__purifAddRutaStop) {
           L.DomEvent.stopPropagation(ev);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Purificadoras Scout SV (Street View)
 // @namespace    https://casca-code.github.io/mapa-purificadoras/
-// @version      1.9.1
+// @version      1.9.2
 // @description  Scout de campo sobre google.com/maps Street View. CERO Maps billing. v1.9.1: F Favorito (nombre/tel) + Y precios recarga/garrafón; Avenidas/Todo; docs ?v=191. NO uses scout-sv.html.
 // @author       CASCA-code
 // @match        https://www.google.com/maps*
@@ -721,21 +721,19 @@
     return (isFinite(n) && n >= 0) ? n : null;
   }
 
+  /* 1.9.2: favorito never aborts — cancel/empty/invalid phone = save anyway, no placeholder */
   function promptFavoritoExtras(def) {
-    var nameIn = window.prompt('Nombre del favorito (opcional):', def.name || 'Favorito');
-    if (nameIn === null) return null;
-    var name = String(nameIn).trim() || 'Favorito';
-    var telIn = window.prompt('Teléfono (opcional, 8+ dígitos):', '');
-    if (telIn === null) return null;
-    telIn = String(telIn).trim();
-    var extra = { favorito: true, name: name };
-    if (telIn) {
-      var digits = telIn.replace(/\D/g, '');
-      if (digits.length < 8) {
-        toast('Teléfono: mínimo 8 dígitos (o déjalo vacío)');
-        return null;
-      }
-      extra.telefono = telIn;
+    var extra = { favorito: true, name: def.name || 'Favorito' };
+    var nameIn = window.prompt('Nombre del favorito (opcional — Esc = guardar sin nombre):', '');
+    if (nameIn !== null && String(nameIn).trim()) extra.name = String(nameIn).trim();
+    if (nameIn === null) return extra;
+    var telIn = window.prompt('Teléfono (opcional — Esc = sin teléfono):', '');
+    if (telIn !== null) {
+      telIn = String(telIn).trim();
+      var dig = telIn.replace(/\D/g, '');
+      var real = dig.length >= 8 && !/^0+$/.test(dig) && !/^(\d)\1+$/.test(dig) && !/^80+$/.test(dig);
+      if (real) extra.telefono = telIn;
+      else if (telIn) toast('Teléfono no válido — guardado sin teléfono');
     }
     return extra;
   }

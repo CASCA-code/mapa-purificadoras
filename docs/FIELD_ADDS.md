@@ -63,3 +63,10 @@ Ningún pin de `field_adds` es siempre visible; todos caen en un toggle de categ
 | cualquier otro | Places «Otro» |
 
 Pin Scout = borde punteado + popup «Añadida con Scout». Dedupe Scout↔bot ≤15 m (`DEDUPE_M`).
+
+## Competencia, marcas, favoritos (2026-09-28)
+
+- `purificadora` (Scout Y / Comp) → toggle único **Purificadoras (competencia)** junto con DENUE + Places; dedupe ~30 m Scout > DENUE > Places. Ver [`COMPETENCIA.md`](COMPETENCIA.md).
+- Marcas: Scout `modelorama`/`express` y `otro` resuelto por nombre (soriana, oxxo, six/tecate, extra, bienestar, azteca/elektra, farmacia) → mismo toggle de marca que Places + OSM (dedupe 30 m).
+- Favoritos: guardar sin nombre/teléfono. `telefono` placeholder (8000…, todo ceros, un dígito repetido, <8 dígitos) → `null`; `merge_field_add_issues.py::normalize_phones` lo aplica a TODO el GeoJSON en cada corrida.
+- Regla: el mapa sólo lee archivos guardados en `data/` (nunca Places/Overpass en vivo).

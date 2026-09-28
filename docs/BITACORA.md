@@ -1,3 +1,13 @@
+## 2026-09-28 (competencia unificada · marcas sin duplicar · favoritos 3 colores · pins sobre polígonos)
+
+- **A** Una sola capa **Purificadoras (competencia)**: DENUE + Places + Scout Comp/Y (+ anclas `otro` que dicen purificadora/recarga). Dedupe ~30 m, prioridad Scout > DENUE > Places; popup «Fuentes: …» + precios Scout. Sin plantas embotelladoras industriales (21 excluidas; lista en [`COMPETENCIA.md`](COMPETENCIA.md)). 560 puntos.
+- **B** Adiós grupo «Retail / bancos» (OSM) duplicado: OSM `retail.geojson` entra al mismo toggle de marca que Places (Places > OSM ≤30 m, Scout gana). Una categoría por marca: Modelorama · Bodega Aurrera Express · Soriana Express · Oxxo · Six (Tecate) · **Tiendas Extra (conveniencia)** (el «Extra» = «Extra los Ángeles», cadena de conveniencia de Grupo Modelo; 1 punto) · Banco Azteca · Banco del Bienestar (nuevo toggle) · Farmacias · Otros.
+- **C** Favoritos: una sola estrella (26 px, borde blanco), 3 colores: verde `#16a34a` teléfono real · ámbar `#f59e0b` sin teléfono · violeta `#7c3aed` lock. Todo popup de favorito trae «📍 Abrir en Google Maps». Teléfonos placeholder (8000…, 0000…) → `null` en `field_adds.geojson` (13 limpiados) y `merge_field_add_issues.py` los normaliza a null en cada corrida (ntfy `since=all` ya no los revive).
+- **D** Pane `ptsVec` (z 450) para puntos vector/canvas (semáforos, círculos) + pines divIcon en markerPane (600): siempre arriba de polígonos (overlayPane 400).
+- **E** Favorito sin teléfono forzado: mapa (★) guarda al instante como «Favorito»; hoja queda para nombre/teléfono/nota opcionales → «Actualizar» (mismo id). Scout **v2.1.0**: F guarda al instante, panel no bloqueante nombre/teléfono opcional (Enter/Esc, se oculta a los 15 s). Userscript 1.9.2: F nunca aborta.
+- Regla de datos documentada: el mapa sólo lee `data/*.geojson`; nunca Places/Overpass en vivo.
+- Headless: 0 pines al cargar (sólo polígonos + etiquetas de municipio), toggles OK, tap sobre pin encima de polígono abre popup, sin errores JS.
+
 ## 2026-09-28 (Scout pins → toggles de categoría, todo OFF al cargar)
 
 - Ya no hay capas siempre visibles: cada kind de `field_adds` vive en un toggle existente. iglesia→Iglesias · escuela→Escuelas · hospital→Hospitales · modelorama→Modelorama (Places + Scout) · express→Bodega Aurrera Express · empeno→Casas de empeño · alto/stop→Altos · otro «Semáforo»→Semáforos · purificadora→Purificadoras (Places + Scout, Competencia) · favorito→Favoritos · comentario/comentario_zona→Comentarios (toggle nuevo) · otro no reconocido→Places «Otro».

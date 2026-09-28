@@ -65,6 +65,36 @@ def apply_overrides(fc, ov):
                 changed = True
     return changed
 
+PHONE_KEYS = ('telefono', 'phone', 'telefono_contacto')
+
+def is_placeholder_phone(raw):
+    """True for Scout/campo placeholder phones: 8000…, all zeros, one repeated digit, <8 digits."""
+    if raw is None:
+        return False
+    dig = re.sub(r'\D', '', str(raw))
+    if not dig:
+        return True
+    if len(dig) < 8:
+        return True
+    if re.fullmatch(r'0+', dig) or re.fullmatch(r'(\d)\1+', dig):
+        return True
+    if re.fullmatch(r'80+', dig):  # 8000000000 / 80000000 Tec campo placeholder
+        return True
+    return False
+
+def normalize_phones(fc):
+    """Placeholder phones → null so they never come back via ntfy replay. Returns True if changed."""
+    changed = False
+    for f in fc.get('features', []):
+        p = f.get('properties')
+        if not isinstance(p, dict):
+            continue
+        for k in PHONE_KEYS:
+            if k in p and p[k] is not None and is_placeholder_phone(p[k]):
+                p[k] = None
+                changed = True
+    return changed
+
 def fetch_ntfy():
     url = f'https://ntfy.sh/{NTFY_TOPIC}/json?poll=1&since=all'
     req = urllib.request.Request(url, headers={'User-Agent': 'PurificadorMap/1.0'})
@@ -194,6 +224,10 @@ def main():
 
     # overrides (lock etc.) always win over ntfy/issue payloads
     if apply_overrides(fc, load_overrides()):
+        changed = True
+
+    # placeholder phones (8000…, 0000…) → null, every run (ntfy replays old payloads)
+    if normalize_phones(fc):
         changed = True
 
     # apply deleted filter once more
