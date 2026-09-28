@@ -1,0 +1,52 @@
+{
+ "built_at": "2026-09-28T21:04:23Z",
+ "layers": {
+  "tortillerias": {
+   "n": 1776,
+   "raw_by_source": {
+    "denue": 1462,
+    "places": 807,
+    "osm": 11
+   },
+   "dedupe_m": 30,
+   "file": "data/anclas_tortillerias_zmm.geojson"
+  },
+  "abarrotes": {
+   "n": 20546,
+   "raw_by_source": {
+    "denue": 20395,
+    "osm": 212
+   },
+   "dedupe_m": 30,
+   "file": "data/anclas_abarrotes_zmm.geojson"
+  },
+  "paradas": {
+   "n": 2005,
+   "raw_by_source": {
+    "osm": 567,
+    "places": 1460
+   },
+   "dedupe_m": 20,
+   "file": "data/anclas_paradas_zmm.geojson"
+  },
+  "farmacias_barrio": {
+   "n": 1074,
+   "raw_by_source": {
+    "denue": 973,
+    "osm": 410
+   },
+   "dedupe_m": 30,
+   "file": "data/anclas_farmacias_barrio_zmm.geojson"
+  },
+  "bancos_prestamo": {
+   "n": 69,
+   "raw_by_source": {
+    "places": 53,
+    "denue": 81,
+    "osm": 24
+   },
+   "dedupe_m": 30,
+   "file": "data/anclas_bancos_prestamo_zmm.geojson"
+  }
+ }
+}

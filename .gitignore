@@ -5,3 +5,6 @@ scripts/__pycache__/
 __pycache__/
 *.pyc
 .DS_Store
+
+# DENUE raw extract (regenerable, 6 MB): scripts/fetch_denue_anclas_barrio_zmm.py
+data/denue_anclas_barrio_zmm.geojson
