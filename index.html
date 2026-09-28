@@ -889,7 +889,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <i aria-hidden="true" style="background:#e53e3e;border-color:#9b2c2c;color:#fff;font-size:9px;font-weight:700;border-radius:2px">■</i>
       <span>Altos / stops</span>
     </button>
-    <button type="button" class="tbtn ctx on" id="likedZonesToggle" aria-pressed="true" title="Favoritos unificados (campo + me gustó). Verde = teléfono real CRM; ámbar = interés sin teléfono">
+    <button type="button" class="tbtn ctx on" id="likedZonesToggle" aria-pressed="true" title="Favoritos unificados (campo + me gustó). Verde = teléfono real CRM; ámbar = interés sin teléfono; violeta = spot asegurado (lock)">
       <i aria-hidden="true" style="background:#0f766e;border-color:#115e59;color:#ecfdf5;font-size:11px;font-weight:700">★</i>
       <span>Favoritos</span>
     </button>
@@ -933,6 +933,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <div class="row"><span class="sw ico" title="Alto" style="background:#e53e3e;border-radius:2px;border:1px dashed #9b2c2c;color:#fff;font:700 8px/16px sans-serif;text-align:center">A</span> alto / yield (OSM + Scout A)</div>
     <div class="row"><span class="sw ico" title="Favorito con teléfono" style="background:#0f766e;border-radius:50%;color:#ecfdf5;font:700 11px/16px sans-serif;text-align:center">★</span> Favorito con teléfono (CRM / llamar)</div>
     <div class="row"><span class="sw ico" title="Favorito sin teléfono" style="background:#f59e0b;border-radius:50%;color:#78350f;font:700 11px/16px sans-serif;text-align:center">★</span> Favorito sin teléfono (interés)</div>
+    <div class="row"><span class="sw ico" title="Spot asegurado (lock)" style="background:#7c3aed;border-radius:50%;color:#fff;font:700 11px/16px sans-serif;text-align:center">★</span> Spot asegurado (lock) 🔒</div>
     <div class="row"><span class="sw ring"></span> contexto: anillos 5/10/15 km</div>
     <div class="row"><span class="sw line"></span> límite de municipio · <span style="opacity:.6">— — San Pedro (excluido)</span></div>
     <p class="gap" style="margin-top:8px"><a href="scout.html" style="font-weight:600">Scout Street View</a> — Maps JS + avenidas OSM (cero paste de key). Fallback: <a href="docs/SCOUT_USERSCRIPT.md">Tampermonkey</a>.</p>
@@ -980,6 +981,23 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
  </aside>
 </div>
 
+<script>/* 🔒 Lock spots: data/field_adds_overrides.json (id -> props) gana sobre field_adds/liked. Violeta = spot asegurado. */
+window.__purifLockColor = '#7c3aed';
+window.__purifIsLock = function(p){ return !!(p && (p.lock === true || p.status === 'lock')); };
+window.__purifOverrides = window.__purifOverrides || {};
+window.__purifLoadOverrides = function(bust){
+  return fetch('data/field_adds_overrides.json?v=' + (bust || Date.now()), { cache: 'no-store' })
+    .then(function(r){ return r.ok ? r.json() : {}; })
+    .then(function(d){ window.__purifOverrides = d || {}; return window.__purifOverrides; })
+    .catch(function(){ return window.__purifOverrides; });
+};
+window.__purifApplyOverride = function(f, ov){
+  var p = f && f.properties; if (!p || !p.id || !ov) return f;
+  var o = ov[p.id]; if (!o || typeof o !== 'object') return f;
+  for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) p[k] = o[k];
+  return f;
+};
+</script>
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
 window.__PURIF_BUILD = '20260925-dedupe15m';
 window.__purifReady = (async function(){
@@ -3498,7 +3516,7 @@ window.__purifReady && window.__purifReady.then(function(){
           iconSize: [24, 24],
           iconAnchor: [12, 12],
           popupAnchor: [0, -12],
-          html: '<div style="width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:' + color + ';box-shadow:0 2px 8px rgba(0,0,0,.45);color:#111;font:700 13px/18px system-ui;text-align:center">★</div>'
+          html: '<div style="width:22px;height:22px;border-radius:50%;border:2px solid ' + (opts.starBorder || '#fff') + ';background:' + color + ';box-shadow:0 2px 8px rgba(0,0,0,.45);color:' + (opts.starInk || '#111') + ';font:700 13px/18px system-ui;text-align:center">★</div>'
         }),
         interactive: true
       });
@@ -3699,14 +3717,23 @@ window.__purifReady && window.__purifReady.then(function(){
     const lines = [];
     var phoneVal = pickPhone(p);
     var realTel = hasRealPhone(phoneVal || p.telefono);
-    if (realTel) {
-      var shown = phoneVal || p.telefono;
-      if (shown) lines.push('Tel: ' + shown);
+    var isLock = window.__purifIsLock(p);
+    if (isLock) {
+      lines.push('🔒 Lock — spot asegurado');
+      if (p.contacto) lines.push('Contacto: ' + p.contacto + (p.contacto_rel ? ' (' + p.contacto_rel + ')' : ''));
+      if (p.telefono_contacto) lines.push('Tel contacto: ' + p.telefono_contacto);
+      if (p.anfitrion || p.telefono) lines.push('Anfitrión: ' + (p.anfitrion || '') + (p.telefono ? ' · ' + p.telefono : ''));
+      if (p.telefono_contacto) phoneVal = p.telefono_contacto;
+    } else {
+      if (realTel) {
+        var shown = phoneVal || p.telefono;
+        if (shown) lines.push('Tel: ' + shown);
+      }
+      if (p.anfitrion) lines.push('Anfitrión: ' + p.anfitrion);
     }
-    if (p.anfitrion) lines.push('Anfitrión: ' + p.anfitrion);
     if (p.descripcion) lines.push(p.descripcion);
-    lines.push('Favorito');
-    var starColor = realTel ? '#0f766e' : '#f59e0b';
+    lines.push(isLock ? 'Favorito · Lock' : 'Favorito');
+    var starColor = isLock ? window.__purifLockColor : (realTel ? '#0f766e' : '#f59e0b');
     addVisibleMarker([c[1], c[0]], starColor, p.name || 'Favorito', lines, markersOurs, id, layerOurs, function(){
       var feat = null;
       var prev = loadLS(LS_OURS);
@@ -3727,7 +3754,7 @@ window.__purifReady && window.__purifReady.then(function(){
           silentSync({ action: 'upsert', feature: feat });
         }
       });
-    }, phoneVal, { star: true });
+    }, phoneVal, isLock ? { star: true, starInk: '#fff', starBorder: '#ddd6fe' } : { star: true });
   }
   function saveOurs(){
     const g = sheetGeo();
@@ -4247,11 +4274,15 @@ window.__purifReady && window.__purifReady.then(function(){
     } catch (e) {}
   }
   function loadSharedFieldAdds(){
-    fetch('data/field_adds.geojson?v=' + Date.now(), { cache: 'no-store' })
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(fc){
+    var bust = Date.now();
+    Promise.all([
+      fetch('data/field_adds.geojson?v=' + bust, { cache: 'no-store' }).then(function(r){ return r.ok ? r.json() : null; }),
+      window.__purifLoadOverrides(bust)
+    ])
+      .then(function(pair){
+        var fc = pair[0], ov = pair[1] || {};
         if (!fc || !fc.features) return;
-        fc.features.forEach(renderSharedFeature);
+        fc.features.forEach(function(f){ window.__purifApplyOverride(f, ov); renderSharedFeature(f); });
       })
       .catch(function(){});
   }
@@ -4287,8 +4318,9 @@ window.__purifReady && window.__purifReady.then(function(){
   }
   function starIcon(color){
     var fill = color || '#f59e0b';
-    var ink = (fill === '#0f766e') ? '#ecfdf5' : '#78350f';
-    var border = (fill === '#0f766e') ? '#115e59' : '#b45309';
+    var lockC = window.__purifLockColor;
+    var ink = (fill === '#0f766e') ? '#ecfdf5' : (fill === lockC ? '#fff' : '#78350f');
+    var border = (fill === '#0f766e') ? '#115e59' : (fill === lockC ? '#4c1d95' : '#b45309');
     return L.divIcon({
       className: '',
       iconSize: [28, 28],
@@ -4303,10 +4335,14 @@ window.__purifReady && window.__purifReady.then(function(){
     var st = p.status === 'liked_rejected' ? '<div style="margin-top:6px;color:#fecaca;font-weight:700">Rechazo en campo</div>' : '';
     var maps = p.maps ? '<div style="margin-top:8px"><a href="'+String(p.maps).replace(/"/g,'')+'" target="_blank" rel="noopener" style="color:#93c5fd">Abrir en Maps</a></div>' : '';
     var phone = p.telefono || p.phone || '';
+    var lock = window.__purifIsLock(p);
+    if (lock && p.telefono_contacto) phone = p.telefono_contacto;
     var tel = dialHrefLiked(phone);
     var host = (p.anfitrion || '').replace(/</g,'&lt;');
-    var hostLine = host ? '<div style="margin:4px 0;font-size:12px">Anfitrión: '+host+'</div>' : '';
-    var phoneLine = tel ? '<div style="margin:4px 0;font-size:12px">Tel: '+String(phone).replace(/</g,'&lt;')+'</div>' : '';
+    var hostLine = host ? '<div style="margin:4px 0;font-size:12px">Anfitrión: '+host+(lock && p.telefono ? ' · '+String(p.telefono).replace(/</g,'&lt;') : '')+'</div>' : '';
+    var phoneLine = tel ? '<div style="margin:4px 0;font-size:12px">Tel'+(lock?' contacto':'')+': '+String(phone).replace(/</g,'&lt;')+'</div>' : '';
+    if (lock) phoneLine = '<div style="margin:4px 0;font-size:12px;font-weight:700;color:#ddd6fe">🔒 Lock — spot asegurado</div>' +
+      (p.contacto ? '<div style="margin:4px 0;font-size:12px">Contacto: '+String(p.contacto).replace(/</g,'&lt;')+(p.contacto_rel?' ('+String(p.contacto_rel).replace(/</g,'&lt;')+')':'')+'</div>' : '') + phoneLine;
     var call = tel
       ? '<div style="margin-top:8px"><a href="'+tel+'" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;background:#16a34a;color:#fff!important;font:700 13px system-ui;text-decoration:none">📞 Llamar</a></div>'
       : '';
@@ -4337,9 +4373,10 @@ window.__purifReady && window.__purifReady.then(function(){
     (fc.features||[]).forEach(function(f){
       var c = f.geometry && f.geometry.coordinates; if (!c) return;
       if (isDupOfFieldFav(f)) return;
+      window.__purifApplyOverride(f, window.__purifOverrides || {});
       var p = f.properties || {};
       var phone = p.telefono || p.phone || '';
-      var color = hasRealPhone(phone) ? '#0f766e' : '#f59e0b';
+      var color = window.__purifIsLock(p) ? window.__purifLockColor : (hasRealPhone(phone) ? '#0f766e' : '#f59e0b');
       var m = L.marker([c[1], c[0]], { icon: starIcon(color), keyboard:false, zIndexOffset: 1500 });
       m.bindPopup(popupHtml(p), { maxWidth: 280, className: 'field-pop', autoPan: false });
       m.on('click', function(ev){
@@ -4360,7 +4397,7 @@ window.__purifReady && window.__purifReady.then(function(){
     var faP = fetch('data/field_adds.geojson?v=' + bust, { cache: 'no-store' })
       .then(function(r){ return r.ok ? r.json() : null; })
       .catch(function(){ return null; });
-    Promise.all([likedP, faP]).then(function(pair){
+    Promise.all([likedP, faP, window.__purifLoadOverrides(bust)]).then(function(pair){
       var fc = pair[0], fa = pair[1];
       window.__purifSharedFavKeys = window.__purifSharedFavKeys || Object.create(null);
       if (fa && fa.features) {
@@ -4390,7 +4427,6 @@ window.__purifReady && window.__purifReady.then(function(){
       else { if (window.map.hasLayer(layer)) window.map.removeLayer(layer); }
     });
   }
-})();
 })();
 }).catch(function(){});
 </script>

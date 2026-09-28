@@ -1,0 +1,19 @@
+{
+  "_doc": "Props que ganan sobre ntfy/merge. merge_field_add_issues.py y index.html los aplican por id. Ver docs/FIELD_ADDS.md#lock",
+  "ours_manual_2026-09-15_luis_volkswagen": {
+    "status": "lock",
+    "lock": true,
+    "contacto": "Doña Alicia",
+    "contacto_rel": "mamá de Luis",
+    "telefono_contacto": "+52 1 81 1081 9567",
+    "lock_ts": "2026-09-28"
+  },
+  "liked_2026-09-15_luis_volkswagen": {
+    "status": "lock",
+    "lock": true,
+    "contacto": "Doña Alicia",
+    "contacto_rel": "mamá de Luis",
+    "telefono_contacto": "+52 1 81 1081 9567",
+    "lock_ts": "2026-09-28"
+  }
+}

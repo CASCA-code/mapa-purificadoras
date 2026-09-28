@@ -44,9 +44,14 @@
         "colonia": "Topo Chico",
         "ts": "2026-09-15T15:08:07.012865+00:00",
         "fuente": "purificador_chat",
-        "status": "published",
+        "status": "lock",
         "layer": "favoritos",
-        "maps": "https://maps.google.com/?q=25.733938,-100.328697"
+        "maps": "https://maps.google.com/?q=25.733938,-100.328697",
+        "lock": true,
+        "contacto": "Doña Alicia",
+        "contacto_rel": "mamá de Luis",
+        "telefono_contacto": "+52 1 81 1081 9567",
+        "lock_ts": "2026-09-28"
       }
     },
     {

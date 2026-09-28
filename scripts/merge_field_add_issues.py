@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GEO = ROOT / 'data' / 'field_adds.geojson'
 NTFY_TOPIC = 'purif-zmm-campo-casca-v1'
 DELETED = ROOT / 'data' / 'field_adds_deleted.json'
+OVERRIDES = ROOT / 'data' / 'field_adds_overrides.json'
 
 def gh_json(args):
     try:
@@ -37,6 +38,32 @@ def load_deleted():
 def save_deleted(s):
     DELETED.parent.mkdir(exist_ok=True)
     DELETED.write_text(json.dumps(sorted(s), indent=2) + '\n', encoding='utf-8')
+
+def load_overrides():
+    """id -> props dict that always win over ntfy/issue payloads (e.g. lock spots)."""
+    if not OVERRIDES.exists():
+        return {}
+    try:
+        d = json.loads(OVERRIDES.read_text(encoding='utf-8'))
+    except Exception:
+        return {}
+    return {k: v for k, v in d.items() if not k.startswith('_') and isinstance(v, dict)}
+
+def apply_overrides(fc, ov):
+    """Mutates fc in place; returns True if any prop changed."""
+    changed = False
+    for f in fc['features']:
+        p = f.get('properties')
+        if not isinstance(p, dict):
+            continue
+        o = ov.get(p.get('id'))
+        if not o:
+            continue
+        for k, v in o.items():
+            if p.get(k) != v:
+                p[k] = v
+                changed = True
+    return changed
 
 def fetch_ntfy():
     url = f'https://ntfy.sh/{NTFY_TOPIC}/json?poll=1&since=all'
@@ -164,6 +191,10 @@ def main():
                                    '--comment', 'Mergeado a data/field_adds.geojson.'])
         except Exception:
             pass
+
+    # overrides (lock etc.) always win over ntfy/issue payloads
+    if apply_overrides(fc, load_overrides()):
+        changed = True
 
     # apply deleted filter once more
     if deleted:

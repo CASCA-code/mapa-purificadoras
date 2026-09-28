@@ -1,3 +1,10 @@
+## 2026-09-28 (🔒 lock spot — Luis Volkswagen)
+
+- Luis Volkswagen (Topo Chico) = spot asegurado. Contacto ahora Doña Alicia (mamá) +52 1 81 1081 9567; se conserva Luis 81 1525 3207.
+- Nuevo `data/field_adds_overrides.json` (id → props) que el merge re-aplica cada corrida y el mapa aplica al cargar → ntfy `since=all` no lo pisa.
+- Mapa: favoritos lock = estrella violeta `#7c3aed`, popup «🔒 Lock» + contacto + tel (Llamar → contacto), leyenda «Spot asegurado (lock)».
+- Fix: bloque «Favoritos unificados» (liked_zones + toggle Favoritos) tenía `})();` extra → SyntaxError, no corría. Arreglado; toggle probado headless.
+
 ## 2026-09-25 (scout v2.0.0 — Ya existe + dedupe 15 m)
 
 - Scout carga (lazy, bbox trayecto +300 m) field_adds + Places anclas/préstamos/purificadoras + DENUE + OSM semáforos/altos/anclas → mini-mapa (Scout sólido, bot hueco) + HUD «Cerca: … (≤40 m)».

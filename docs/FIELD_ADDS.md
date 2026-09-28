@@ -34,3 +34,10 @@ La cobertura OSM sigue incompleta; Scout **S** sigue siendo la vía para altos/s
 
 ## Dedupe display (Scout vs Places/OSM)
 Mapa: `DEDUPE_M = 15` — Scout gana sobre Places/OSM mismo kind ≤15 m; contadores de capa sobre set deduplicado. Scout v2.0.0 añade `source:"scout"` a cada pin (merge lo rellena para clientes Scout viejos). Ver [`SCOUT.md`](SCOUT.md).
+
+## Lock (spot asegurado) — overrides {#lock}
+- `data/field_adds_overrides.json`: `{ "<id>": { props } }`. Estas props **ganan siempre**: `merge_field_add_issues.py` las re-aplica al final de cada corrida (aunque ntfy `since=all` traiga un upsert viejo del mismo id) y `index.html` las aplica al cargar `field_adds.geojson` y `liked_zones.geojson`.
+- Lock = `status:"lock"` y/o `lock:true`. Campos: `contacto`, `contacto_rel`, `telefono_contacto` (📞 Llamar marca a este), `lock_ts`. `anfitrion`/`telefono` originales se conservan.
+- Mapa: estrella **violeta `#7c3aed`** (verde = tel real, ámbar = sin tel). Popup «🔒 Lock — spot asegurado» + contacto + tel. Leyenda: «Spot asegurado (lock)». Mismo toggle Favoritos.
+- Actual: **Luis Volkswagen** (Topo Chico, `ours_manual_2026-09-15_luis_volkswagen` + liked `liked_2026-09-15_luis_volkswagen`) → contacto Doña Alicia (mamá de Luis) +52 1 81 1081 9567. Anfitrión Luis 81 1525 3207.
+- Para lockear otro: añadir su `id` al JSON y push (no hace falta tocar el geojson).
