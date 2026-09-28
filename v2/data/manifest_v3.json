@@ -1,0 +1,108 @@
+{
+ "built_at": "2026-09-28T21:51:19Z",
+ "weights": {
+  "W_D": 0.4,
+  "W_A": 0.3,
+  "W_C": 0.3,
+  "anchor": {
+   "cerveza": 1.5,
+   "tortilleria": 1.25,
+   "banco_bienestar_azteca": 1.25,
+   "oxxo": 1.0,
+   "express": 1.0,
+   "iglesia": 1.0,
+   "escuela": 1.0,
+   "parada": 0.75,
+   "farmacia": 0.5,
+   "abarrotes": 0.4
+  },
+  "traffic": {
+   "semaforo_scout": 2.5,
+   "alto_scout": 2.0,
+   "semaforo_osm": 1.0,
+   "alto_osm": 0.75,
+   "parada": 1.0
+  },
+  "R_anchor_m": 150.0,
+  "R_traffic_m": 100.0,
+  "R_comp_m": 300.0,
+  "comp_penalty": 4.0,
+  "cell_m": 100.0,
+  "hab_por_viv": 3.6
+ },
+ "cells": {
+  "Monterrey": {
+   "file": "cells_monterrey.geojson",
+   "n": 2475
+  },
+  "Santa Catarina": {
+   "file": "cells_santa_catarina.geojson",
+   "n": 396
+  },
+  "General Escobedo": {
+   "file": "cells_general_escobedo.geojson",
+   "n": 1161
+  },
+  "Juárez": {
+   "file": "cells_juarez.geojson",
+   "n": 457
+  },
+  "Apodaca": {
+   "file": "cells_apodaca.geojson",
+   "n": 347
+  },
+  "Guadalupe": {
+   "file": "cells_guadalupe.geojson",
+   "n": 644
+  },
+  "García": {
+   "file": "cells_garcia.geojson",
+   "n": 189
+  },
+  "San Nicolás de los Garza": {
+   "file": "cells_san_nicolas_de_los_garza.geojson",
+   "n": 307
+  }
+ },
+ "cells_total_in_colonias": 7967,
+ "cells_positive": 5976,
+ "cell_s_p95": 7.2,
+ "n_colonias": 167,
+ "anchors_raw": {
+  "cerveza": 990,
+  "express": 337,
+  "oxxo": 478,
+  "banco_bienestar_azteca": 132,
+  "iglesia": 312,
+  "escuela": 1338,
+  "tortilleria": 1776,
+  "abarrotes": 20546,
+  "farmacia": 1074,
+  "parada": 2005
+ },
+ "anchors_dedup": {
+  "cerveza": 953,
+  "express": 278,
+  "oxxo": 475,
+  "banco_bienestar_azteca": 109,
+  "iglesia": 312,
+  "escuela": 1338,
+  "tortilleria": 1747,
+  "abarrotes": 17714,
+  "farmacia": 1010,
+  "parada": 1814
+ },
+ "traffic": {
+  "semaforo_scout": 10,
+  "alto_scout": 14,
+  "semaforo_osm": 1404,
+  "alto_osm": 36,
+  "parada": 1814
+ },
+ "traffic_osm_removed_as_dup_of_scout": {
+  "semaforo": 1,
+  "alto": 0
+ },
+ "comp_raw": 572,
+ "comp_dedup": 554
+}
