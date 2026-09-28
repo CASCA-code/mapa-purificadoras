@@ -1,3 +1,11 @@
+## 2026-09-28 (anclas de barrio · export oculto)
+
+- 5 capas nuevas estáticas bajo Anclas → «Anclas de barrio (DENUE + Places + OSM)», default OFF, contador visible, círculos canvas sobre polígonos: **Tortillerías** 1776 · **Abarrotes / depósitos** 20546 · **Paradas de camión / ruta** 2005 · **Farmacias de barrio** ~1509 (Places 435 + extras DENUE/OSM 1074) · **Bancos de préstamo (Bienestar/Azteca)** 112 (Places Azteca + OSM retail + extras 69 Bienestar/Azteca/Elektra). Detalle en [`ANCLAS_BARRIO.md`](ANCLAS_BARRIO.md).
+- Scripts: `fetch_denue_anclas_barrio_zmm.py` (DENUE masivo NL, sin token), `fetch_osm_anclas_barrio_zmm.py`, `fetch_places_anclas_barrio_zmm.py` (cap 550 req), `build_anclas_barrio_zmm.py` (dedupe entre fuentes 30 m / paradas 20 m).
+- Toggles «Banco Azteca», «Banco del Bienestar», «Farmacias» salen del submenú de marcas → viven en «Bancos de préstamo» y «Farmacias de barrio» (Places + OSM retail + Scout incluidos). Otros bancos no son ancla. Oxxo sigue.
+- Botón «⬇ Exportar» fuera del dock (sync automático vía ntfy). Respaldo de emergencia: link chico «Respaldo: exportar pines locales» dentro de la hoja de Competencia (field-add). `fieldAddVer` v34.
+- Build/SW `20260928-barrio-anclas`. Headless: 5 capas prenden/apagan, contadores OK, sin errores JS.
+
 ## 2026-09-28 (competencia unificada · marcas sin duplicar · favoritos 3 colores · pins sobre polígonos)
 
 - **A** Una sola capa **Purificadoras (competencia)**: DENUE + Places + Scout Comp/Y (+ anclas `otro` que dicen purificadora/recarga). Dedupe ~30 m, prioridad Scout > DENUE > Places; popup «Fuentes: …» + precios Scout. Sin plantas embotelladoras industriales (21 excluidas; lista en [`COMPETENCIA.md`](COMPETENCIA.md)). 560 puntos.

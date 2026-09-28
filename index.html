@@ -588,12 +588,11 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 }
 #btnFieldUndo.show{ display:flex !important; }
 
+/* Export = emergency backup only (sync is automatic via ntfy): small text link inside fieldAddSheet */
 #btnExportLocal{
-  display:flex !important; align-items:center; justify-content:center; gap:6px;
-  min-width:56px; min-height:48px; padding:12px 16px; border-radius:999px; border:1px solid #0f766e;
-  font:700 14px/1 IBM Plex Sans,system-ui,sans-serif;
-  box-shadow:var(--shadow); cursor:pointer; -webkit-appearance:none; touch-action:manipulation;
-  background:#0d9488; color:#fff;
+  display:inline-block; margin:10px 0 0; padding:4px 0; border:none; background:none;
+  font:500 12px/1.3 IBM Plex Sans,system-ui,sans-serif; color:#6b7280; text-decoration:underline;
+  cursor:pointer; -webkit-appearance:none; touch-action:manipulation;
 }
 #exportLocalSheet{
   display:none; position:fixed; z-index:1950;
@@ -687,7 +686,6 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <button type="button" id="btnUbicarme" aria-pressed="false" title="Seguir mi ubicación (GPS del teléfono)">
   <span class="dot" aria-hidden="true"></span><span id="btnUbicarmeLabel">Ubicarme</span>
 </button>
-<button type="button" id="btnExportLocal" title="Exportar pines locales" aria-label="Exportar">⬇ Exportar</button>
 </div>
 <div class="dockRow">
 <button type="button" id="btnAddFav" title="Añadir favorito en tu GPS" aria-label="Favoritos" style="display:none">★ Fav</button>
@@ -702,7 +700,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
 <div id="fieldAddSheet" role="dialog" aria-modal="true" aria-labelledby="fieldAddTitle" hidden>
   <button type="button" id="fieldAddClose" aria-label="Cerrar" style="position:absolute;right:10px;top:10px;border:none;background:#eee;width:32px;height:32px;border-radius:16px;font:700 18px/32px system-ui;cursor:pointer;color:#111">×</button>
   <h2 id="fieldAddTitle">Competencia agua</h2>
-  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v33 · Exportar junto a Ubicarme</p>
+  <p class="hint" id="fieldAddVer" style="color:#0f766e;font-weight:700">v34 · Sync automático (ntfy)</p>
   <p class="hint" id="fieldAddCoords">Activa Ubicarme para usar tu GPS.</p>
   <div id="fieldAddOtraWrap" hidden>
     <label for="fieldAddOtra">¿Qué hay?</label>
@@ -721,6 +719,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
   <div class="row">
     <button type="button" class="btnSave" id="fieldAddSave" disabled>Guardar</button>
   </div>
+  <button type="button" id="btnExportLocal" title="Solo emergencias: los pines se sincronizan solos vía ntfy">Respaldo: exportar pines locales</button>
 </div>
 
 <div id="oursAddSheet" role="dialog" aria-modal="true" aria-labelledby="oursAddTitle" hidden>
@@ -840,9 +839,6 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <button class="tbtn ctx " data-l="places_oxxo" aria-pressed="false"><i aria-hidden="true" style="background:#e53e3e;border:2px dashed #9b2c2c;color:#fff;font-size:9px;font-weight:700">O</i><span>Oxxo</span></button>
       <button class="tbtn ctx " data-l="places_six" aria-pressed="false"><i aria-hidden="true" style="background:#d69e2e;border:2px dashed #744210;color:#1a202c;font-size:9px;font-weight:700">6</i><span>Six (Tecate)</span></button>
       <button class="tbtn ctx " data-l="places_extra" aria-pressed="false"><i aria-hidden="true" style="background:#319795;border:2px dashed #234e52;color:#fff;font-size:9px;font-weight:700">E</i><span>Tiendas Extra (conveniencia)</span></button>
-      <button class="tbtn ctx " data-l="places_banco" aria-pressed="false"><i aria-hidden="true" style="background:#2f855a;border:2px dashed #276749;color:#fff;font-size:9px;font-weight:700">Z</i><span>Banco Azteca</span></button>
-      <button class="tbtn ctx " data-l="places_bienestar" aria-pressed="false"><i aria-hidden="true" style="background:#38a169;border:2px dashed #276749;color:#fff;font-size:9px;font-weight:700">B</i><span>Banco del Bienestar</span></button>
-      <button class="tbtn ctx " data-l="places_farmacia" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border:2px dashed #2c5282;color:#fff;font-size:9px;font-weight:700">F</i><span>Farmacias</span></button>
       <button class="tbtn ctx " data-l="places_otro" aria-pressed="false"><i aria-hidden="true" style="background:#718096;border:2px dashed #4a5568;color:#fff;font-size:9px;font-weight:700">·</i><span>Otros (Scout sin categoría)</span></button>
      </div>
     </div>
@@ -862,6 +858,12 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <button class="tbtn ctx " data-l="prestamos_prestamo" aria-pressed="false"><i aria-hidden="true" style="background:#6b46c1;border:2px dashed #44337a;color:#fff;font-size:9px;font-weight:700">P</i><span>Préstamos personales</span></button>
      </div>
     </div>
+    <p class="eyebrow" style="margin-top:10px">Anclas de barrio (DENUE + Places + OSM)</p>
+    <button class="tbtn ctx " data-l="barrio_tortillerias" aria-pressed="false" title="DENUE 311830 + Places “tortillería” + OSM · dedupe 30 m entre fuentes · apagada por defecto"><i aria-hidden="true" style="background:#d69e2e;border:2px solid #744210;color:#fff;font-size:9px;font-weight:700;border-radius:50%">T</i><span>Tortillerías</span></button>
+    <button class="tbtn ctx " data-l="barrio_abarrotes" aria-pressed="false" title="DENUE 461110 abarrotes + 462112 minisúper (sin cadenas) + 461211/461212 depósitos + OSM · dedupe 30 m · ~20k puntos (carga al encender)"><i aria-hidden="true" style="background:#c05621;border:2px solid #7b341e;color:#fff;font-size:9px;font-weight:700;border-radius:50%">a</i><span>Abarrotes / depósitos</span></button>
+    <button class="tbtn ctx " data-l="barrio_paradas" aria-pressed="false" title="OSM bus_stop/platform + Places bus_stop · dedupe 20 m · apagada por defecto"><i aria-hidden="true" style="background:#4a5568;border:2px solid #1a202c;color:#fff;font-size:9px;font-weight:700;border-radius:50%">🚌</i><span>Paradas de camión / ruta</span></button>
+    <button class="tbtn ctx " data-l="barrio_farmacias_barrio" aria-pressed="false" title="Places (Guadalajara/Benavides + Scout) + DENUE 464111 + OSM pharmacy · dedupe 30 m · una sola capa"><i aria-hidden="true" style="background:#3182ce;border:2px solid #2c5282;color:#fff;font-size:9px;font-weight:700;border-radius:50%">F</i><span>Farmacias de barrio</span></button>
+    <button class="tbtn ctx " data-l="barrio_bancos_prestamo" aria-pressed="false" title="Banco del Bienestar + Banco Azteca + Elektra (Places + OSM + DENUE + Scout) · ancla positiva · otros bancos fuera"><i aria-hidden="true" style="background:#2f855a;border:2px solid #276749;color:#fff;font-size:9px;font-weight:700;border-radius:50%">$</i><span>Bancos de préstamo (Bienestar/Azteca)</span></button>
     <p class="eyebrow" style="margin-top:10px">Tránsito (OSM)</p>
     <button class="tbtn ctx " data-l="semaforos" aria-pressed="false" title="Semáforos OSM + añadidos con Scout (mismo toggle) — cobertura OSM incompleta">
       <i aria-hidden="true" style="background:#ecc94b;border-color:#975a16;color:#1a202c;font-size:10px;font-weight:700">🚦</i>
@@ -1007,7 +1009,7 @@ window.__purifApplyOverride = function(f, ov){
 };
 </script>
 <script>/* Field slim-load: GeoJSON fetched (not embedded) for smaller first paint on cellular */
-window.__PURIF_BUILD = '20260928-comp-merge';
+window.__PURIF_BUILD = '20260928-barrio-anclas';
 window.__purifReady = (async function(){
   const bust = window.__PURIF_BUILD || String(Date.now());
   const load = (name) => fetch('data/' + name + '.geojson?v=' + encodeURIComponent(bust))
@@ -1225,6 +1227,7 @@ function _setCountLabel(sel, n, fixedLabel){
   span.textContent = label + ' (' + n + ')';
 }
 function recountDedupe(kind){
+  try { if (typeof window.__barrioRecount === 'function') window.__barrioRecount(); } catch(_e){}
   try {
     if (typeof PLACES_KINDS !== 'undefined' && PLACES_KINDS.indexOf(kind) >= 0 && kind !== 'otro') {
       if (typeof placesByKind !== 'undefined' && placesByKind[kind])
@@ -1578,10 +1581,19 @@ function paintPlacesAnclas(fc){
   PLACES_KINDS.concat(['empeno']).forEach(recountDedupe);
   return counts;
 }
+/* banco/bienestar/farmacia (Places + OSM retail + Scout) now live under the
+ * "Anclas de barrio" toggles (Bancos de préstamo / Farmacias de barrio). */
+const PLACES_KIND_OWNER = { banco:'barrio_bancos_prestamo', bienestar:'barrio_bancos_prestamo', farmacia:'barrio_farmacias_barrio' };
 function syncPlacesLayer(kind){
   const lyr = placesByKind[kind];
-  const btn = document.querySelector('.tbtn[data-l="places_'+kind+'"]');
-  const want = placesMasterOn && btn && btn.classList.contains('on');
+  let want;
+  if (PLACES_KIND_OWNER[kind]) {
+    const ob = document.querySelector('.tbtn[data-l="'+PLACES_KIND_OWNER[kind]+'"]');
+    want = !!(ob && ob.classList.contains('on'));
+  } else {
+    const btn = document.querySelector('.tbtn[data-l="places_'+kind+'"]');
+    want = placesMasterOn && btn && btn.classList.contains('on');
+  }
   if (want && !map.hasLayer(lyr)) map.addLayer(lyr);
   if (!want && map.hasLayer(lyr)) map.removeLayer(lyr);
 }
@@ -1667,6 +1679,102 @@ function updatePlacesParentUI(){
     });
   });
   updatePlacesParentUI();
+})();
+
+/* ---------- Anclas de barrio (static files only — no live API calls) ----------
+ * Files built by scripts/build_anclas_barrio_zmm.py (DENUE bulk + Places + OSM,
+ * cross-source dedupe). Counts come from data/anclas_barrio_manifest.json;
+ * the heavy GeoJSON is fetched only on first toggle ON. Canvas circles in
+ * pane ptsVec (above colonia polygons). Default OFF.
+ * farmacias_barrio / bancos_prestamo files are EXTRAS; the toggle also shows
+ * placesByKind.farmacia / banco + bienestar (Places + OSM retail + Scout). */
+const BARRIO_CFG = {
+  tortillerias:     { label:'Tortillerías', fill:'#d69e2e', stroke:'#744210', r:4 },
+  abarrotes:        { label:'Abarrotes / depósitos', fill:'#c05621', stroke:'#7b341e', r:3 },
+  paradas:          { label:'Paradas de camión / ruta', fill:'#4a5568', stroke:'#1a202c', r:3.5 },
+  farmacias_barrio: { label:'Farmacias de barrio', fill:'#3182ce', stroke:'#2c5282', r:4, places:['farmacia'] },
+  bancos_prestamo:  { label:'Bancos de préstamo (Bienestar/Azteca)', fill:'#2f855a', stroke:'#276749', r:5, places:['banco','bienestar'] }
+};
+const BARRIO_SUB_LABEL = { tortilleria:'tortillería', abarrotes:'abarrotes', minisuper:'minisúper', vinos_licores:'vinos y licores',
+  deposito_cerveza:'depósito de cerveza', convenience:'conveniencia (OSM)', general:'tienda (OSM)', kiosk:'kiosko (OSM)',
+  supermarket:'súper chico (OSM)', alcohol:'depósito (OSM)', beverages:'bebidas (OSM)', bus_stop:'parada', platform:'andén/parada',
+  farmacia:'farmacia', pharmacy:'farmacia (OSM)', bienestar:'Banco del Bienestar', azteca:'Banco Azteca', elektra:'Elektra (Banco Azteca)' };
+const barrioCanvas = L.canvas({ padding: 0.4, pane: 'ptsVec' });
+const barrioLayer = {}, barrioN = {}, barrioLoading = {};
+function barrioEsc(t){ return String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function barrioTotal(k){
+  const cfg = BARRIO_CFG[k]; if (!cfg) return 0;
+  let n = barrioLayer[k] ? barrioLayer[k].getLayers().length : (barrioN[k] || 0);
+  (cfg.places || []).forEach(pk => { if (placesByKind[pk]) n += placesByKind[pk].getLayers().length; });
+  return n;
+}
+function barrioRecount(){
+  Object.keys(BARRIO_CFG).forEach(function(k){
+    const span = document.querySelector('.tbtn[data-l="barrio_'+k+'"] span');
+    if (!span) return;
+    const n = barrioTotal(k);
+    span.textContent = BARRIO_CFG[k].label + (n ? ' (' + n + ')' : '');
+  });
+}
+window.__barrioRecount = barrioRecount;
+window.__barrioLayers = barrioLayer;
+function barrioPopup(k, lyr){
+  const p = (lyr.feature && lyr.feature.properties) || {};
+  const src = (p.s || '').split(',').filter(Boolean).map(s => s === 'denue' ? 'DENUE' : s === 'osm' ? 'OSM' : s === 'places' ? 'Places' : s).join(' + ');
+  return '<b>' + barrioEsc(p.n || BARRIO_CFG[k].label) + '</b><br><span class="p-sub">' + barrioEsc(BARRIO_CFG[k].label)
+    + (p.t ? ' · ' + barrioEsc(BARRIO_SUB_LABEL[p.t] || p.t) : '') + '<br>fuente: ' + barrioEsc(src || '—') + '</span>';
+}
+function barrioLoad(k){
+  if (barrioLayer[k] || barrioLoading[k]) return barrioLoading[k] || Promise.resolve(barrioLayer[k]);
+  const cfg = BARRIO_CFG[k];
+  const bust = window.__PURIF_BUILD || String(Date.now());
+  barrioLoading[k] = fetch('data/anclas_' + k + '_zmm.geojson?v=' + encodeURIComponent(bust))
+    .then(r => r.ok ? r.json() : { features: [] })
+    .catch(() => ({ features: [] }))
+    .then(function(fc){
+      const g = L.geoJSON(fc, {
+        pointToLayer: (ft, ll) => L.circleMarker(ll, { renderer: barrioCanvas, pane: 'ptsVec', radius: cfg.r,
+          color: cfg.stroke, weight: 1, fillColor: cfg.fill, fillOpacity: 0.85, interactive: true })
+      });
+      g.bindPopup(lyr => barrioPopup(k, lyr), { maxWidth: 260, autoPan: false });
+      barrioLayer[k] = g;
+      barrioLoading[k] = null;
+      barrioRecount();
+      return g;
+    });
+  return barrioLoading[k];
+}
+function syncBarrioLayer(k){
+  const btn = document.querySelector('.tbtn[data-l="barrio_'+k+'"]');
+  const want = !!(btn && btn.classList.contains('on'));
+  (BARRIO_CFG[k].places || []).forEach(pk => syncPlacesLayer(pk));
+  if (want) {
+    barrioLoad(k).then(function(g){
+      const still = btn && btn.classList.contains('on');
+      if (g && still && !map.hasLayer(g)) map.addLayer(g);
+    });
+  } else if (barrioLayer[k] && map.hasLayer(barrioLayer[k])) {
+    map.removeLayer(barrioLayer[k]);
+  }
+}
+document.querySelectorAll('.tbtn[data-l^="barrio_"]').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    const nowOn = !btn.classList.contains('on');
+    btn.classList.toggle('on', nowOn);
+    btn.setAttribute('aria-pressed', String(nowOn));
+    syncBarrioLayer(btn.dataset.l.replace('barrio_', ''));
+  });
+});
+(function loadBarrioManifest(){
+  const bust = window.__PURIF_BUILD || String(Date.now());
+  fetch('data/anclas_barrio_manifest.json?v=' + encodeURIComponent(bust))
+    .then(r => r.ok ? r.json() : null)
+    .catch(() => null)
+    .then(function(m){
+      const L0 = (m && m.layers) || {};
+      Object.keys(L0).forEach(k => { barrioN[k] = L0[k].n || 0; });
+      barrioRecount();
+    });
 })();
 
 
