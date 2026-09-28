@@ -41,3 +41,25 @@ Mapa: `DEDUPE_M = 15` — Scout gana sobre Places/OSM mismo kind ≤15 m; contad
 - Mapa: estrella **violeta `#7c3aed`** (verde = tel real, ámbar = sin tel). Popup «🔒 Lock — spot asegurado» + contacto + tel. Leyenda: «Spot asegurado (lock)». Mismo toggle Favoritos.
 - Actual: **Luis Volkswagen** (Topo Chico, `ours_manual_2026-09-15_luis_volkswagen` + liked `liked_2026-09-15_luis_volkswagen`) → contacto Doña Alicia (mamá de Luis) +52 1 81 1081 9567. Anfitrión Luis 81 1525 3207.
 - Para lockear otro: añadir su `id` al JSON y push (no hace falta tocar el geojson).
+
+
+## Render en el mapa (toggles)
+
+Ningún pin de `field_adds` es siempre visible; todos caen en un toggle de categoría (default OFF):
+
+| kind (o nota de `otro`) | Toggle |
+|---|---|
+| iglesia | Iglesias |
+| escuela | Escuelas |
+| hospital | Hospitales |
+| modelorama | Modelorama (Places + Scout) |
+| express | Bodega Aurrera Express (Places + Scout) |
+| empeno | Casas de empeño / Monte |
+| alto / stop | Altos / stops |
+| otro «Semáforo» / semaforo | Semáforos |
+| purificadora (layer competencia) | Purificadoras (Places + Scout) |
+| favorito / nuestra (incl. lock) | Favoritos |
+| comentario / comentario_zona | Comentarios |
+| cualquier otro | Places «Otro» |
+
+Pin Scout = borde punteado + popup «Añadida con Scout». Dedupe Scout↔bot ≤15 m (`DEDUPE_M`).

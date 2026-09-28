@@ -801,9 +801,9 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
     <p class="eyebrow">Anclas</p>
     <button class="tbtn ctx " data-l="comp_rec" aria-pressed="false"><i aria-hidden="true">●</i><span>Competencia (recarga)</span></button>
     <button class="tbtn ctx " data-l="comp_ind" aria-pressed="false"><i aria-hidden="true">▲</i><span>Competencia (planta)</span></button>
-    <button class="tbtn ctx " data-l="comp_places" aria-pressed="false" title="Purificadoras / recarga de garrafón vía Places API (New) — apagada por defecto; no inventadas"><i aria-hidden="true" style="background:#0ea5e9;border:2px dashed #0369a1;color:#fff;font-size:9px;font-weight:700">G</i><span>Purificadoras (Places)</span></button>
+    <button class="tbtn ctx " data-l="comp_places" aria-pressed="false" title="Competencia: purificadoras / recarga de garrafón vía Places API + añadidas con Scout (mismo toggle, dedupe 15 m) — apagada por defecto"><i aria-hidden="true" style="background:#0ea5e9;border:2px dashed #0369a1;color:#fff;font-size:9px;font-weight:700">G</i><span>Purificadoras (Places + Scout)</span></button>
     <button class="tbtn ctx " data-l="anclas_iglesia" aria-pressed="false" title="OSM + añadidas con Scout (mismo toggle)"><i aria-hidden="true" style="background:#2b6cb0;border-color:#2b6cb0;color:#fff;font-size:11px">†</i><span>Iglesias</span></button>
-    <button class="tbtn ctx " data-l="anclas_hospital" aria-pressed="false"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:10px;font-weight:700">H</i><span>Hospitales</span></button>
+    <button class="tbtn ctx " data-l="anclas_hospital" aria-pressed="false" title="OSM + añadidas con Scout (mismo toggle)"><i aria-hidden="true" style="background:#3182ce;border-color:#2b6cb0;color:#fff;font-size:10px;font-weight:700">H</i><span>Hospitales</span></button>
     <div class="esc-wrap">
      <button type="button" class="tbtn ctx esc-parent" id="escuelasParent" aria-expanded="false" aria-controls="escuelasSub" aria-pressed="false" title="OSM + Scout campo · clic ícono: todas on/off · clic fila: subtipos">
       <i aria-hidden="true" id="escuelasParentIcon" style="background:#4299e1;border-color:#2b6cb0;color:#fff;font-size:10px">A</i>
@@ -881,7 +881,7 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
      </div>
     </div>
     <p class="eyebrow" style="margin-top:10px">Tránsito (OSM)</p>
-    <button class="tbtn ctx " data-l="semaforos" aria-pressed="false" title="Semáforos OSM — cobertura incompleta">
+    <button class="tbtn ctx " data-l="semaforos" aria-pressed="false" title="Semáforos OSM + añadidos con Scout (mismo toggle) — cobertura OSM incompleta">
       <i aria-hidden="true" style="background:#ecc94b;border-color:#975a16;color:#1a202c;font-size:10px;font-weight:700">🚦</i>
       <span>Semáforos</span>
     </button>
@@ -889,9 +889,13 @@ body.color-suave #toplist .sc{ width:26px; min-width:26px; height:26px; font-siz
       <i aria-hidden="true" style="background:#e53e3e;border-color:#9b2c2c;color:#fff;font-size:9px;font-weight:700;border-radius:2px">■</i>
       <span>Altos / stops</span>
     </button>
-    <button type="button" class="tbtn ctx on" id="likedZonesToggle" aria-pressed="true" title="Favoritos unificados (campo + me gustó). Verde = teléfono real CRM; ámbar = interés sin teléfono; violeta = spot asegurado (lock)">
+    <button type="button" class="tbtn ctx " id="likedZonesToggle" aria-pressed="false" title="Favoritos unificados (campo + me gustó). Verde = teléfono real CRM; ámbar = interés sin teléfono; violeta = spot asegurado (lock)">
       <i aria-hidden="true" style="background:#0f766e;border-color:#115e59;color:#ecfdf5;font-size:11px;font-weight:700">★</i>
       <span>Favoritos</span>
+    </button>
+    <button class="tbtn ctx " data-l="comentarios" aria-pressed="false" title="Comentarios de zona / pin añadidos con Scout — apagado por defecto">
+      <i aria-hidden="true" style="background:#db2777;border:2px dashed #9d174d;color:#fff;font-size:10px;font-weight:700">💬</i>
+      <span>Comentarios</span>
     </button>
    </div>
 
@@ -1206,7 +1210,7 @@ function haversineM(lat1, lng1, lat2, lng2){
 }
 const _dedupeBase = {};  /* kind -> [{lat,lng,marker,layer,suppressed}] */
 const _dedupeScout = {}; /* kind -> [{lat,lng}] */
-const DEDUPE_KINDS = { modelorama:1, express:1, iglesia:1, escuela:1, empeno:1, alto:1, purificadora:1 };
+const DEDUPE_KINDS = { modelorama:1, express:1, iglesia:1, escuela:1, empeno:1, alto:1, purificadora:1, semaforo:1, hospital:1 };
 /* Recompute toggle-label counts from deduped layers (Scout + non-absorbed bot) */
 function _setCountLabel(sel, n, fixedLabel){
   const span = document.querySelector(sel);
@@ -1228,6 +1232,24 @@ function recountDedupe(kind){
     } else if (kind === 'purificadora') {
       if (typeof placesPurifLayer !== 'undefined')
         _setCountLabel('.tbtn[data-l="comp_places"] span', placesPurifLayer.getLayers().length);
+    } else if (kind === 'otro') {
+      if (typeof placesByKind !== 'undefined' && placesByKind.otro)
+        _setCountLabel('.tbtn[data-l="places_otro"] span', placesByKind.otro.getLayers().length);
+    } else if (kind === 'semaforo') {
+      if (typeof semaforosLayer !== 'undefined')
+        _setCountLabel('.tbtn[data-l="semaforos"] span', semaforosLayer.getLayers().length, 'Semáforos');
+    } else if (kind === 'iglesia') {
+      if (typeof anclasIglesia !== 'undefined')
+        _setCountLabel('.tbtn[data-l="anclas_iglesia"] span', anclasIglesia.getLayers().length, 'Iglesias');
+    } else if (kind === 'hospital') {
+      if (typeof anclasHospital !== 'undefined')
+        _setCountLabel('.tbtn[data-l="anclas_hospital"] span', anclasHospital.getLayers().length, 'Hospitales');
+    } else if (kind === 'comentario') {
+      if (typeof comentariosLayer !== 'undefined')
+        _setCountLabel('.tbtn[data-l="comentarios"] span', comentariosLayer.getLayers().length, 'Comentarios');
+    } else if (kind === 'favorito') {
+      const fl = window.__purifLayerFavoritos;
+      if (fl) _setCountLabel('#likedZonesToggle span', fl.getLayers().length, 'Favoritos');
     }
   } catch (e) {}
 }
@@ -1343,7 +1365,7 @@ const ANCLA_GROUPS = {iglesia: anclasIglesia, hospital: anclasHospital};
   }
   const group = ANCLA_GROUPS[tipo];
   if (!group) return;
-  if (tipo === 'iglesia' && hasScoutTwin('iglesia', ll[0], ll[1])) return;
+  if ((tipo === 'iglesia' || tipo === 'hospital') && hasScoutTwin(tipo, ll[0], ll[1])) return;
   const m = L.marker(ll, {icon: anclaIcon(tipo), keyboard: true});
   m.bindPopup(
     '<b>'+(p.name || '(sin nombre)')+'</b><br><span class="p-sub">' +
@@ -1351,7 +1373,7 @@ const ANCLA_GROUPS = {iglesia: anclasIglesia, hospital: anclasHospital};
     '<br>'+(p.fuente || 'OSM')+(p.osm_tag ? ' · '+p.osm_tag : '')+'</span>'
   );
   m.addTo(group);
-  if (tipo === 'iglesia') registerBaseAnchor('iglesia', ll[0], ll[1], m, group);
+  if (tipo === 'iglesia' || tipo === 'hospital') registerBaseAnchor(tipo, ll[0], ll[1], m, group);
 });
 /* default off: anclas OSM */
 let escuelasMasterOn = true;
@@ -1410,12 +1432,15 @@ function paintSemaforos(fc){
   (fc.features||[]).forEach(function(ft){
     const c = ft.geometry && ft.geometry.coordinates; if (!c) return;
     const p = ft.properties || {};
+    /* Scout wins: skip OSM semáforo twin ≤ DEDUPE_M */
+    if (hasScoutTwin('semaforo', c[1], c[0])) return;
     const m = L.circleMarker([c[1], c[0]], {
       radius: 4, weight: 1, color: '#744210', fillColor: '#ecc94b', fillOpacity: 0.9,
       renderer: trafficCanvas, interactive: true
     });
     m.bindPopup(trafficPopup(p, 'Semáforo'), { maxWidth: 240, autoPan: false });
     m.addTo(semaforosLayer);
+    registerBaseAnchor('semaforo', c[1], c[0], m, semaforosLayer);
   });
 }
 function stopIcon(){
@@ -1454,7 +1479,7 @@ function paintStops(fc){
     const nT = (pair[1] && pair[1].features) ? pair[1].features.length : 0;
     const bs = document.querySelector('.tbtn[data-l="semaforos"] span');
     const bt = document.querySelector('.tbtn[data-l="stops"] span');
-    if (bs && nS) bs.textContent = 'Semáforos (' + nS + ')';
+    if (bs && nS) recountDedupe('semaforo'); /* deduped: OSM (non-absorbed) + Scout */
     if (bt && nT) recountDedupe('alto'); /* deduped: OSM stops (non-absorbed) + Scout altos */
   }).catch(function(){});
 })();
@@ -1527,7 +1552,7 @@ function paintPlacesAnclas(fc){
       if (counts[k]) btn.textContent = label + ' (' + counts[k] + ')';
     }
   });
-  ['modelorama','express','empeno'].forEach(recountDedupe);
+  ['modelorama','express','empeno','otro'].forEach(recountDedupe);
   return counts;
 }
 function syncPlacesLayer(kind){
@@ -1805,11 +1830,7 @@ function paintPlacesPurificadoras(fc){
     registerBaseAnchor('purificadora', c[1], c[0], m, placesPurifLayer);
     n++;
   });
-  const btn = document.querySelector('.tbtn[data-l="comp_places"] span');
-  if (btn) {
-    const label = btn.textContent.replace(/\s*\(\d+\)\s*$/, '');
-    btn.textContent = label + ' (' + n + ')';
-  }
+  recountDedupe('purificadora'); /* deduped: Places (non-absorbed) + Scout */
   return n;
 }
 (function loadPlacesPurificadoras(){
@@ -2005,7 +2026,9 @@ if (searchEl) searchEl.addEventListener('input', ()=> renderToplist(searchEl.val
 })();
 
 /* ---------- layer toggles (live inside the Puntúan / Contexto panels) ---------- */
-const LAYERS = {colonias:colLayer, comp_rec:compRec, comp_ind:compInd, comp_places:placesPurifLayer, estaciones:estLayer, calor:heat, anillos:rings, etiquetas:labels, anclas_iglesia:anclasIglesia, anclas_hospital:anclasHospital, semaforos:semaforosLayer, stops:stopsLayer};
+const comentariosLayer = L.layerGroup(); /* Scout comentarios (pin + zona) — default off */
+window.__purifComentariosLayer = comentariosLayer;
+const LAYERS = {comentarios:comentariosLayer, colonias:colLayer, comp_rec:compRec, comp_ind:compInd, comp_places:placesPurifLayer, estaciones:estLayer, calor:heat, anillos:rings, etiquetas:labels, anclas_iglesia:anclasIglesia, anclas_hospital:anclasHospital, semaforos:semaforosLayer, stops:stopsLayer};
 PLACES_KINDS.forEach(k => { LAYERS['places_'+k] = placesByKind[k]; });
 PRESTAMOS_KINDS.forEach(k => { LAYERS['prestamos_'+k] = prestamosByKind[k]; });
 ESC_SUBS.forEach(s => { LAYERS['anclas_escuela_'+s] = anclasEscuelaBySub[s]; });
@@ -2013,8 +2036,10 @@ RETAIL_SUBS.forEach(s => { LAYERS['anclas_'+s] = anclasRetailBySub[s]; });
 
 /* Scout field_adds → same LayerGroup as category toggle (no separate Scout checkbox).
  * escuela → Escuelas parent; iglesia → Iglesias; modelorama/express → Places comerciales;
- * empeno → Casas de empeño / Monte (prestamos_empeno); alto/stop → Altos / stops.
- * Leftover kinds stay in always-on anclas_campo. */
+ * empeno → Casas de empeño / Monte (prestamos_empeno); alto/stop → Altos / stops;
+ * hospital → Hospitales; semaforo (otro "Semáforo") → Semáforos; purificadora → Purificadoras
+ * (Places + Scout, Competencia); comentario → Comentarios; favorito → Favoritos;
+ * any unrecognised kind → Places "Otro". NO always-on layer: every pin lives under a toggle. */
 function scoutAnclaSvg(kind){
   if (kind === 'escuela') return escuelaSvg('scout');
   if (kind === 'iglesia') {
@@ -2031,6 +2056,18 @@ function scoutAnclaSvg(kind){
   }
   if (kind === 'alto' || kind === 'stop') {
     return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="2.4" y="2.4" width="13.2" height="13.2" rx="1.6" fill="#e53e3e" stroke="#9b2c2c" stroke-width="1.6" stroke-dasharray="2.2 1.6"/><text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">A</text></svg>';
+  }
+  if (kind === 'hospital') {
+    return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1.6" y="1.6" width="14.8" height="14.8" rx="3.2" fill="#3182ce" stroke="#1a4f8a" stroke-width="1.6" stroke-dasharray="2.2 1.6"/><path d="M6.2 5.2h5.6v2.2H11v3.4h2.2v2.2H4.8v-2.2H7V7.4H4.8z" fill="#fff"/></svg>';
+  }
+  if (kind === 'semaforo') {
+    return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="9" cy="9" r="7.2" fill="#ecc94b" stroke="#744210" stroke-width="1.6" stroke-dasharray="2.2 1.6"/><circle cx="9" cy="5.8" r="1.4" fill="#c53030"/><circle cx="9" cy="9" r="1.4" fill="#975a16"/><circle cx="9" cy="12.2" r="1.4" fill="#276749"/></svg>';
+  }
+  if (kind === 'purificadora') {
+    return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="9" cy="9" r="7.2" fill="#0f766e" stroke="#134e4a" stroke-width="1.6" stroke-dasharray="2.2 1.6"/><text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">Y</text></svg>';
+  }
+  if (kind === 'comentario') {
+    return '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="9" cy="9" r="7.2" fill="#db2777" stroke="#9d174d" stroke-width="1.6" stroke-dasharray="2.2 1.6"/><text x="9" y="12.2" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">C</text></svg>';
   }
   return placesSvg('otro');
 }
@@ -2050,7 +2087,12 @@ window.__purifKindLayers = {
   express: placesByKind.express,
   empeno: prestamosByKind.empeno,
   alto: stopsLayer,
-  stop: stopsLayer
+  stop: stopsLayer,
+  hospital: anclasHospital,
+  semaforo: semaforosLayer,
+  purificadora: placesPurifLayer,
+  comentario: comentariosLayer,
+  otro: placesByKind.otro
 };
 window.__purifScoutAnclaIcon = scoutAnclaIcon;
 window.__purifScoutProvenance = 'Añadida con Scout';
@@ -3195,6 +3237,9 @@ window.__purifReady && window.__purifReady.then(function(){
     empeno: '#805ad5',
     alto: '#e53e3e',
     stop: '#e53e3e',
+    hospital: '#3182ce',
+    semaforo: '#ecc94b',
+    comentario: '#db2777',
     otro: '#64748b'
   };
   const ANCHOR_LABELS = {
@@ -3205,24 +3250,28 @@ window.__purifReady && window.__purifReady.then(function(){
     empeno: 'Casa de empeño',
     alto: 'Señal de alto',
     stop: 'Señal de alto',
+    hospital: 'Hospital',
+    semaforo: 'Semáforo',
+    comentario: 'Comentario',
     otro: 'Otros'
   };
 
-  const layerComp = L.layerGroup();
+  /* No always-on layers: comp → Purificadoras (Places + Scout); anclas → category toggles;
+     comentarios → Comentarios toggle; favoritos → Favoritos toggle (default off). */
+  const layerComp = (window.__purifKindLayers && window.__purifKindLayers.purificadora) || L.layerGroup();
   const layerOurs = L.layerGroup();
-  const layerAnclas = L.layerGroup();
+  const layerAnclas = window.__purifComentariosLayer || L.layerGroup();
   const markersComp = Object.create(null);
   const markersOurs = Object.create(null);
   const markersAnclas = Object.create(null);
 
-  window.__purifFavoritosOn = true;
+  window.__purifFavoritosOn = false; /* default OFF (toggle Favoritos) */
   window.__purifLayerFavoritos = layerOurs;
   function ensureLayers(){
     const m = getMap();
     if (!m) return null;
-    if (!m.hasLayer(layerComp)) layerComp.addTo(m);
-    if (window.__purifFavoritosOn !== false && !m.hasLayer(layerOurs)) layerOurs.addTo(m);
-    if (!m.hasLayer(layerAnclas)) layerAnclas.addTo(m);
+    /* layerComp / layerAnclas are toggle-controlled (never force-added) */
+    if (window.__purifFavoritosOn === true && !m.hasLayer(layerOurs)) layerOurs.addTo(m);
     return m;
   }
 
@@ -3516,7 +3565,7 @@ window.__purifReady && window.__purifReady.then(function(){
           iconSize: [24, 24],
           iconAnchor: [12, 12],
           popupAnchor: [0, -12],
-          html: '<div style="width:22px;height:22px;border-radius:50%;border:2px solid ' + (opts.starBorder || '#fff') + ';background:' + color + ';box-shadow:0 2px 8px rgba(0,0,0,.45);color:' + (opts.starInk || '#111') + ';font:700 13px/18px system-ui;text-align:center">★</div>'
+          html: '<div class="scout-star" style="width:22px;height:22px;border-radius:50%;border:2px ' + (opts.scoutDash ? 'dashed' : 'solid') + ' ' + (opts.starBorder || '#fff') + ';background:' + color + ';box-shadow:0 2px 8px rgba(0,0,0,.45);color:' + (opts.starInk || '#111') + ';font:700 13px/18px system-ui;text-align:center">★</div>'
         }),
         interactive: true
       });
@@ -3621,8 +3670,8 @@ window.__purifReady && window.__purifReady.then(function(){
     if (p.precio_medio_garrafon_mxn != null) lines.push('Medio $' + p.precio_medio_garrafon_mxn);
     if (p.precio_galon_mxn != null) lines.push('Galón $' + p.precio_galon_mxn);
     if (p.nota_raw) lines.push(p.nota_raw);
-    lines.push('Competencia');
-    if (/^scout/.test(p.fuente || '') || p.source === 'scout') lines.push(window.__purifScoutProvenance || 'Añadida con Scout');
+    lines.push('Competencia · Purificadora');
+    lines.push(window.__purifScoutProvenance || 'Añadida con Scout');
     if (typeof window.__purifRegisterScoutAnchor === 'function') {
       window.__purifRegisterScoutAnchor('purificadora', c[1], c[0]);
     }
@@ -3647,7 +3696,8 @@ window.__purifReady && window.__purifReady.then(function(){
           silentSync({ action: 'upsert', feature: feat });
         }
       });
-    });
+    }, null, { scoutKind: 'purificadora', skipEnsure: true });
+    if (window.__purifRecountDedupe) window.__purifRecountDedupe('purificadora');
   }
   function saveComp(){
     const g = sheetGeo();
@@ -3733,6 +3783,7 @@ window.__purifReady && window.__purifReady.then(function(){
     }
     if (p.descripcion) lines.push(p.descripcion);
     lines.push(isLock ? 'Favorito · Lock' : 'Favorito');
+    lines.push(window.__purifScoutProvenance || 'Añadida con Scout');
     var starColor = isLock ? window.__purifLockColor : (realTel ? '#0f766e' : '#f59e0b');
     addVisibleMarker([c[1], c[0]], starColor, p.name || 'Favorito', lines, markersOurs, id, layerOurs, function(){
       var feat = null;
@@ -3754,7 +3805,8 @@ window.__purifReady && window.__purifReady.then(function(){
           silentSync({ action: 'upsert', feature: feat });
         }
       });
-    }, phoneVal, isLock ? { star: true, starInk: '#fff', starBorder: '#ddd6fe' } : { star: true });
+    }, phoneVal, isLock ? { star: true, starInk: '#fff', starBorder: '#ddd6fe', scoutDash: true } : { star: true, scoutDash: true });
+    if (window.__purifRecountDedupe) window.__purifRecountDedupe('favorito');
   }
   function saveOurs(){
     const g = sheetGeo();
@@ -3865,6 +3917,10 @@ window.__purifReady && window.__purifReady.then(function(){
     b.style.color = '#fff';
     b.textContent = '💬 ' + (p.name || 'Comentario zona');
     wrap.appendChild(b);
+    var sc = document.createElement('div');
+    sc.style.cssText = 'margin:4px 0;font-size:11px;color:#fbcfe8';
+    sc.textContent = window.__purifScoutProvenance || 'Añadida con Scout';
+    wrap.appendChild(sc);
     var d = document.createElement('div');
     d.style.cssText = 'margin:6px 0;font-size:12px;color:#fff;white-space:pre-wrap';
     d.textContent = txt;
@@ -3877,6 +3933,7 @@ window.__purifReady && window.__purifReady.then(function(){
     pl.bindPopup(wrap, { maxWidth: 280, className: 'field-pop', autoPan: false });
     pl.addTo(layerAnclas);
     markersAnclas[id] = pl;
+    if (window.__purifRecountDedupe) window.__purifRecountDedupe('comentario');
     rm.addEventListener('click', function(ev){
       try { ev.preventDefault(); ev.stopPropagation(); } catch (e) {}
       var feat = null;
@@ -3910,6 +3967,17 @@ window.__purifReady && window.__purifReady.then(function(){
     var blob = [p.name || '', p.nota_raw || ''].join(' ');
     if (/empeñ|empeno|monte de piedad|prendamex/i.test(blob)) return 'empeno';
     if (/\balto\b|stop sign|señal de alto/i.test(blob)) return 'alto';
+    if (k === 'semaforo' || k === 'semáforo') return 'semaforo';
+    if (k === 'comentario' || k === 'comentario_zona') return 'comentario';
+    if (k === 'otro' || !k) {
+      if (/sem[aá]foro/i.test(blob)) return 'semaforo';
+      if (/hospital|cl[ií]nica|\bimss\b|issste/i.test(blob)) return 'hospital';
+      if (/iglesia|parroquia|templo|capilla/i.test(blob)) return 'iglesia';
+      if (/escuela|primaria|secundaria|kinder|jard[ií]n de ni/i.test(blob)) return 'escuela';
+      if (/modelorama/i.test(blob)) return 'modelorama';
+      if (/aurrera/i.test(blob)) return 'express';
+      if (/comentario/i.test(blob)) return 'comentario';
+    }
     return k;
   }
   function markerFromAnchor(f){
@@ -3921,8 +3989,9 @@ window.__purifReady && window.__purifReady.then(function(){
     const lines = [];
     if (p.nota_raw && p.nota_raw !== p.name) lines.push(p.nota_raw);
     const kindLayers = window.__purifKindLayers || {};
-    const kindLayer = kindLayers[k];
-    const isScoutKind = !!kindLayer; /* mapped kinds share category toggle; rest → anclas_campo */
+    /* every kind → a category toggle; unknown → Places "Otro" (never always-on) */
+    const kindLayer = kindLayers[k] || kindLayers.otro;
+    const isScoutKind = !!kindLayer;
     if (isScoutKind) {
       lines.push(window.__purifScoutProvenance || 'Añadida con Scout');
       lines.push(ANCHOR_LABELS[k] || 'Ancla');
@@ -3935,7 +4004,7 @@ window.__purifReady && window.__purifReady.then(function(){
     }
     const targetLayer = isScoutKind ? kindLayer : layerAnclas;
     const markerOpts = isScoutKind
-      ? { scoutKind: k, skipEnsure: true }
+      ? { scoutKind: (kindLayers[k] ? k : 'otro'), skipEnsure: true }
       : {};
     addVisibleMarker([c[1], c[0]], color, p.name || (ANCHOR_LABELS[k] || 'Ancla'), lines, markersAnclas, id, targetLayer, function(){
       var feat = null;
@@ -3962,6 +4031,7 @@ window.__purifReady && window.__purifReady.then(function(){
     if (isScoutKind && typeof window.__purifRegisterScoutAnchor === 'function') {
       window.__purifRegisterScoutAnchor(k, c[1], c[0]);
     }
+    if (window.__purifRecountDedupe) window.__purifRecountDedupe(kindLayers[k] ? k : 'otro');
   }
   function saveAnchor(){
     const g = sheetGeo();
@@ -4390,6 +4460,7 @@ window.__purifReady && window.__purifReady.then(function(){
       m.addTo(layer);
       likedMarkers.push(m);
     });
+    if (window.__purifRecountDedupe) window.__purifRecountDedupe('favorito');
   }
   function loadLiked(){
     var bust = Date.now();

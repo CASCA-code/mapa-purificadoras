@@ -1,3 +1,12 @@
+## 2026-09-28 (Scout pins → toggles de categoría, todo OFF al cargar)
+
+- Ya no hay capas siempre visibles: cada kind de `field_adds` vive en un toggle existente. iglesia→Iglesias · escuela→Escuelas · hospital→Hospitales · modelorama→Modelorama (Places + Scout) · express→Bodega Aurrera Express · empeno→Casas de empeño · alto/stop→Altos · otro «Semáforo»→Semáforos · purificadora→Purificadoras (Places + Scout, Competencia) · favorito→Favoritos · comentario/comentario_zona→Comentarios (toggle nuevo) · otro no reconocido→Places «Otro».
+- `otro` se resuelve por nombre/nota (semáforo, hospital, iglesia, escuela, modelorama, aurrera, empeño, alto).
+- Pines Scout: ícono con borde punteado (Y teal purificadora, semáforo amarillo, H hospital, estrella favorito punteada) + popup «Añadida con Scout».
+- Default OFF: todas las capas de puntos, incl. Favoritos (lock violeta vive ahí) y Competencia. Sólo polígonos de colonias (+ etiquetas de municipio) al cargar.
+- Dedupe 15 m ahora también semáforo (OSM) y hospital (OSM); contadores de Iglesias/Hospitales/Semáforos/Purificadoras/Favoritos/Comentarios sobre set deduplicado.
+- Headless: 0 marcadores al cargar; 239/239 field_adds aparecen sólo al prender su toggle; sin errores JS.
+
 ## 2026-09-28 (🔒 lock spot — Luis Volkswagen)
 
 - Luis Volkswagen (Topo Chico) = spot asegurado. Contacto ahora Doña Alicia (mamá) +52 1 81 1081 9567; se conserva Luis 81 1525 3207.
