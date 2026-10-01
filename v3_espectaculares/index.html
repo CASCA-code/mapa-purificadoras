@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Espectaculares ZMM · v3 (paradas exactas + tráfico) — indicativo</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../vendor/leaflet.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;font:13px/1.35 system-ui,sans-serif;color:#1d2330}
+#map{position:absolute;inset:0}
+#panel{position:absolute;z-index:1000;top:8px;left:8px;width:360px;max-height:calc(100% - 16px);overflow:auto;background:#fff;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.3);padding:10px}
+#panel h1{font-size:15px;margin:0 0 2px}.mut{color:#667085;font-size:11px}
+a{color:#0b6bcb}label{display:flex;gap:6px;align-items:center;margin:3px 0}
+.sec{border-top:1px solid #eee;margin-top:7px;padding-top:7px}
+.warn{background:#fff4e5;border:1px solid #f1c27d;border-radius:6px;padding:5px 7px;font-size:11px;margin:6px 0}
+ol{margin:0;padding:0;list-style:none;max-height:300px;overflow:auto;border:1px solid #eee}
+ol li{padding:4px 5px;border-bottom:1px solid #f1f1f1;cursor:pointer;display:flex;gap:6px}
+ol li:hover{background:#f3f6fb}.rk{font-weight:700;min-width:24px;text-align:right}.sc{font-weight:700;margin-left:auto}
+.lg i{display:inline-block;width:16px;height:8px;margin-right:3px;vertical-align:middle}.lg span{margin-right:8px;white-space:nowrap}
+#tg{display:none;position:absolute;z-index:1001;top:8px;left:8px;background:#fff;border:0;border-radius:8px;padding:8px 12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.pp td{padding:1px 4px;border-bottom:1px solid #f0f0f0;vertical-align:top}.pp table{border-collapse:collapse;font-size:12px}
+.arr{font-size:20px;line-height:20px;text-align:center;font-weight:900}
+@media(max-width:700px){#panel{width:auto;right:8px;left:8px;top:auto;bottom:8px;max-height:48%}#panel.hid{display:none}#tg{display:block}}
+</style></head><body>
+<div id="map"></div><button id="tg">☰ Capas</button>
+<div id="panel">
+<h1>Espectaculares ZMM · v3</h1>
+<div class="mut"><a href="../v2/">← mapa v2</a> · paradas exactas, tráfico, dirección · <b>INDICATIVO</b></div>
+<div class="warn">Sin conteos reales de autos ni personas. Tráfico por vía = clase OSM (proxy 1–5). TomTom = indicativo, 1 día, uso interno (OD industriales; solo agregado por municipio). Pesos de juicio, no calibrados. Falta: aforos, visibilidad real (altura/ángulo), disponibilidad/renta del espectacular.</div>
+<div class="sec"><b>Capas</b>
+<label><input type="checkbox" id="l_top" checked> Paradas candidatas (top 100)</label>
+<label><input type="checkbox" id="l_all"> Todas las paradas/estaciones (tamaño ∝ score)</label>
+<label><input type="checkbox" id="l_roads"> Índice de vía 1–5 (proxy tráfico)</label>
+<label><input type="checkbox" id="l_tt"> TomTom indicativo: multiplicador pico por municipio</label>
+<label><input type="checkbox" id="l_anc"> Anclas (escuela/iglesia/hospital/banco/Oxxo)</label>
+<label><input type="checkbox" id="l_seg"> Segmentos peatonales EG-personas (top 2000, modelo)</label>
+<div class="lg mut" style="margin-top:4px"><span><i style="background:#c62828"></i>metro</span><span><i style="background:#6a1b9a"></i>BRT/Ecovía</span><span><i style="background:#ef6c00"></i>terminal</span><span><i style="background:#0b6bcb"></i>bus</span></div>
+<div class="lg mut"><span><i style="background:#999"></i>1</span><span><i style="background:#8bc34a"></i>2</span><span><i style="background:#fbc02d"></i>3</span><span><i style="background:#f57c00"></i>4</span><span><i style="background:#b71c1c"></i>5</span> clase de vía</div>
+<div class="lg mut"><span><i style="background:#ffe0b2"></i>×1.04</span><span><i style="background:#ff9800"></i>×1.15</span><span><i style="background:#bf360c"></i>×1.30+</span> mult. 07:00/18:00 vs 22:00 (TomTom indicativo)</div>
+</div>
+<div class="sec"><b>Ranking paradas candidatas</b> <span class="mut">(clic = zoom + radio + dirección)</span>
+<select id="ft" style="width:100%;margin:4px 0"><option value="">Todos los tipos</option><option>metro</option><option>brt</option><option>terminal</option><option>bus</option></select>
+<ol id="list"></ol></div>
+<div class="sec mut" id="meta"></div>
+</div>
+<script src="../vendor/leaflet.js"></script>
+<script>
+(function(){
+var map=L.map('map',{preferCanvas:true}).setView([25.69,-100.30],11);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+var COL={metro:'#c62828',brt:'#6a1b9a',terminal:'#ef6c00',bus:'#0b6bcb'};
+var RC={1:'#999',2:'#8bc34a',3:'#fbc02d',4:'#f57c00',5:'#b71c1c'};
+var G={top:L.layerGroup(),all:L.layerGroup(),roads:L.layerGroup(),tt:L.layerGroup(),anc:L.layerGroup(),seg:L.layerGroup(),sel:L.layerGroup()};
+G.top.addTo(map);G.sel.addTo(map);
+var loaded={},feats=[],markers={};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function getj(f,cb){fetch('data/'+f).then(function(r){return r.json()}).then(cb).catch(function(e){console.warn('load '+f,e)})}
+function popup(p){var an=Object.keys(p.anclas_150m||{}).map(function(k){return k+' '+p.anclas_150m[k]}).join(', ')||'—';
+ return '<div class="pp"><b>#'+p.rank+' '+esc(p.name)+'</b> <span class="mut">'+p.tipo+(p.ruta?' · '+esc(p.ruta):'')+' · '+esc(p.muni)+'</span><table>'+
+ '<tr><td>Vía</td><td>'+esc(p.via)+(p.via_ref?' ('+esc(p.via_ref)+')':'')+' · '+esc(p.via_clase)+' (≤'+p.radio_m+' m: '+p.via_dist_m+' m)</td></tr>'+
+ '<tr><td>Dirección</td><td>'+esc(p.direccion)+'</td></tr>'+
+ '<tr><td>Score</td><td><b>'+p.score+'</b> = personas '+p.personas+' × autos '+p.autos+'</td></tr>'+
+ '<tr><td>Personas</td><td>otras paradas 150 m: '+p.otras_paradas_150m+' · anclas: '+esc(an)+(p.pie_modelo!=null?' · flujo peatonal modelo: '+p.pie_modelo:'')+'</td></tr>'+
+ '<tr><td>Mult. pico</td><td>×'+p.mult_muni+' ('+esc(p.mult_fuente)+')</td></tr>'+
+ '<tr><td>Avisos</td><td class="mut">'+esc(p.flags.join(' · '))+'</td></tr></table>'+
+ '<a target="_blank" rel="noopener" href="'+p.gmaps+'">Google Maps</a> · <a target="_blank" rel="noopener" href="'+p.streetview+'">Street View</a></div>'}
+function arrow(ll,deg,col,txt){return L.marker(ll,{interactive:false,icon:L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],html:'<div class="arr" style="color:'+col+';transform:rotate('+deg+'deg)" title="'+txt+'">↑</div>'})})}
+function select(f){G.sel.clearLayers();var p=f.properties,ll=[f.geometry.coordinates[1],f.geometry.coordinates[0]];
+ L.circle(ll,{radius:p.radio_m,color:COL[p.tipo],weight:2,fillOpacity:.08}).addTo(G.sel);
+ var r=p.radio_m/111320,k=Math.cos(ll[0]*Math.PI/180);
+ function off(d,m){var a=d*Math.PI/180;return[ll[0]+Math.cos(a)*m/110574,ll[1]+Math.sin(a)*m/(111320*k)]}
+ (p.sentidos_deg||[]).forEach(function(d){arrow(off(d+180,p.radio_m*.6),d,'#111','sentido de los autos').addTo(G.sel)});
+ (p.cartel_mira_deg||[]).forEach(function(d){L.polyline([ll,off(d,p.radio_m*.8)],{color:'#2e7d32',weight:3,dashArray:'4 4'}).addTo(G.sel)});
+ map.setView(ll,Math.max(map.getZoom(),17));L.popup().setLatLng(ll).setContent(popup(p)).openOn(map)}
+function renderList(){var t=document.getElementById('ft').value,ol=document.getElementById('list');ol.innerHTML='';
+ feats.filter(function(f){return !t||f.properties.tipo===t}).forEach(function(f){var p=f.properties,li=document.createElement('li');
+  li.innerHTML='<span class="rk">'+p.rank+'</span><span><b>'+esc(p.name)+'</b><br><span class="mut">'+p.tipo+' · '+esc(p.via)+' · '+esc(p.muni)+'</span></span><span class="sc">'+p.score+'</span>';
+  li.onclick=function(){if(window.innerWidth<=700)document.getElementById('panel').classList.add('hid');select(f)};ol.appendChild(li)})}
+getj('paradas_candidatas_top100.geojson',function(d){feats=d.features;
+ feats.forEach(function(f){var p=f.properties,ll=[f.geometry.coordinates[1],f.geometry.coordinates[0]];
+  var m=L.marker(ll,{icon:L.divIcon({className:'',iconSize:[24,24],iconAnchor:[12,12],html:'<div style="width:24px;height:24px;border-radius:12px;background:'+COL[p.tipo]+';color:#fff;font:700 11px/24px system-ui;text-align:center;border:2px solid #fff;box-shadow:0 0 3px #000">'+p.rank+'</div>'})});
+  m.on('click',function(){select(f)});m.addTo(G.top)});renderList()});
+document.getElementById('ft').onchange=renderList;
+getj('manifest.json',function(m){var t=m.stops_by_type;document.getElementById('meta').innerHTML='Paradas fusionadas: '+m.n_stop_total+' (bus '+t.bus+', metro '+t.metro+', BRT '+t.brt+', terminal '+t.terminal+'). OSM '+(m.osm_snapshot||'').slice(0,10)+'. Radios: bus '+m.params.radius_bus_m+' m, estación '+m.params.radius_station_m+' m. <a href="README.md">README/método</a>'});
+var LAZY={
+ all:function(){getj('paradas_todas.json',function(a){a.forEach(function(s){L.circleMarker([s[1],s[0]],{radius:2+s[3]/25,color:COL[s[2]],weight:1,fillOpacity:.5}).bindTooltip(s[2]+' · score '+s[3]).addTo(G.all)})})},
+ roads:function(){getj('trafico_vias.geojson',function(d){L.geoJSON(d,{style:function(f){var i=f.properties.i;return{color:RC[i],weight:1+i*.7,opacity:.8}},onEachFeature:function(f,l){l.bindTooltip((f.properties.n||f.properties.r||'vía')+' · índice '+f.properties.i+' ('+f.properties.h+') · proxy, no aforo')}}).addTo(G.roads)})},
+ tt:function(){getj('tomtom_muni_indicativo.geojson',function(d){L.geoJSON(d,{style:function(f){var m=f.properties.mult;return m?{color:'#555',weight:1,fillColor:m<1.1?'#ffe0b2':m<1.2?'#ff9800':'#bf360c',fillOpacity:.35}:{color:'#999',weight:1,dashArray:'3',fillOpacity:0}},
+  onEachFeature:function(f,l){var p=f.properties,t=p.tomtom;l.bindTooltip(p.nom+(t?' · 07:00 ×'+t.f0700+' · 08:00 ×'+t.f0800+' · 18:00 ×'+t.f1800+' vs 22:00 (mediana de '+t.n_pares+' pares OD) — TomTom indicativo, 1 día, uso interno':' · sin dato TomTom (se usa total ZMM)'),{sticky:true})}}).addTo(G.tt)})},
+ anc:function(){var C={escuela:'#1565c0',iglesia:'#6d4c41',hospital:'#d32f2f',banco:'#2e7d32',oxxo:'#f9a825',express:'#8e24aa'};getj('anclas_flujo.json',function(a){a.forEach(function(s){L.circleMarker([s[1],s[0]],{radius:3,color:C[s[2]]||'#555',weight:1,fillOpacity:.6}).bindTooltip(s[2]).addTo(G.anc)})})},
+ seg:function(){getj('segmentos_personas_top.json',function(a){a.forEach(function(s){L.circleMarker([s[1],s[0]],{radius:3,color:'#00897b',weight:1,fillOpacity:.5}).bindTooltip((s[4]||'calle')+' · score modelo '+s[2]+' (no conteo)').addTo(G.seg)})})}};
+['top','all','roads','tt','anc','seg'].forEach(function(k){var cb=document.getElementById('l_'+k);cb.onchange=function(){
+ if(cb.checked){if(LAZY[k]&&!loaded[k]){loaded[k]=1;LAZY[k]()}G[k].addTo(map)}else map.removeLayer(G[k])}});
+document.getElementById('tg').onclick=function(){document.getElementById('panel').classList.toggle('hid')};
+})();
+</script></body></html>

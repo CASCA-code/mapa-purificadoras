@@ -30,6 +30,7 @@
   "top_n": 100
  },
  "n_stops_merged": 2114,
+ "n_stop_total": 2114,
  "stops_by_type": {
   "bus": 1961,
   "brt": 61,

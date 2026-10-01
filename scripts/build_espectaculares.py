@@ -326,7 +326,7 @@ for rank, i in enumerate(chosen, 1):
     lat, lon = s["lat"], s["lon"]
     props = {"rank": rank, "id": s["osm_id"] or f"{s['src']}-{rank}", "name": s["name"] or "(sin nombre)", "tipo": s["type"], "ruta": s["route_ref"] or s["ref"] or s["network"],
              "muni": s["muni"], "radio_m": s["radius"], "via": (top["name"] or top["ref"] or "(sin nombre)") if top else "", "via_ref": top["ref"] if top else "",
-             "via_clase": IDXTXT[s["road_idx"]], "via_idx": s["road_idx"], "via_dist_m": round(top["dist"]) if top else None, "direccion": dr["txt"], "modo": dr["modo"],
+             "via_clase": IDXTXT[s["road_idx"]], "via_idx": s["road_idx"], "via_dist_m": round(top["dist"]) if top else None, "direccion": dr["txt"], "modo": dr["modo"], "sentidos_deg": dr.get("sentidos_deg", []), "cartel_mira_deg": dr.get("cartel_mira_deg", []),
              "otras_vias": others, "score": s["score"], "personas": round(s["people"], 3), "personas_densidad_pct": round(s["people_idx"], 3),
              "pie_modelo": s["pie"][0] if s["pie"] else None, "otras_paradas_150m": s["n_other_stops"], "anclas_150m": s["anchors"],
              "autos": round(s["cars"], 3), "mult_muni": s["mult"], "mult_fuente": "TomTom indicativo" if s["mult_tomtom"] else "total ZMM TomTom (muni sin dato)",
@@ -358,7 +358,7 @@ for f in mf["features"]:
     f["geometry"] = json.loads(json.dumps(f["geometry"]))
 json.dump(mf, open(os.path.join(OUT, "tomtom_muni_indicativo.geojson"), "w"), ensure_ascii=False, separators=(",", ":"))
 tt_pub = {k: v for k, v in tt.items()}
-manifest = {"generated_by": "scripts/build_espectaculares.py", "params": PARAMS, "n_stops_merged": len(allstops),
+manifest = {"generated_by": "scripts/build_espectaculares.py", "params": PARAMS, "n_stops_merged": len(allstops), "n_stop_total": len(allstops),
             "stops_by_type": {t: sum(1 for s in allstops if s["type"] == t) for t in ("bus", "brt", "metro", "terminal")},
             "stops_by_source": {k: sum(1 for s in allstops if s["src"] == k) for k in ("osm", "anclas_osm", "places")},
             "n_station_clusters": n_station_clusters, "anchors": len(anch), "road_edges": {"osm_major": n_major, "local": len(road_geoms) - n_major},
