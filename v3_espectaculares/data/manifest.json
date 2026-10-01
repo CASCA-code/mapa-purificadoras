@@ -1,0 +1,163 @@
+{
+ "generated_by": "scripts/build_espectaculares.py",
+ "params": {
+  "radius_bus_m": 80,
+  "radius_station_m": 150,
+  "people_radius_m": 150,
+  "w_stop_self": {
+   "bus": 1.0,
+   "brt": 2.0,
+   "metro": 3.0,
+   "terminal": 3.0
+  },
+  "w_other_stop": 1.0,
+  "w_anchor": {
+   "escuela": 1.0,
+   "iglesia": 1.0,
+   "hospital": 1.0,
+   "banco": 1.0,
+   "oxxo": 1.0,
+   "express": 1.0
+  },
+  "w_people_density": 0.6,
+  "w_people_pie": 0.4,
+  "pie_max_m": 80,
+  "cap_other_stops": 15,
+  "cap_anchors": 15,
+  "dedupe_cross_source_m": 20,
+  "station_cluster_m": 200,
+  "nms_m": 200,
+  "top_n": 100
+ },
+ "n_stops_merged": 2114,
+ "stops_by_type": {
+  "bus": 1961,
+  "brt": 61,
+  "metro": 56,
+  "terminal": 36
+ },
+ "stops_by_source": {
+  "osm": 779,
+  "anclas_osm": 8,
+  "places": 1327
+ },
+ "n_station_clusters": 149,
+ "anchors": 2726,
+ "road_edges": {
+  "osm_major": 16562,
+  "local": 5067
+ },
+ "tomtom_aggregates_by_municipio": {
+  "Saltillo": {
+   "n_pares": 12,
+   "f0600": 1.018,
+   "f0700": 1.039,
+   "f0800": 1.063,
+   "f1300": 1.059,
+   "f1800": 1.148
+  },
+  "García": {
+   "n_pares": 21,
+   "f0600": 1.047,
+   "f0700": 1.169,
+   "f0800": 1.226,
+   "f1300": 1.122,
+   "f1800": 1.273
+  },
+  "Ramos Arizpe": {
+   "n_pares": 15,
+   "f0600": 1.037,
+   "f0700": 1.091,
+   "f0800": 1.142,
+   "f1300": 1.15,
+   "f1800": 1.209
+  },
+  "Ciénega de Flores": {
+   "n_pares": 14,
+   "f0600": 1.04,
+   "f0700": 1.126,
+   "f0800": 1.17,
+   "f1300": 1.13,
+   "f1800": 1.209
+  },
+  "Apodaca": {
+   "n_pares": 42,
+   "f0600": 1.075,
+   "f0700": 1.209,
+   "f0800": 1.251,
+   "f1300": 1.144,
+   "f1800": 1.255
+  },
+  "Pesquería": {
+   "n_pares": 21,
+   "f0600": 1.08,
+   "f0700": 1.11,
+   "f0800": 1.123,
+   "f1300": 1.074,
+   "f1800": 1.159
+  },
+  "Santa Catarina": {
+   "n_pares": 35,
+   "f0600": 1.061,
+   "f0700": 1.179,
+   "f0800": 1.216,
+   "f1300": 1.12,
+   "f1800": 1.29
+  },
+  "Salinas Victoria": {
+   "n_pares": 21,
+   "f0600": 1.051,
+   "f0700": 1.134,
+   "f0800": 1.188,
+   "f1300": 1.133,
+   "f1800": 1.237
+  },
+  "General Escobedo": {
+   "n_pares": 14,
+   "f0600": 1.038,
+   "f0700": 1.146,
+   "f0800": 1.217,
+   "f1300": 1.179,
+   "f1800": 1.465
+  },
+  "Arteaga": {
+   "n_pares": 4,
+   "f0600": 1.042,
+   "f0700": 1.145,
+   "f0800": 1.18,
+   "f1300": 1.11,
+   "f1800": 1.211
+  },
+  "Juárez": {
+   "n_pares": 14,
+   "f0600": 1.033,
+   "f0700": 1.071,
+   "f0800": 1.11,
+   "f1300": 1.075,
+   "f1800": 1.214
+  },
+  "Guadalupe": {
+   "n_pares": 7,
+   "f0600": 1.045,
+   "f0700": 1.186,
+   "f0800": 1.22,
+   "f1300": 1.106,
+   "f1800": 1.484
+  },
+  "Escobedo/Zuazua": {
+   "n_pares": 7,
+   "f0600": 1.053,
+   "f0700": 1.156,
+   "f0800": 1.21,
+   "f1300": 1.095,
+   "f1800": 1.235
+  },
+  "_ZMM_total": {
+   "n_pares": 227,
+   "f0700": 1.134,
+   "f1800": 1.248
+  }
+ },
+ "tomtom_note": "TomTom indicativo, 1 día (mar 2026-10-06 perfil histórico), uso interno. OD industriales, NO conteos por vía.",
+ "osm_snapshot": "2026-07-28T02:16:18Z"
+}
