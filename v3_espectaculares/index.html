@@ -46,7 +46,7 @@ ol li:hover{background:#f3f6fb}.rk{font-weight:700;min-width:24px;text-align:rig
 <script>
 (function(){
 var map=L.map('map',{preferCanvas:true}).setView([25.69,-100.30],11);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'}).addTo(map);
 var COL={metro:'#c62828',brt:'#6a1b9a',terminal:'#ef6c00',bus:'#0b6bcb'};
 var RC={1:'#999',2:'#8bc34a',3:'#fbc02d',4:'#f57c00',5:'#b71c1c'};
 var G={top:L.layerGroup(),all:L.layerGroup(),roads:L.layerGroup(),tt:L.layerGroup(),anc:L.layerGroup(),seg:L.layerGroup(),sel:L.layerGroup()};
