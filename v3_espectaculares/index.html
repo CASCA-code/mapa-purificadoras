@@ -1,57 +1,95 @@
 <!doctype html>
 <html lang="es"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Espectaculares ZMM · v3 (paradas exactas + tráfico) — indicativo</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../vendor/leaflet.css">
 <style>
-*{box-sizing:border-box}html,body{margin:0;height:100%;font:13px/1.35 system-ui,sans-serif;color:#1d2330}
+:root{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--r:12px;--r-sm:8px;--ink:#1d2330;--mut:#5b6577;--line:#e4e7ec;--brand:#0b5cb0;--card:#f7f9fc;--shadow:0 2px 12px rgba(16,24,40,.22);--t:.18s}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font:14px/20px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);font-variant-numeric:tabular-nums}
 #map{position:absolute;inset:0}
-#panel{position:absolute;z-index:1000;top:8px;left:8px;width:360px;max-height:calc(100% - 16px);overflow:auto;background:#fff;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.3);padding:10px}
-#panel h1{font-size:15px;margin:0 0 2px}.mut{color:#667085;font-size:11px}
-a{color:#0b6bcb}label{display:flex;gap:6px;align-items:center;margin:3px 0}
-.sec{border-top:1px solid #eee;margin-top:7px;padding-top:7px}
-.warn{background:#fff4e5;border:1px solid #f1c27d;border-radius:6px;padding:5px 7px;font-size:11px;margin:6px 0}
-ol{margin:0;padding:0;list-style:none;max-height:300px;overflow:auto;border:1px solid #eee}
-ol li{padding:4px 5px;border-bottom:1px solid #f1f1f1;cursor:pointer;display:flex;gap:6px}
-ol li:hover{background:#f3f6fb}.rk{font-weight:700;min-width:24px;text-align:right}.sc{font-weight:700;margin-left:auto}
-.lg i{display:inline-block;width:16px;height:8px;margin-right:3px;vertical-align:middle}.lg span{margin-right:8px;white-space:nowrap}
-#tg{display:none;position:absolute;z-index:1001;top:8px;left:8px;background:#fff;border:0;border-radius:8px;padding:8px 12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-.pp td{padding:1px 4px;border-bottom:1px solid #f0f0f0;vertical-align:top}.pp table{border-collapse:collapse;font-size:12px}
+#panel{position:absolute;z-index:1000;top:var(--s3);left:var(--s3);width:380px;max-width:calc(100% - var(--s5));max-height:calc(100% - var(--s5));overflow:auto;overscroll-behavior:contain;background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
+h1{font-size:18px;line-height:24px;font-weight:700;margin:0;text-wrap:balance}
+h2{font-size:14px;line-height:20px;font-weight:700;margin:0;text-wrap:balance}
+.mut{color:var(--mut);font-size:12px;line-height:16px;text-wrap:pretty}
+p{margin:0}
+a{color:var(--brand);text-underline-offset:2px}
+a:hover{color:#08427f}a:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:2px}
+.back{display:inline-flex;align-items:center;min-height:44px;margin:calc(-1*var(--s2)) 0}
+.warn{background:#fff7e0;border:1px solid #e9c96b;border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px;line-height:16px;text-wrap:pretty}
+.sec{border-top:1px solid var(--line);padding-top:var(--s3);display:flex;flex-direction:column;gap:var(--s2)}
+label.tg{display:flex;gap:var(--s3);align-items:center;min-height:44px;padding:0 var(--s2);margin:0 calc(-1*var(--s2));border-radius:var(--r-sm);cursor:pointer;transition:background-color var(--t)}
+label.tg:hover{background:var(--card)}label.tg:active{background:#eaf0f8}
+label.tg input{width:20px;height:20px;margin:0;flex:none;accent-color:var(--brand)}
+label.tg:has(input:focus-visible){outline:2px solid var(--brand);outline-offset:-2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--s3);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3{font-size:12px;line-height:16px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);margin:0}
+.lg{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s3);font-size:12px;line-height:16px;color:var(--mut)}
+.lg span{display:inline-flex;align-items:center;gap:var(--s1);white-space:nowrap}
+.lg i{display:inline-block;width:16px;height:8px;border-radius:2px;flex:none}
+.lg-s{display:block;flex-basis:100%}
+select{width:100%;min-height:44px;padding:0 var(--s3);font:inherit;color:var(--ink);background:#fff;border:1px solid #c5ccd8;border-radius:var(--r-sm);transition:border-color var(--t)}
+select:hover{border-color:#8794aa}select:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+ol{margin:0;padding:0;list-style:none;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:var(--r-sm)}
+ol li{padding:var(--s2) var(--s3);min-height:44px;border-bottom:1px solid #eef0f4;cursor:pointer;display:flex;align-items:center;gap:var(--s3);transition:background-color var(--t)}
+ol li:last-child{border-bottom:0}
+ol li:hover{background:#f1f5fb}ol li:active{background:#e3ebf7}
+ol li:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+.rk{font-weight:700;min-width:28px;text-align:right}.sc{font-weight:700;margin-left:auto}
+button{font:inherit;color:inherit}
+#tg{display:none;position:absolute;z-index:1001;top:var(--s3);left:var(--s3);min-width:44px;min-height:44px;background:#fff;border:0;border-radius:var(--r-sm);padding:0 var(--s4);font-weight:700;box-shadow:var(--shadow);cursor:pointer;transition:background-color var(--t)}
+#tg:hover{background:#eaf0f8}#tg:active{background:#dbe5f3}#tg:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+#meta a{display:inline-flex;align-items:center;min-height:44px}
+.pp{min-width:220px}.pp table{border-collapse:collapse;font-size:12px;line-height:16px}
+.pp td{padding:var(--s1) var(--s2) var(--s1) 0;border-bottom:1px solid #f0f0f0;vertical-align:top}
+.pp .links{display:flex;gap:var(--s3);margin-top:var(--s2)}
+.pp .links a{display:inline-flex;align-items:center;min-height:44px}
 .arr{font-size:20px;line-height:20px;text-align:center;font-weight:900}
-@media(max-width:700px){#panel{width:auto;right:8px;left:8px;top:auto;bottom:8px;max-height:48%}#panel.hid{display:none}#tg{display:block}}
+.pin{width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.pin b{width:24px;height:24px;border-radius:12px;color:#fff;font:700 12px/24px system-ui,sans-serif;text-align:center;border:2px solid #fff;box-shadow:0 0 3px #000}
+.leaflet-container a:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+@media (pointer:coarse){.leaflet-touch .leaflet-bar a{width:44px;height:44px;line-height:44px}.leaflet-touch .leaflet-bar a.leaflet-control-zoom-in,.leaflet-touch .leaflet-bar a.leaflet-control-zoom-out{font-size:24px}.leaflet-popup-close-button{width:44px!important;height:44px!important;font-size:24px!important;line-height:44px!important}}
+@media (max-width:700px){#panel{width:auto;right:var(--s2);left:var(--s2);top:auto;bottom:var(--s2);max-height:50%;padding:var(--s3)}#panel.hid{display:none}#tg{display:block}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style></head><body>
-<div id="map"></div><button id="tg">☰ Capas</button>
-<div id="panel">
+<div id="map"></div><button id="tg" type="button" aria-controls="panel" aria-expanded="true">☰ Capas</button>
+<div id="panel" role="region" aria-label="Capas y ranking de paradas">
 <h1>Espectaculares ZMM · v3</h1>
-<div class="mut"><a href="../v2/">← mapa v2</a> · paradas exactas, tráfico, dirección · <b>INDICATIVO</b></div>
-<div class="warn">Sin conteos reales de autos ni personas. Tráfico por vía = clase OSM (proxy 1–5). TomTom = indicativo, 1 día, uso interno (OD industriales; solo agregado por municipio). Pesos de juicio, no calibrados. Falta: aforos, visibilidad real (altura/ángulo), disponibilidad/renta del espectacular.</div>
-<div class="sec"><b>Capas</b>
-<label><input type="checkbox" id="l_top" checked> Paradas candidatas (top 100)</label>
-<label><input type="checkbox" id="l_all"> Todas las paradas/estaciones (tamaño ∝ score)</label>
-<label><input type="checkbox" id="l_roads"> Índice de vía 1–5 (proxy tráfico)</label>
-<label><input type="checkbox" id="l_tt"> TomTom indicativo: multiplicador pico por municipio</label>
-<label><input type="checkbox" id="l_anc"> Anclas (escuela/iglesia/hospital/banco/Oxxo)</label>
-<label><input type="checkbox" id="l_seg"> Segmentos peatonales EG-personas (top 2000, modelo)</label>
-<div class="lg mut" style="margin-top:4px"><span><i style="background:#c62828"></i>metro</span><span><i style="background:#6a1b9a"></i>BRT/Ecovía</span><span><i style="background:#ef6c00"></i>terminal</span><span><i style="background:#0b6bcb"></i>bus</span></div>
-<div class="lg mut"><span><i style="background:#999"></i>1</span><span><i style="background:#8bc34a"></i>2</span><span><i style="background:#fbc02d"></i>3</span><span><i style="background:#f57c00"></i>4</span><span><i style="background:#b71c1c"></i>5</span> clase de vía</div>
-<div class="lg mut"><span><i style="background:#ffe0b2"></i>×1.04</span><span><i style="background:#ff9800"></i>×1.15</span><span><i style="background:#bf360c"></i>×1.30+</span> mult. 07:00/18:00 vs 22:00 (TomTom indicativo)</div>
+<p class="mut"><a class="back" href="../v2/">← mapa v2</a> · paradas exactas, tráfico y dirección · <b>INDICATIVO</b></p>
+<p class="warn">Sin conteos reales de autos ni personas. Tráfico por vía = clase OSM (proxy 1–5). TomTom = indicativo, 1 día, uso interno (OD industriales; solo agregado por municipio). Pesos de juicio, no calibrados. Falta: aforos, visibilidad real (altura y ángulo), disponibilidad y renta del espectacular.</p>
+<div class="sec"><h2>Capas</h2>
+<label class="tg"><input type="checkbox" id="l_top" checked> Paradas candidatas (top 100)</label>
+<label class="tg"><input type="checkbox" id="l_all"> Todas las paradas/estaciones (tamaño ∝ score)</label>
+<label class="tg"><input type="checkbox" id="l_roads"> Índice de vía 1–5 (proxy tráfico)</label>
+<label class="tg"><input type="checkbox" id="l_tt"> TomTom indicativo: multiplicador pico por municipio</label>
+<label class="tg"><input type="checkbox" id="l_anc"> Anclas (escuela/iglesia/hospital/banco/Oxxo)</label>
+<label class="tg"><input type="checkbox" id="l_seg"> Segmentos peatonales EG-personas (top 2000, modelo)</label>
+<section class="card" aria-labelledby="legt"><h3 id="legt">Leyenda</h3>
+<div class="lg"><span><i style="background:#c62828"></i>metro</span><span><i style="background:#6a1b9a"></i>BRT/Ecovía</span><span><i style="background:#ef6c00"></i>terminal</span><span><i style="background:#0b6bcb"></i>bus</span></div>
+<div class="lg"><span><i style="background:#999"></i>1</span><span><i style="background:#8bc34a"></i>2</span><span><i style="background:#fbc02d"></i>3</span><span><i style="background:#f57c00"></i>4</span><span><i style="background:#b71c1c"></i>5</span><span class="lg-s">clase de vía</span></div>
+<div class="lg"><span><i style="background:#ffe0b2"></i>×1.04</span><span><i style="background:#ff9800"></i>×1.15</span><span><i style="background:#bf360c"></i>×1.30+</span><span class="lg-s">mult. 07:00/18:00 vs 22:00 (TomTom indicativo)</span></div>
+</section>
 </div>
-<div class="sec"><b>Ranking paradas candidatas</b> <span class="mut">(clic = zoom + radio + dirección)</span>
-<select id="ft" style="width:100%;margin:4px 0"><option value="">Todos los tipos</option><option>metro</option><option>brt</option><option>terminal</option><option>bus</option></select>
+<div class="sec"><h2>Ranking paradas candidatas</h2><p class="mut">Toca una fila para acercar y ver radio y dirección.</p>
+<label for="ft" class="mut">Tipo de parada</label>
+<select id="ft"><option value="">Todos los tipos</option><option>metro</option><option>brt</option><option>terminal</option><option>bus</option></select>
 <ol id="list"></ol></div>
 <div class="sec mut" id="meta"></div>
 </div>
 <script src="../vendor/leaflet.js"></script>
 <script>
 (function(){
-var map=L.map('map',{preferCanvas:true}).setView([25.69,-100.30],11);
+var RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var map=L.map('map',{preferCanvas:true,zoomControl:false,zoomAnimation:!RM,fadeAnimation:!RM,markerZoomAnimation:!RM}).setView([25.69,-100.30],11);
+L.control.zoom({position:'topright',zoomInTitle:'Acercar',zoomOutTitle:'Alejar'}).addTo(map);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap contributors'}).addTo(map);
 var COL={metro:'#c62828',brt:'#6a1b9a',terminal:'#ef6c00',bus:'#0b6bcb'};
 var RC={1:'#999',2:'#8bc34a',3:'#fbc02d',4:'#f57c00',5:'#b71c1c'};
 var G={top:L.layerGroup(),all:L.layerGroup(),roads:L.layerGroup(),tt:L.layerGroup(),anc:L.layerGroup(),seg:L.layerGroup(),sel:L.layerGroup()};
 G.top.addTo(map);G.sel.addTo(map);
 var loaded={},feats=[],markers={};
+function setPanel(open){var pn=document.getElementById('panel'),t=document.getElementById('tg');pn.classList.toggle('hid',!open);t.setAttribute('aria-expanded',open)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function getj(f,cb){fetch('data/'+f).then(function(r){return r.json()}).then(cb).catch(function(e){console.warn('load '+f,e)})}
 function popup(p){var an=Object.keys(p.anclas_150m||{}).map(function(k){return k+' '+p.anclas_150m[k]}).join(', ')||'—';
@@ -62,7 +100,7 @@ function popup(p){var an=Object.keys(p.anclas_150m||{}).map(function(k){return k
  '<tr><td>Personas</td><td>otras paradas 150 m: '+p.otras_paradas_150m+' · anclas: '+esc(an)+(p.pie_modelo!=null?' · flujo peatonal modelo: '+p.pie_modelo:'')+'</td></tr>'+
  '<tr><td>Mult. pico</td><td>×'+p.mult_muni+' ('+esc(p.mult_fuente)+')</td></tr>'+
  '<tr><td>Avisos</td><td class="mut">'+esc(p.flags.join(' · '))+'</td></tr></table>'+
- '<a target="_blank" rel="noopener" href="'+p.gmaps+'">Google Maps</a> · <a target="_blank" rel="noopener" href="'+p.streetview+'">Street View</a></div>'}
+ '<div class="links"><a target="_blank" rel="noopener" href="'+p.gmaps+'">Google Maps</a><a target="_blank" rel="noopener" href="'+p.streetview+'">Street View</a></div></div>'}
 function arrow(ll,deg,col,txt){return L.marker(ll,{interactive:false,icon:L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],html:'<div class="arr" style="color:'+col+';transform:rotate('+deg+'deg)" title="'+txt+'">↑</div>'})})}
 function select(f){G.sel.clearLayers();var p=f.properties,ll=[f.geometry.coordinates[1],f.geometry.coordinates[0]];
  L.circle(ll,{radius:p.radio_m,color:COL[p.tipo],weight:2,fillOpacity:.08}).addTo(G.sel);
@@ -74,10 +112,12 @@ function select(f){G.sel.clearLayers();var p=f.properties,ll=[f.geometry.coordin
 function renderList(){var t=document.getElementById('ft').value,ol=document.getElementById('list');ol.innerHTML='';
  feats.filter(function(f){return !t||f.properties.tipo===t}).forEach(function(f){var p=f.properties,li=document.createElement('li');
   li.innerHTML='<span class="rk">'+p.rank+'</span><span><b>'+esc(p.name)+'</b><br><span class="mut">'+p.tipo+' · '+esc(p.via)+' · '+esc(p.muni)+'</span></span><span class="sc">'+p.score+'</span>';
-  li.onclick=function(){if(window.innerWidth<=700)document.getElementById('panel').classList.add('hid');select(f)};ol.appendChild(li)})}
+  li.tabIndex=0;li.setAttribute('role','button');
+  function go(){if(window.innerWidth<=700)setPanel(false);select(f)}
+  li.onclick=go;li.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}};ol.appendChild(li)})}
 getj('paradas_candidatas_top100.geojson',function(d){feats=d.features;
  feats.forEach(function(f){var p=f.properties,ll=[f.geometry.coordinates[1],f.geometry.coordinates[0]];
-  var m=L.marker(ll,{icon:L.divIcon({className:'',iconSize:[24,24],iconAnchor:[12,12],html:'<div style="width:24px;height:24px;border-radius:12px;background:'+COL[p.tipo]+';color:#fff;font:700 11px/24px system-ui;text-align:center;border:2px solid #fff;box-shadow:0 0 3px #000">'+p.rank+'</div>'})});
+  var m=L.marker(ll,{icon:L.divIcon({className:'',iconSize:[44,44],iconAnchor:[22,22],html:'<div class="pin"><b style="background:'+COL[p.tipo]+'">'+p.rank+'</b></div>'})});
   m.on('click',function(){select(f)});m.addTo(G.top)});renderList()});
 document.getElementById('ft').onchange=renderList;
 getj('manifest.json',function(m){var t=m.stops_by_type;document.getElementById('meta').innerHTML='Paradas fusionadas: '+m.n_stop_total+' (bus '+t.bus+', metro '+t.metro+', BRT '+t.brt+', terminal '+t.terminal+'). OSM '+(m.osm_snapshot||'').slice(0,10)+'. Radios: bus '+m.params.radius_bus_m+' m, estación '+m.params.radius_station_m+' m. <a href="README.md">README/método</a>'});
@@ -90,6 +130,6 @@ var LAZY={
  seg:function(){getj('segmentos_personas_top.json',function(a){a.forEach(function(s){L.circleMarker([s[1],s[0]],{radius:3,color:'#00897b',weight:1,fillOpacity:.5}).bindTooltip((s[4]||'calle')+' · score modelo '+s[2]+' (no conteo)').addTo(G.seg)})})}};
 ['top','all','roads','tt','anc','seg'].forEach(function(k){var cb=document.getElementById('l_'+k);cb.onchange=function(){
  if(cb.checked){if(LAZY[k]&&!loaded[k]){loaded[k]=1;LAZY[k]()}G[k].addTo(map)}else map.removeLayer(G[k])}});
-document.getElementById('tg').onclick=function(){document.getElementById('panel').classList.toggle('hid')};
+document.getElementById('tg').onclick=function(){setPanel(document.getElementById('panel').classList.contains('hid'))};
 })();
 </script></body></html>

@@ -8,41 +8,73 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../vendor/leaflet.css">
 <style>
-*{box-sizing:border-box}html,body{margin:0;height:100%;font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1d2330}
+:root{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--r:12px;--r-sm:8px;--ink:#1d2330;--mut:#5b6577;--line:#e4e7ec;--brand:#1d4f91;--card:#f7f9fc;--shadow:0 2px 12px rgba(16,24,40,.22);--t:.18s}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font:14px/20px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);font-variant-numeric:tabular-nums}
 #map{position:absolute;inset:0}
-#panel{position:absolute;z-index:1000;top:10px;left:10px;width:330px;max-width:calc(100% - 20px);background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.25);padding:10px 12px}
-#panel h1{font-size:15px;margin:0 0 4px}.sub{color:#667085;font-size:12px;margin-bottom:6px}
-.warn{background:#fff7e0;border:1px solid #f0d78c;border-radius:8px;padding:6px 8px;font-size:12px;margin:6px 0}
-label.tg{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer;font-size:13px}
-.leg{margin-top:8px}.leg div{display:flex;align-items:center;gap:6px;font-size:12px;margin:2px 0}.leg i{display:inline-block;width:22px;height:12px;border:1px solid rgba(0,0,0,.25)}
-.note{font-size:11px;color:#667085}
-#stats{font-size:12px;margin-top:6px}
+#panel{position:absolute;z-index:1000;top:var(--s3);left:var(--s3);width:360px;max-width:calc(100% - var(--s5));max-height:calc(100% - var(--s5));overflow:auto;overscroll-behavior:contain;background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
+h1{font-size:18px;line-height:24px;font-weight:700;margin:0;text-wrap:balance}
+.sub,.note{font-size:12px;line-height:16px;color:var(--mut);margin:0;text-wrap:pretty}
+.sub b{color:var(--ink)}
+.warn{background:#fff7e0;border:1px solid #e9c96b;border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px;line-height:16px;margin:0;text-wrap:pretty}
+.opts{display:flex;flex-direction:column}
+label.tg{display:flex;align-items:center;gap:var(--s3);min-height:44px;padding:0 var(--s2);margin:0 calc(-1*var(--s2));border-radius:var(--r-sm);cursor:pointer;transition:background-color var(--t)}
+label.tg:hover{background:var(--card)}
+label.tg:active{background:#eaf0f8}
+label.tg input{width:20px;height:20px;margin:0;flex:none;accent-color:var(--brand)}
+label.tg:has(input:focus-visible){outline:2px solid var(--brand);outline-offset:-2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--s3)}
+.card h2{font-size:12px;line-height:16px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);margin:0 0 var(--s2)}
+.leg{display:flex;flex-direction:column;gap:var(--s1)}
+.leg div{display:flex;align-items:center;gap:var(--s3);font-size:12px;line-height:20px}
+.leg i{display:inline-block;width:24px;height:12px;border-radius:2px;border:1px solid rgba(0,0,0,.25);flex:none}
+#stats{font-size:12px;line-height:16px}
+button{font:inherit;color:inherit}
+#tg{display:none;position:absolute;z-index:1001;top:var(--s3);left:var(--s3);min-width:44px;min-height:44px;padding:0 var(--s4);background:#fff;border:0;border-radius:var(--r-sm);font-weight:700;box-shadow:var(--shadow);cursor:pointer;transition:background-color var(--t)}
+#hide{display:none;min-height:44px;padding:0 var(--s4);background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);font-weight:600;cursor:pointer;transition:background-color var(--t)}
+#tg:hover,#hide:hover{background:#eaf0f8}#tg:active,#hide:active{background:#dbe5f3}
+#tg:focus-visible,#hide:focus-visible,#panel:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.leaflet-bar a,.leaflet-bar a:hover{transition:background-color var(--t)}
+.leaflet-container a:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+@media (pointer:coarse){.leaflet-touch .leaflet-bar a{width:44px;height:44px;line-height:44px}.leaflet-touch .leaflet-bar a.leaflet-control-zoom-in,.leaflet-touch .leaflet-bar a.leaflet-control-zoom-out{font-size:24px}.leaflet-popup-close-button{width:44px!important;height:44px!important;font-size:24px!important;line-height:44px!important}}
+@media (max-width:700px){
+#panel.hid{display:none}
+#panel{top:auto;left:var(--s2);right:var(--s2);bottom:var(--s2);width:auto;max-width:none;max-height:50%;padding:var(--s3)}
+#tg,#hide{display:block}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
 <div id="map"></div>
-<div id="panel">
+<button id="tg" type="button" aria-controls="panel" aria-expanded="true">☰ Capas</button>
+<div id="panel" role="region" aria-label="Capas y leyenda" tabindex="-1">
   <h1>Competencia de garrafón ≤300 m</h1>
-  <div class="sub">Capa <b>interna</b> · celdas de 100 m · conteo de competidores a ≤300 m del centro de celda</div>
-  <div class="warn"><b>Indicativo, competencia subcontada.</b> Sólo DENUE 312112 + Places (competencia_v3) + OSM agua (nuevos &gt;30 m). Informales y puestos sin ficha no se ven: un «0» no prueba que no haya competencia (ver docs/COMPETENCIA_CERO.md).</div>
-  <label class="tg"><input type="checkbox" id="tHeat" checked> Celdas de competencia</label>
-  <label class="tg"><input type="checkbox" id="tCero" checked> Celdas con 0 en colonias +300 m (verde claro)</label>
-  <label class="tg"><input type="checkbox" id="tCol" checked> Contorno de las 167 colonias</label>
-  <label class="tg"><input type="checkbox" id="tPts"> Puntos competidores (competencia_v3)</label>
-  <label class="tg"><input type="checkbox" id="tOsm" checked> Puntos OSM agua (nuevos)</label>
-  <div class="leg" id="leg"></div>
-  <div id="stats" class="note">Cargando…</div>
-  <div class="note" style="margin-top:6px">Base: Esri World Street Map. Datos: DENUE/INEGI, Google Places (competencia_v3), © OpenStreetMap contributors (ODbL). Página no enlazada desde el hub.</div>
+  <p class="sub">Capa <b>interna</b>. Celdas de 100 m; cuenta competidores a ≤300 m del centro de cada celda.</p>
+  <p class="warn"><b>Indicativo, competencia subcontada.</b> Solo DENUE 312112, Places (competencia_v3) y OSM agua (nuevos &gt;30 m). Los informales y puestos sin ficha no se ven: un «0» no prueba que no haya competencia (ver docs/COMPETENCIA_CERO.md).</p>
+  <div class="opts">
+    <label class="tg"><input type="checkbox" id="tHeat" checked> Celdas de competencia</label>
+    <label class="tg"><input type="checkbox" id="tCero" checked> Celdas con 0 en colonias +300 m (verde claro)</label>
+    <label class="tg"><input type="checkbox" id="tCol" checked> Contorno de las 167 colonias</label>
+    <label class="tg"><input type="checkbox" id="tPts"> Puntos competidores (competencia_v3)</label>
+    <label class="tg"><input type="checkbox" id="tOsm" checked> Puntos OSM agua (nuevos)</label>
+  </div>
+  <section class="card" aria-labelledby="legt"><h2 id="legt">Leyenda</h2><div class="leg" id="leg"></div></section>
+  <p id="stats" class="note" role="status">Cargando…</p>
+  <p class="note">Base: Esri World Street Map. Datos: DENUE/INEGI, Google Places (competencia_v3), © OpenStreetMap contributors (ODbL). Página no enlazada desde el hub.</p>
+  <button id="hide" type="button">Ocultar panel</button>
 </div>
 <script src="../vendor/leaflet.js"></script>
 <script>
 (function(){
-var map=L.map('map',{preferCanvas:true}).setView([25.72,-100.30],11);
+var RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var map=L.map('map',{preferCanvas:true,zoomControl:false,zoomAnimation:!RM,fadeAnimation:!RM,markerZoomAnimation:!RM}).setView([25.72,-100.30],11);
+L.control.zoom({position:'topright',zoomInTitle:'Acercar',zoomOutTitle:'Alejar'}).addTo(map);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'}).addTo(map);
 var COLORS={0:'rgba(120,200,120,0.18)',1:'rgba(255,230,80,0.60)',2:'rgba(255,170,40,0.70)',3:'rgba(240,90,40,0.75)',4:'rgba(190,20,40,0.80)'};
 function colorFor(n){return COLORS[n>=4?4:n];}
 var leg=document.getElementById('leg');
-[[0,'0 (en colonias +300 m)'],[1,'1 competidor ≤300 m'],[2,'2'],[3,'3'],[4,'4 o más']].forEach(function(a){var d=document.createElement('div');d.innerHTML='<i style="background:'+COLORS[a[0]]+'"></i>'+a[1];leg.appendChild(d);});
+[[0,'0 (en colonias +300 m)'],[1,'1 competidor ≤300 m'],[2,'2'],[3,'3'],[4,'4 o más']].forEach(function(a){var d=document.createElement('div');var sw=document.createElement('i');sw.style.background=COLORS[a[0]];d.appendChild(sw);d.appendChild(document.createTextNode(a[1]));leg.appendChild(d);});
 var cells=[],DLAT=50/110574,DLON=50/(111320*Math.cos(25.7*Math.PI/180));
 var showHeat=true,showCero=true;
 var Heat=L.GridLayer.extend({createTile:function(c){
@@ -67,6 +99,10 @@ fetch('data/heat_competencia_300m.csv').then(function(r){if(!r.ok)throw new Erro
 jget('data/colonias_v3.geojson').then(function(g){L.geoJSON(g,{style:{color:'#1d4f91',weight:1,fill:false,opacity:.8},onEachFeature:function(f,l){var p=f.properties;l.bindTooltip((p.colonia||'')+' · rank base '+p.rank_base+' · comp ≤300 m: '+(p.comp_n_300m!=null?p.comp_n_300m:'?'),{sticky:true});}}).addTo(colLayer);colLayer.addTo(map);}).catch(function(e){console.warn('colonias',e.message);});
 jget('data/competencia_v3.geojson').then(function(g){g.features.forEach(function(f){var c=f.geometry.coordinates;L.circleMarker([c[1],c[0]],{radius:3,color:'#222',weight:1,fillColor:'#fff',fillOpacity:.9}).bindTooltip((f.properties.n||'')+' ('+f.properties.s+')').addTo(ptsLayer);});});
 jget('data/osm_agua_zmm.geojson').then(function(g){g.features.forEach(function(f){var p=f.properties;if(p.clase!=='competidor'||!p.nuevo_vs_v3_30m)return;var c=f.geometry.coordinates;L.circleMarker([c[1],c[0]],{radius:6,color:'#7a1fa2',weight:2,fillColor:'#d9a5f0',fillOpacity:.9}).bindTooltip('OSM '+p.osm+' · '+(p.name||p.criterio)).addTo(osmLayer);});osmLayer.addTo(map);});
+var panel=document.getElementById('panel'),tg=document.getElementById('tg');
+function setPanel(open){panel.classList.toggle('hid',!open);tg.setAttribute('aria-expanded',open);if(open)panel.focus({preventScroll:true});else tg.focus({preventScroll:true});}
+tg.addEventListener('click',function(){setPanel(panel.classList.contains('hid'));});
+document.getElementById('hide').addEventListener('click',function(){setPanel(false);});
 function bind(id,fn){document.getElementById(id).addEventListener('change',function(e){fn(e.target.checked);});}
 bind('tHeat',function(v){if(v)heat.addTo(map);else map.removeLayer(heat);});
 bind('tCero',function(v){showCero=v;heat.redraw();});
