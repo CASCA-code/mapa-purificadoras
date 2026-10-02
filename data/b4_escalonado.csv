@@ -1,0 +1,7 @@
+id,n_estaciones,categoria_sadm,capital,meses_hasta_payback_peor,meses_hasta_payback_mejor,supuesto
+ESCAL_1_cat6,1,cat6,87000.0,12,12,SUPUESTO: 1 estacion abre por mes; rampa 50/75/100 % en meses 1/2/3 de cada estacion; 30 garr/dia a plena; 80 % recuperacion; otros costos peor 0.85 / mejor 0.30
+ESCAL_1_cat2,1,cat2,87000.0,12,11,SUPUESTO: 1 estacion abre por mes; rampa 50/75/100 % en meses 1/2/3 de cada estacion; 30 garr/dia a plena; 80 % recuperacion; otros costos peor 0.85 / mejor 0.30
+ESCAL_3_cat6,3,cat6,261000.0,13,13,SUPUESTO: 1 estacion abre por mes; rampa 50/75/100 % en meses 1/2/3 de cada estacion; 30 garr/dia a plena; 80 % recuperacion; otros costos peor 0.85 / mejor 0.30
+ESCAL_3_cat2,3,cat2,261000.0,13,12,SUPUESTO: 1 estacion abre por mes; rampa 50/75/100 % en meses 1/2/3 de cada estacion; 30 garr/dia a plena; 80 % recuperacion; otros costos peor 0.85 / mejor 0.30
+ESCAL_4_cat6,4,cat6,348000.0,14,13,SUPUESTO: 1 estacion abre por mes; rampa 50/75/100 % en meses 1/2/3 de cada estacion; 30 garr/dia a plena; 80 % recuperacion; otros costos peor 0.85 / mejor 0.30
+ESCAL_4_cat2,4,cat2,348000.0,13,13,SUPUESTO: 1 estacion abre por mes; rampa 50/75/100 % en meses 1/2/3 de cada estacion; 30 garr/dia a plena; 80 % recuperacion; otros costos peor 0.85 / mejor 0.30

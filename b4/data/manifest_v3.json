@@ -1,0 +1,151 @@
+{
+ "built_at": "2026-09-29T14:14:05Z",
+ "weights": {
+  "W_D": 0.4,
+  "W_A": 0.3,
+  "W_C": 0.3,
+  "anchor": {
+   "cerveza": 1.5,
+   "tortilleria": 1.25,
+   "banco_bienestar_azteca": 1.25,
+   "oxxo": 1.0,
+   "express": 1.0,
+   "iglesia": 1.0,
+   "escuela": 1.0,
+   "parada": 0.75,
+   "farmacia": 0.5,
+   "abarrotes": 0.4
+  },
+  "traffic": {
+   "semaforo_scout": 2.5,
+   "alto_scout": 2.0,
+   "semaforo_osm": 1.0,
+   "alto_osm": 0.75,
+   "parada": 1.0
+  },
+  "flow_by_road_class": {
+   "2": 0.5,
+   "3": 1.0,
+   "4": 1.5,
+   "5": 1.5
+  },
+  "R_anchor_m": 150.0,
+  "R_traffic_m": 100.0,
+  "R_comp_m": 300.0,
+  "R_flow_m": 60.0,
+  "comp_penalty": 4.0,
+  "cell_m": 100.0,
+  "hab_por_viv": 3.6,
+  "cobertura_full_marks": 10,
+  "spot_min_dist_m": 300.0
+ },
+ "cells": {
+  "Monterrey": {
+   "file": "cells_monterrey.geojson",
+   "n": 2555
+  },
+  "Santa Catarina": {
+   "file": "cells_santa_catarina.geojson",
+   "n": 417
+  },
+  "General Escobedo": {
+   "file": "cells_general_escobedo.geojson",
+   "n": 1257
+  },
+  "Juárez": {
+   "file": "cells_juarez.geojson",
+   "n": 477
+  },
+  "Apodaca": {
+   "file": "cells_apodaca.geojson",
+   "n": 375
+  },
+  "Guadalupe": {
+   "file": "cells_guadalupe.geojson",
+   "n": 667
+  },
+  "García": {
+   "file": "cells_garcia.geojson",
+   "n": 197
+  },
+  "San Nicolás de los Garza": {
+   "file": "cells_san_nicolas_de_los_garza.geojson",
+   "n": 314
+  }
+ },
+ "cells_total_in_colonias": 7967,
+ "cells_positive": 6259,
+ "cell_s_p95": 6.8,
+ "n_colonias": 167,
+ "cobertura_campo": {
+  "encuestada": 3,
+  "sin encuesta": 150,
+  "parcial": 14
+ },
+ "scout_base_rank_spearman_note": "ver docs/CAMBIOS_RANKING_V3.md",
+ "anchors_raw": {
+  "cerveza": 843,
+  "express": 329,
+  "oxxo": 478,
+  "banco_bienestar_azteca": 132,
+  "iglesia": 306,
+  "escuela": 1326,
+  "tortilleria": 1776,
+  "abarrotes": 20546,
+  "farmacia": 1074,
+  "parada": 2005
+ },
+ "anchors_dedup_base": {
+  "cerveza": 823,
+  "express": 273,
+  "oxxo": 475,
+  "banco_bienestar_azteca": 109,
+  "iglesia": 306,
+  "escuela": 1326,
+  "tortilleria": 1747,
+  "abarrotes": 17714,
+  "farmacia": 1010,
+  "parada": 1814
+ },
+ "anchors_dedup_with_scout": {
+  "cerveza": 953,
+  "express": 278,
+  "oxxo": 475,
+  "banco_bienestar_azteca": 109,
+  "iglesia": 312,
+  "escuela": 1338,
+  "tortilleria": 1747,
+  "abarrotes": 17714,
+  "farmacia": 1010,
+  "parada": 1814
+ },
+ "traffic_base": {
+  "semaforo_osm": 1405,
+  "alto_osm": 36,
+  "parada": 1814
+ },
+ "traffic_with_scout": {
+  "semaforo_scout": 10,
+  "alto_scout": 14,
+  "semaforo_osm": 1404,
+  "alto_osm": 36,
+  "parada": 1814
+ },
+ "comp_raw_base": 557,
+ "comp_dedup_base": 541,
+ "comp_raw_with_scout": 572,
+ "comp_dedup_with_scout": 554,
+ "scout_marks_total": 220,
+ "scout_marks_by_kind": {
+  "express": 8,
+  "modelorama": 147,
+  "escuela": 12,
+  "purificadora": 15,
+  "otro": 15,
+  "iglesia": 6,
+  "alto": 15,
+  "empeno": 2
+ },
+ "pins_favorito": 18,
+ "pins_lock": 1
+}

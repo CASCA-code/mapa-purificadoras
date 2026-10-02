@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>BORRADOR B4 · Purificadoras ZMM (UI v2 + rating v3 + banda de confianza)</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../vendor/leaflet.css">
+<style>
+:root{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--r:12px;--r-sm:8px;--ink:#1d2330;--mut:#566074;--line:#e4e7ec;--brand:#0b5cb0;--brand-d:#08427f;--card:#f7f9fc;--warn:#fff7e0;--shadow:0 2px 12px rgba(16,24,40,.22);--t:.18s}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font:14px/20px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);font-variant-numeric:tabular-nums}
+#map{position:absolute;inset:0}
+svg.ic{width:20px;height:20px;flex:none}
+h1{font-size:18px;line-height:24px;font-weight:700;margin:0;text-wrap:balance}
+h2{font-size:14px;line-height:20px;font-weight:700;margin:0;text-wrap:balance}
+p{margin:0}.mut{color:var(--mut);font-size:12px;line-height:16px;text-wrap:pretty}
+a{color:var(--brand);text-underline-offset:2px}a:hover{color:var(--brand-d)}
+a:focus-visible,button:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
+button{font:inherit;color:inherit}
+#panel{position:absolute;z-index:1000;top:var(--s3);left:var(--s3);width:408px;max-width:calc(100% - var(--s5));max-height:calc(100% - var(--s5));overflow:auto;overscroll-behavior:contain;background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
+#panel>*,.tab>*{flex:none}
+.hd{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.draft{display:inline-flex;align-items:center;background:#b3261e;color:#fff;font-weight:700;font-size:12px;line-height:16px;letter-spacing:.06em;padding:var(--s1) var(--s2);border-radius:var(--s1)}
+#chip{position:absolute;z-index:1002;top:var(--s3);left:50%;transform:translateX(-50%);box-shadow:var(--shadow);pointer-events:none;padding:var(--s2) var(--s3);border:2px solid #fff;border-radius:var(--r-sm)}
+.warn{background:var(--warn);border:1px solid #e9c96b;border-radius:var(--r-sm);padding:var(--s2) var(--s3);font-size:12px;line-height:16px;text-wrap:pretty}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--s3);display:flex;flex-direction:column;gap:var(--s2)}
+.card h3{font-size:12px;line-height:16px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);margin:0}
+.sec{border-top:1px solid var(--line);padding-top:var(--s3);display:flex;flex-direction:column;gap:var(--s2)}
+label.tg{display:flex;gap:var(--s3);align-items:center;min-height:44px;padding:0 var(--s2);margin:0 calc(-1*var(--s2));border-radius:var(--r-sm);cursor:pointer;transition:background-color var(--t)}
+label.tg:hover{background:var(--card)}label.tg:active{background:#eaf0f8}
+label.tg input{width:20px;height:20px;margin:0;flex:none;accent-color:var(--brand)}
+label.tg:has(input:focus-visible){outline:2px solid var(--brand);outline-offset:-2px}
+.tabs{display:flex;gap:var(--s1);overflow-x:auto;scrollbar-width:none;border-bottom:2px solid var(--line);margin:0 calc(-1*var(--s1));padding:0 var(--s1)}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:1 0 auto;min-height:44px;min-width:44px;padding:0 var(--s2);border:0;background:#f1f4f8;border-radius:var(--r-sm) var(--r-sm) 0 0;font-weight:600;font-size:12px;color:var(--mut);cursor:pointer;transition:background-color var(--t),color var(--t)}
+.tabs button:hover{background:#e6ecf4}.tabs button:active{background:#d9e2ee}
+.tabs button[aria-selected=true]{background:var(--brand);color:#fff}
+.tab{display:none;flex-direction:column;gap:var(--s3)}.tab.on{display:flex}
+select{width:100%;min-height:44px;padding:0 var(--s3);font:inherit;color:var(--ink);background:#fff;border:1px solid #c5ccd8;border-radius:var(--r-sm);transition:border-color var(--t)}
+select:hover{border-color:#8794aa}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
+.row2 label{display:flex;flex-direction:column;gap:var(--s1)}
+ol.lst{margin:0;padding:0;list-style:none;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+ol.lst li{padding:var(--s2) var(--s3);min-height:44px;border-bottom:1px solid #eef0f4;cursor:pointer;display:flex;align-items:center;gap:var(--s3);transition:background-color var(--t)}
+ol.lst li:last-child{border-bottom:0}ol.lst li:hover{background:#f1f5fb}ol.lst li:active{background:#e3ebf7}
+ol.lst li:focus-visible{outline-offset:-2px}
+.rk{font-weight:700;min-width:28px;text-align:right}
+.nm{flex:1;min-width:0}.nm b{font-weight:600}.nm em{display:block;font-style:normal;color:var(--mut);font-size:12px;line-height:16px}
+.sc{min-width:40px;text-align:center;border-radius:6px;padding:var(--s1) var(--s2);font-weight:700;color:#111}
+.bd{display:inline-block;border-radius:var(--s1);padding:0 6px;font-size:11px;line-height:16px;font-weight:700;margin:2px 4px 0 0;background:#eceff4;color:#2b3445;white-space:nowrap}
+.bd.alta{background:#d7f0dd;color:#14532d}.bd.media{background:#fdecc8;color:#6b4300}.bd.baja{background:#fbdcd8;color:#7a1a12}
+.bd.est{background:#dbe9fb;color:#08427f}.bd.sc2{background:#e3f2fd;color:#0b4f96}.bd.unk{background:#efe3fa;color:#4a1a6b}
+.lg{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s3);font-size:12px;line-height:16px;color:var(--mut)}
+.lg span{display:inline-flex;align-items:center;gap:var(--s1);white-space:nowrap}.lg i{display:inline-block;width:16px;height:8px;border-radius:2px;flex:none}
+.pp{min-width:220px;max-width:min(320px,76vw)}.pp .big{font-size:15px;font-weight:700;line-height:20px}
+.pp table,table.cmp{border-collapse:collapse;width:100%;font-size:12px;line-height:16px}
+.pp td{padding:var(--s1) var(--s2) var(--s1) 0;border-bottom:1px solid #f0f0f0;vertical-align:top}.pp td:last-child{text-align:right;padding-right:0}
+.pp .tb{background:var(--warn);border:1px solid #f1e3a1;border-radius:var(--r-sm);padding:var(--s2);margin:var(--s2) 0}
+.pp .links{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s3);margin-top:var(--s1)}
+.pp .links a{display:inline-flex;align-items:center;min-height:44px}
+table.cmp th{position:sticky;top:0;background:#f1f4f8;text-align:left;padding:var(--s2);cursor:pointer;min-height:44px}
+table.cmp td{padding:var(--s2);border-bottom:1px solid #eef0f4;vertical-align:top}
+table.cmp td.n,table.cmp th.n{text-align:right}
+table.cmp tr[data-c]{cursor:pointer}table.cmp tr[data-c]:hover{background:#f1f5fb}
+.scrl{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:var(--r-sm)}
+.up{color:#14632c;font-weight:700}.dn{color:#a3241b;font-weight:700}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
+.kpi div{background:#fff;border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--s2) var(--s3)}
+.kpi b{display:block;font-size:18px;line-height:24px}.kpi span{font-size:12px;line-height:16px;color:var(--mut)}
+.tag{display:inline-block;font-size:10px;line-height:14px;font-weight:700;border-radius:3px;padding:0 4px;margin-right:4px;vertical-align:1px}
+.tag.d{background:#d7f0dd;color:#14532d}.tag.s{background:#fdecc8;color:#6b4300}
+ul.sup{margin:0;padding-left:var(--s4);display:flex;flex-direction:column;gap:var(--s1);font-size:12px;line-height:16px}
+.btnm{display:inline-flex;align-items:center;gap:var(--s2);min-height:44px;padding:0 var(--s3);border:1px solid var(--brand);color:var(--brand);background:#fff;border-radius:var(--r-sm);font-weight:600;cursor:pointer;transition:background-color var(--t)}
+.btnm:hover{background:#eaf0f8}.btnm:active{background:#dbe5f3}
+#tg{display:none;position:absolute;z-index:1001;top:var(--s3);left:var(--s3);min-width:44px;min-height:44px;align-items:center;gap:var(--s2);background:#fff;border:0;border-radius:var(--r-sm);padding:0 var(--s3);font-weight:700;box-shadow:var(--shadow);cursor:pointer;transition:background-color var(--t)}
+#tg:hover{background:#eaf0f8}#tg:active{background:#dbe5f3}
+.pin{width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.pin b{width:24px;height:24px;border-radius:12px;color:#fff;font:700 12px/20px system-ui,sans-serif;text-align:center;border:2px solid #fff;box-shadow:0 0 3px #000;background:var(--brand)}
+.pin.fx b{background:#e31a1c}
+.leaflet-container a:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+@media (pointer:coarse){.leaflet-touch .leaflet-bar a{width:44px;height:44px;line-height:44px}.leaflet-touch .leaflet-bar a.leaflet-control-zoom-in,.leaflet-touch .leaflet-bar a.leaflet-control-zoom-out{font-size:24px}.leaflet-popup-close-button{width:44px!important;height:44px!important;font-size:24px!important;line-height:44px!important}}
+@media (max-width:700px){#panel{width:auto;max-width:none;right:var(--s2);left:var(--s2);top:auto;bottom:var(--s2);max-height:52%;padding:var(--s3)}#panel.hid{display:none}#tg{display:inline-flex}.leaflet-top.leaflet-right{margin-top:0}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h16"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+<symbol id="i-map-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
+<symbol id="i-train-front" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.1V7a4 4 0 0 0 8 0V3.1M9 15l-1-1m7 1l1-1"/><path d="M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5Zm-1 0l-2 3m10-3l2 3"/></symbol>
+<symbol id="i-layers-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m6.08 9.5l-3.5 1.6a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.5-1.59"/><path d="m6.08 14.5l-3.5 1.6a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.5-1.59"/></symbol>
+<symbol id="i-external-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6m-11 5L21 3m-3 10v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+</svg>
+<div id="map"></div>
+<span id="chip" class="draft" role="status">BORRADOR B4</span>
+<button id="tg" type="button" aria-controls="panel" aria-expanded="true"><svg class="ic"><use href="#i-menu"/></svg>Panel</button>
+<div id="panel" role="region" aria-label="Panel B4: ranking, dónde poner, economía y capas">
+  <div class="hd"><h1>Purificadoras ZMM</h1><span class="draft">BORRADOR B4</span></div>
+  <p class="mut">UI de <b>B2</b> (<code>/v2/</code>) + rating <b>v3 base</b> con <b>banda de confianza</b> y capa <b>Metro</b> de B3. Página interna, sin enlace desde el hub. <a href="https://github.com/CASCA-code/mapa-purificadoras/blob/main/docs/B4_MEZCLA.md" target="_blank" rel="noopener">Qué tomó de cada uno</a> · <a href="https://github.com/CASCA-code/mapa-purificadoras/blob/main/docs/B4_ECONOMIA.md" target="_blank" rel="noopener">Economía</a> · <a href="data/colonias_b4.geojson" download>GeoJSON</a></p>
+  <label class="tg"><input type="checkbox" id="T_scout"><span><b>Incluir Scout en el ranking</b><br><span class="mut">OFF (default) = ranking base uniforme. ON infla colonias muy levantadas.</span></span></label>
+  <div class="tabs" role="tablist" aria-label="Secciones">
+    <button role="tab" aria-selected="true" data-t="t_rank">Ranking</button>
+    <button role="tab" aria-selected="false" data-t="t_spots">Dónde poner</button>
+    <button role="tab" aria-selected="false" data-t="t_eco">Economía</button>
+    <button role="tab" aria-selected="false" data-t="t_lay">Capas</button>
+    <button role="tab" aria-selected="false" data-t="t_chg">Cambios</button>
+  </div>
+
+  <div class="tab on" id="t_rank">
+    <div class="row2">
+      <label class="mut">Ordenar por<select id="sortBy"><option value="score">Score v3 base</option><option value="p50">Mediana de rango (p50)</option><option value="p30">Prob. top-30</option></select></label>
+      <label class="mut">Confianza<select id="confF"><option value="">Todas</option><option value="ma">Media o alta</option><option value="a">Sólo alta</option></select></label>
+    </div>
+    <h2><span id="topT">Top 20</span> <span class="mut" id="munis"></span></h2>
+    <ol class="lst" id="top"></ol>
+    <p class="mut">Banda = sensibilidad (pesos ±30 %, viviendas, competencia 0 = desconocida): <b>MODELO, no pronóstico</b>. Borde punteado en el mapa = sin encuesta de campo. «0 comp.» = 0 purificadoras detectadas, <b>no verificado</b> (DENUE/Places no ven informales).</p>
+  </div>
+
+  <div class="tab" id="t_spots">
+    <h2>Dónde poner: mejores celdas de 100 m</h2>
+    <p class="mut">Celda = anclas ≤150 m + semáforo/alto/parada ≤100 m + flujo (vía OSM ≤60 m) − competencia ≤300 m, × (0.5 + score colonia/100). <b>Separación mínima 600 m [SUPUESTO B4]</b> (2 × radio caminable 300 m). Flujo = clase de vía OSM: proxy, no aforo.</p>
+    <div class="row2"><label class="mut">Ámbito<select id="spotSel"></select></label><span></span></div>
+    <ol class="lst" id="spotList"></ol>
+  </div>
+
+  <div class="tab" id="t_eco"><div id="ecoBox"></div></div>
+
+  <div class="tab" id="t_lay">
+    <div class="sec" style="border-top:0;padding-top:0">
+    <label class="tg"><input type="checkbox" id="L_col" checked> Colonias v3 (choropleth)</label>
+    <label class="tg"><input type="checkbox" id="L_est" checked> Estaciones sugeridas (1–3 por colonia, sep. 600 m)</label>
+    <label class="tg"><input type="checkbox" id="L_metro"> Metro: afluencia (B3, índice 0–1)</label>
+    <label class="tg"><input type="checkbox" id="L_cells"> Heat por celda (100 m)</label>
+    <label class="tg"><input type="checkbox" id="L_scout"> Scout: marcas de campo + pines (aparte)</label>
+    <label class="tg"><input type="checkbox" id="L_traf"> Tráfico (proxy OSM 1–5)</label>
+    <label class="tg"><input type="checkbox" id="L_anc"> Anclas (sin abarrotes; sin Scout)</label>
+    <label class="tg"><input type="checkbox" id="L_comp"> Purificadoras (DENUE + Places)</label>
+    <label class="tg"><input type="checkbox" id="L_sema"> Semáforos / altos (OSM)</label>
+    <label class="tg"><input type="checkbox" id="L_sat"> Fondo satélite (Esri)</label></div>
+    <section class="card" aria-labelledby="legt"><h3 id="legt">Leyenda</h3>
+      <div class="lg"><span><i style="background:#fde0dd"></i><i style="background:#fa9fb5"></i><i style="background:#f768a1"></i><i style="background:#c51b8a"></i><i style="background:#7a0177"></i>score colonia (alto →)</span></div>
+      <div class="lg"><span><i style="background:#ffffb2"></i><i style="background:#fecc5c"></i><i style="background:#fd8d3c"></i><i style="background:#e31a1c"></i>celda (mejor →)</span></div>
+      <div class="lg"><span><i style="background:#9e9ac8;height:3px"></i>2</span><span><i style="background:#fdae6b;height:4px"></i>3</span><span><i style="background:#f16913;height:5px"></i>4</span><span><i style="background:#a50f15;height:7px"></i>5 clase de vía</span></div>
+      <div class="lg"><span><i style="background:#0b5cb0"></i>estación sugerida (círculo = 300 m caminable)</span><span><i style="background:#c62828"></i>Metro (tamaño ∝ afluencia)</span></div>
+    </section>
+    <p class="mut" id="stat"></p>
+  </div>
+
+  <div class="tab" id="t_chg">
+    <p class="mut">Histórico B2: v2 (mapa actual) → v3 base. Demanda no cambia; sólo anclas y competencia. Δ = #v2 − #base (▲ sube).</p>
+    <div class="scrl"><div id="chgSum"></div></div>
+    <h2>Sube más</h2><div class="scrl"><div id="chgUp"></div></div>
+    <h2>Baja más</h2><div class="scrl"><div id="chgDn"></div></div>
+  </div>
+  <p class="mut">Datos estáticos del repo (DENUE, CONAPO, Places, OSM, Scout, STC Metrorrey índice). Sin llamadas en vivo. Todo supuesto va marcado SUPUESTO. Places trae máx. 60 por tile: anclas/competencia pueden faltar en zonas densas.</p>
+</div>
+<script src="../vendor/leaflet.js"></script>
+<script>
+(function(){
+const V='20261002-b4';
+const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const map=L.map('map',{preferCanvas:true,zoomControl:false,zoomAnimation:!RM,fadeAnimation:!RM,markerZoomAnimation:!RM}).setView([25.72,-100.33],11);
+L.control.zoom({position:'topright',zoomInTitle:'Acercar',zoomOutTitle:'Alejar'}).addTo(map);
+const street=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap contributors'}).addTo(map);
+const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery &copy; Esri'});
+const canvas=L.canvas({padding:0.3});
+const $=id=>document.getElementById(id);
+const get=f=>fetch('data/'+f+'?v='+V).then(r=>{if(!r.ok)throw new Error(f+' '+r.status);return r.json();});
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const f2=(x,d)=>Number(x).toFixed(d==null?2:d);
+const sg=(x,d)=>(x>0?'+':'')+Number(x).toFixed(d==null?1:d);
+const money=x=>'$'+Math.round(x).toLocaleString('es-MX');
+const ramp=t=>['#fde0dd','#fa9fb5','#f768a1','#c51b8a','#7a0177'][Math.max(0,Math.min(4,Math.floor(t*5)))];
+const cellColor=t=>t>0.75?'#e31a1c':t>0.5?'#fd8d3c':t>0.25?'#fecc5c':'#ffffb2';
+const ANC_LBL={cerveza:'Modelorama/Six/cerveza',express:'Bodega/Soriana Express',oxxo:'Oxxo',banco_bienestar_azteca:'Banco Bienestar/Azteca',iglesia:'Iglesia',escuela:'Escuela',tortilleria:'Tortillería',abarrotes:'Abarrotes/depósito',farmacia:'Farmacia barrio',parada:'Parada camión'};
+const ANC_SHORT={cerveza:'cerveza',express:'express',oxxo:'oxxo',banco_bienestar_azteca:'banco',iglesia:'iglesia',escuela:'escuela',tortilleria:'tortillería',abarrotes:'abarrotes',farmacia:'farmacia',parada:'parada'};
+const KIND_LBL={modelorama:'Modelorama',purificadora:'Purificadora',alto:'Alto',escuela:'Escuela',express:'Express',iglesia:'Iglesia',otro:'Otro',empeno:'Empeño',favorito:'Favorito',lock:'Lock'};
+const MS=n=>n.replace('San Nicolás de los Garza','San Nicolás').replace('General Escobedo','Escobedo');
+const narrow=()=>innerWidth<=700;
+let SC=false;
+const sc=p=>SC?p.score_with_scout:p.score_base;
+const rk=p=>SC?p.rank_with_scout:p.rank_base;
+let MAN=null,ECO=null,SP=null,colLayer=null,byKey={},COLP=[],smin=0,smax=100;
+const siteMarks=L.layerGroup().addTo(map),focusMark=L.layerGroup().addTo(map);
+
+function setPanel(open){if(open&&narrow())map.closePopup();$('panel').classList.toggle('hid',!open);$('tg').setAttribute('aria-expanded',open);}
+$('tg').onclick=()=>setPanel($('panel').classList.contains('hid'));
+const closeIfNarrow=()=>{if(narrow())setPanel(false);};
+
+// tabs
+const tabBtns=[...document.querySelectorAll('.tabs button')];
+tabBtns.forEach(b=>b.onclick=()=>{tabBtns.forEach(x=>x.setAttribute('aria-selected',x===b));document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.id===b.dataset.t));});
+
+function covBadge(p){return p.cobertura_campo==='sin encuesta'?'<span class="bd">sin encuesta</span>':'<span class="bd sc2">'+p.scout_marks+' marcas Scout · '+esc(p.cobertura_campo)+'</span>';}
+function confBadge(p){return p.confianza?'<span class="bd '+p.confianza+'">confianza '+p.confianza+'</span>':'';}
+function pin(i,fx){return L.divIcon({className:'',iconSize:[44,44],iconAnchor:[22,22],html:'<div class="pin'+(fx?' fx':'')+'"><b>'+i+'</b></div>'});}
+function showSites(p){
+  siteMarks.clearLayers();
+  (p.est||[]).forEach((b,i)=>{
+    L.circle([b[1],b[0]],{radius:300,color:'#0b5cb0',weight:1.5,dashArray:'4 4',fillColor:'#0b5cb0',fillOpacity:.08,interactive:false}).addTo(siteMarks);
+    L.marker([b[1],b[0]],{icon:pin(i+1)}).bindTooltip('Estación sugerida #'+(i+1)+' · celda '+f2(b[2],1)).addTo(siteMarks);
+  });
+}
+function popupHtml(p){
+  const est=p.est||[];
+  const el=est.length?est.map((b,i)=>'<tr><td><a href="#" class="cell" data-lat="'+b[1]+'" data-lon="'+b[0]+'">Estación #'+(i+1)+'</a> <span class="mut">celda '+f2(b[2],1)+'</span></td><td><a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+b[1]+','+b[0]+'">Maps</a></td></tr>').join(''):'<tr><td colspan="2" class="mut">sin celdas con score &gt; 0</td></tr>';
+  const anc=Object.keys(ANC_LBL).map(k=>p['n_'+k]?'<tr><td>'+ANC_LBL[k]+'</td><td>'+p['n_'+k]+'</td></tr>':'').join('');
+  const mc=p.metro_cerca?'<tr><td>Metro ≤1 km (B3, informativo)</td><td>'+esc(p.metro_cerca.n)+' · '+p.metro_cerca.d+' m · afl. '+f2(p.metro_cerca.i)+'</td></tr>':'';
+  return '<div class="pp"><div class="big">'+esc(p.colonia)+'</div><div class="mut">'+esc(p.municipio)+' · marginación '+esc(p.grado)+' · pob '+p.pob_conapo+' · ~'+p.viviendas_est+' viv</div>'+
+   '<table><tr><td><b>v3 BASE</b> <span class="mut">(DENUE+Places+OSM)</span></td><td><b>'+f2(p.score_base,1)+' · #'+p.rank_base+'</b></td></tr>'+
+   '<tr><td>Demanda* ×0.40</td><td>'+f2(p.D_star)+' → '+f2(40*p.D_star,1)+'</td></tr>'+
+   '<tr><td>Anclas* ×0.30 <span class="mut">('+f2(p.anclas_por_1000viv,1)+'/1000 viv)</span></td><td>'+f2(p.A_star)+' → '+f2(30*p.A_star,1)+'</td></tr>'+
+   '<tr><td>(1−Comp*) ×0.30 <span class="mut">('+p.comp_n_300m+' purif. ≤300 m)</span></td><td>'+f2(1-p.C_star)+' → '+f2(30*(1-p.C_star),1)+'</td></tr>'+
+   '<tr><td>v2 (mapa actual)</td><td>'+f2(p.score_v2,1)+' · #'+p.v2_rank+'</td></tr></table>'+
+   '<div class="tb"><b>Banda de confianza</b> <span class="mut">(MODELO, no pronóstico)</span><br>'+confBadge(p)+(p.comp_cero_desconocido?'<span class="bd unk">0 comp. sin verificar</span>':'')+covBadge(p)+
+   '<table><tr><td>Rango p10 · p50 · p90</td><td>#'+p.rank_p10+' · #'+p.rank_p50+' · #'+p.rank_p90+'</td></tr><tr><td>Ancho de banda ('+esc(p.banda)+')</td><td>'+p.ancho_banda+' rangos</td></tr><tr><td>Prob. top-30 (estrés)</td><td>'+f2(p.prob_top30*100,0)+' % ('+f2(p.prob_top30_estres*100,0)+' %)</td></tr></table></div>'+
+   '<div><b>Estaciones sugeridas: '+(p.n_est_sugeridas||0)+'</b> <span class="mut">(sep. ≥600 m, celda ≥60 % de la mejor · SUPUESTO)</span></div><table>'+el+mc+'</table>'+
+   '<div class="tb"><b>Scout (campo, aparte)</b><br><table><tr><td>Marcas Scout</td><td>'+p.scout_marks+'</td></tr><tr><td>Con Scout</td><td>'+f2(p.score_with_scout,1)+' · #'+p.rank_with_scout+' ('+sg(p.scout_bonus)+')</td></tr></table></div>'+
+   '<div class="mut">Anclas (base) en polígono+100 m:</div><table>'+anc+'</table></div>';
+}
+map.on('popupopen',e=>{const root=e.popup.getElement();if(!root)return;root.querySelectorAll('a.cell').forEach(a=>a.addEventListener('click',ev=>{ev.preventDefault();map.setView([+a.dataset.lat,+a.dataset.lon],17);}));});
+function zoomTo(lat,lon,label){focusMark.clearLayers();L.circleMarker([lat,lon],{radius:14,weight:3,color:'#0b5cb0',fillColor:'#0b5cb0',fillOpacity:.15}).bindTooltip(label||'',{permanent:!!label,direction:'top'}).addTo(focusMark);map.setView([lat,lon],18);closeIfNarrow();}
+
+function styleFor(f){const p=f.properties,t=(sc(p)-smin)/(smax-smin+1e-9),none=p.cobertura_campo==='sin encuesta';return{color:none?'#333':'#555',weight:none?1.2:1,dashArray:none?'3 3':null,fillColor:ramp(t),fillOpacity:.55};}
+function sortedList(){
+  const by=$('sortBy').value,cf=$('confF').value;
+  let a=COLP.filter(p=>!cf||(cf==='a'?p.confianza==='alta':p.confianza==='alta'||p.confianza==='media'));
+  if(by==='score')a.sort((x,y)=>rk(x)-rk(y));
+  else if(by==='p50')a.sort((x,y)=>x.rank_p50-y.rank_p50||x.rank_base-y.rank_base);
+  else a.sort((x,y)=>y.prob_top30-x.prob_top30||x.rank_base-y.rank_base);
+  return a.slice(0,20);
+}
+function renderTop(){
+  const vals=COLP.map(sc);smin=Math.min(...vals);smax=Math.max(...vals);colLayer.setStyle(styleFor);
+  const by=$('sortBy').value;
+  $('topT').textContent='Top 20 · '+(by==='score'?(SC?'v3 + Scout':'v3 base'):by==='p50'?'mediana de rango':'prob. top-30');
+  const top=sortedList();$('munis').textContent='· '+new Set(top.map(p=>p.municipio)).size+' municipios';
+  const ol=$('top');ol.innerHTML='';
+  if(!top.length){ol.innerHTML='<li><span class="mut">Sin colonias con ese filtro.</span></li>';return;}
+  top.forEach((p,n)=>{const li=document.createElement('li');li.tabIndex=0;li.setAttribute('role','button');
+    const num=by==='score'?rk(p):(n+1);
+    li.innerHTML='<span class="rk">'+num+'</span><span class="nm"><b>'+esc(p.colonia)+'</b><em>'+esc(MS(p.municipio))+' · rango p10–p90 #'+p.rank_p10+'–#'+p.rank_p90+'</em>'+confBadge(p)+'<span class="bd est">'+(p.n_est_sugeridas||0)+' est.</span>'+(p.comp_cero_desconocido?'<span class="bd unk">0 comp. sin verificar</span>':'')+'</span><span class="sc" style="background:'+ramp((sc(p)-smin)/(smax-smin+1e-9))+'">'+f2(sc(p),0)+'</span>';
+    const go=()=>{const l=byKey[p.cve_col];map.fitBounds(l.getBounds(),{maxZoom:16});l.openPopup();closeIfNarrow();};
+    li.onclick=go;li.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};ol.appendChild(li);});
+}
+['sortBy','confF'].forEach(id=>$(id).onchange=()=>{if(colLayer)renderTop();});
+
+// Cambios (B2)
+function chgTable(rows){return '<table class="cmp"><tr><th>Colonia</th><th class="n">v2</th><th class="n">base</th><th class="n">Δ</th><th>Causa</th></tr>'+rows.map(r=>'<tr><td>'+esc(r.colonia)+'<br><span class="mut">'+esc(MS(r.municipio))+'</span></td><td class="n">'+r.v2_rank+'</td><td class="n">'+r.rank_base+'</td><td class="n '+(r.delta>0?'up':'dn')+'">'+(r.delta>0?'▲':'▼')+Math.abs(r.delta)+'</td><td>'+esc(r.cause)+'<br><span class="mut">anclas '+sg(r.dA)+' · comp. '+sg(r.dC)+'</span></td></tr>').join('')+'</table>';}
+function renderChg(c){const ms=Object.keys(c.muni_summary).sort();
+  $('chgSum').innerHTML='<table class="cmp"><tr><th>Municipio</th><th class="n">col.</th><th class="n">Top20 v2</th><th class="n">base</th><th class="n">Top50 v2</th><th class="n">base</th></tr>'+ms.map(m=>{const s=c.muni_summary[m];return '<tr><td>'+esc(MS(m))+'</td><td class="n">'+s.colonias+'</td><td class="n">'+s.top20_v2+'</td><td class="n"><b>'+s.top20_base+'</b></td><td class="n">'+s.top50_v2+'</td><td class="n"><b>'+s.top50_base+'</b></td></tr>';}).join('')+'</table>';
+  $('chgUp').innerHTML=chgTable(c.ups);$('chgDn').innerHTML=chgTable(c.downs);}
+
+// Dónde poner (separación B4)
+let spotTab='ZMM';
+function spotRow(r,i,n){
+  const anc=Object.keys(r.anclas_150m).map(k=>r.anclas_150m[k]+' '+(ANC_SHORT[k]||k)).join(', ')||'—';
+  const av=r.avenida_cercana;const flow=av?('vía clase <b>'+av.clase+'/5</b> '+esc(av.nombre||'(s/n)')+' a '+av.dist_m+' m'):'sin avenida ≤300 m';
+  const rkT=spotTab==='ZMM'?r.rank_zmm:r.rank_muni;
+  const scb=Object.keys(r.scout_marks_150m).length?'<span class="bd sc2">Scout ≤150 m: '+Object.keys(r.scout_marks_150m).map(k=>r.scout_marks_150m[k]+' '+(KIND_LBL[k]||k)).join(', ')+'</span>':'<span class="bd">sin marcas Scout</span>';
+  const li=document.createElement('li');li.style.alignItems='flex-start';li.style.flexDirection='column';li.style.gap='4px';li.style.cursor='default';
+  li.innerHTML='<div style="display:flex;gap:12px;width:100%;align-items:center"><span class="rk">'+rkT+'</span><span class="nm"><b>'+esc(r.colonia)+'</b><em>'+esc(MS(r.municipio))+' · colonia base #'+r.colonia_rank_base+' ('+f2(r.colonia_score_base,1)+')</em></span><span class="sc" style="background:'+cellColor(r.cell_score/(MAN.cell_s_p95||1))+'">'+f2(r.cell_score,1)+'</span></div>'+
+   '<div class="mut">Anclas ≤150 m: '+esc(anc)+'<br>Semáforos '+r.semaforos_osm_100m+' · altos '+r.altos_osm_100m+' · paradas '+r.paradas_100m+' · flujo +'+f2(r.flujo_pts,1)+'<br>'+flow+'<br>Competidor más cercano: '+(r.competidor_mas_cercano_m==null?'—':r.competidor_mas_cercano_m+' m')+' · '+r.competidores_300m+' ≤300 m</div><div>'+scb+'</div>'+
+   '<div class="links" style="display:flex;gap:12px;flex-wrap:wrap"><button class="btnm" type="button"><svg class="ic"><use href="#i-map-pin"/></svg>Ver en mapa</button><a class="btnm" target="_blank" rel="noopener" href="'+r.gmaps+'" style="text-decoration:none">Google Maps</a></div>';
+  li.querySelector('button').onclick=()=>zoomTo(r.lat,r.lon,r.colonia+' · '+f2(r.cell_score,1));
+  return li;
+}
+function renderSpots(){
+  const ms=Object.keys(SP.muni).sort();
+  $('spotSel').innerHTML=['ZMM'].concat(ms).map(m=>'<option value="'+esc(m)+'"'+(m===spotTab?' selected':'')+'>'+esc(m==='ZMM'?'Top ZMM (sep. 600 m, '+SP.overall.length+' de '+SP.n_original_zmm+')':'Top '+MS(m))+'</option>').join('');
+  $('spotSel').onchange=e=>{spotTab=e.target.value;renderSpots();};
+  const idx=spotTab==='ZMM'?SP.overall:SP.muni[spotTab];const ol=$('spotList');ol.innerHTML='';
+  idx.forEach((i,n)=>ol.appendChild(spotRow(SP.rows[i],i,n)));
+}
+
+// Economía
+function renderEco(){
+  const R=Object.fromEntries(ECO.rows.map(r=>[r.id,r])),B=R.BASE,E=Object.fromEntries(ECO.escalonado.map(r=>[r.id,r]));
+  const e4=E.ESCAL_4_cat6;
+  const rng=(a,b,f)=>f(Math.min(a,b))+'–'+f(Math.max(a,b));
+  $('ecoBox').innerHTML='<div style="display:flex;flex-direction:column;gap:12px">'+
+   '<p class="mut"><span class="tag d">DATO</span>máquina '+money(ECO.precio_maquina)+' (Nicolás) · recarga $12 · meta '+money(ECO.meta)+'/mes · renta '+money(ECO.renta)+' (usuario/reporte, no verificado).<br><span class="tag s">SUPUESTO</span>30 garr/día/estación, SADM <b>Cat. 6 comercial</b>, recuperación 80 %, luz+filtros+sal $0.30–$0.85/garr.</p>'+
+   '<div class="kpi"><div><b>'+rng(B.margen_peor,B.margen_mejor,money)+'</b><span>margen/mes por estación</span></div><div><b>'+B.payback_1est_meses_mejor+'–'+B.payback_1est_meses_peor+' meses</b><span>payback 1 estación (a plena)</span></div>'+
+   '<div><b>'+B.est_para_meta_peor+' estaciones</b><span>cubren la meta: '+rng(3*B.margen_peor,3*B.margen_mejor,money)+'/mes</span></div><div><b>'+money(B.capital_4est)+'</b><span>capital 4 estaciones · payback '+B.payback_4est_meses_mejor+'–'+B.payback_4est_meses_peor+' meses a plena</span></div></div>'+
+   '<p class="mut"><span class="tag s">SUPUESTO</span>Escalonado (1 estación/mes, rampa 50/75/100 %): 4 estaciones se pagan en <b>'+e4.mejor+'–'+e4.peor+' meses</b> desde la 1.ª apertura.</p>'+
+   '<div class="scrl"><table class="cmp"><tr><th>Escenario</th><th class="n">Margen/mes</th><th class="n">Payback (meses)</th><th class="n">Est. meta</th></tr>'+ECO.rows.map(r=>'<tr><td>'+esc(r.escenario)+'</td><td class="n">'+rng(r.margen_peor,r.margen_mejor,money)+'</td><td class="n">'+r.payback_1est_meses_mejor+'–'+r.payback_1est_meses_peor+'</td><td class="n">'+r.est_para_meta_mejor+(r.est_para_meta_mejor!==r.est_para_meta_peor?'–'+r.est_para_meta_peor:'')+'</td></tr>').join('')+'</table></div>'+
+   '<ul class="sup"><li><b>Optimista:</b> no incluye operador, impuestos, garrafones/tapas, merma, instalación ni permisos [ABIERTO]. Payback real ≥ este.</li><li>Separación entre estaciones de una colonia: <b>600 m</b> [SUPUESTO].</li><li>Categoría SADM: Cat. 6 base, Cat. 2 como sensibilidad [SUPUESTO]; la decide SADM.</li><li>Volumen es el punto débil: a 20 garr/día el payback pasa a ~17–18 meses.</li></ul>'+
+   '<p class="mut">Detalle: <a href="https://github.com/CASCA-code/mapa-purificadoras/blob/main/docs/B4_ECONOMIA.md" target="_blank" rel="noopener">docs/B4_ECONOMIA.md</a> · <a href="../data/b4_escenarios.csv" download>CSV</a></p></div>';
+}
+
+Promise.all([get('manifest_v3.json'),get('colonias_b4.geojson'),get('spots_b4.json'),get('cambios_v3.json'),get('economia.json')]).then(([man,col,sp,chg,eco])=>{
+  MAN=man;SP=sp;ECO=eco;COLP=col.features.map(f=>f.properties);
+  colLayer=L.geoJSON(col,{renderer:canvas,style:styleFor,onEachFeature:(f,l)=>{byKey[f.properties.cve_col]=l;l.bindPopup(()=>popupHtml(f.properties),{maxWidth:340,autoPanPadding:[16,16]});l.on('popupopen',()=>showSites(f.properties));l.on('popupclose',()=>siteMarks.clearLayers());
+    l.bindTooltip(()=>{const p=f.properties;return esc(p.colonia)+' · '+(SC?'+Scout #'+p.rank_with_scout:'base #'+p.rank_base)+' · confianza '+p.confianza+' · '+p.n_est_sugeridas+' est.';},{sticky:true});}}).addTo(map);
+  if(narrow())map.setView([25.70,-100.33],11);else map.fitBounds(colLayer.getBounds(),{paddingTopLeft:[430,20],paddingBottomRight:[20,20]});
+  renderTop();renderChg(chg);renderSpots();renderEco();
+  const cv=man.cobertura_campo,de=eco.dist_est;
+  $('stat').textContent=man.n_colonias+' colonias ('+cv['sin encuesta']+' sin encuesta) · '+man.cells_positive+' celdas >0 · '+man.comp_dedup_base+' purificadoras (base) · estaciones sugeridas por colonia: 1→'+(de[1]||0)+', 2→'+(de[2]||0)+', 3→'+(de[3]||0)+' · build v3 '+man.built_at.slice(0,10);
+}).catch(e=>{$('stat').textContent='Error cargando datos: '+e.message;console.error(e);});
+
+$('T_scout').onchange=e=>{SC=e.target.checked;if(colLayer)renderTop();recolorCells();};
+$('L_sat').onchange=e=>{if(e.target.checked){map.removeLayer(street);sat.addTo(map);}else{map.removeLayer(sat);street.addTo(map);}};
+$('L_col').onchange=e=>{if(colLayer)(e.target.checked?colLayer.addTo(map):map.removeLayer(colLayer));};
+
+const lazy={};
+function lazyToggle(id,build){$(id).onchange=async e=>{
+  if(!e.target.checked){if(lazy[id])map.removeLayer(lazy[id]);return;}
+  if(!lazy[id]){const lbl=e.target.parentNode;const sp=lbl.querySelector('span')||lbl;const old=lbl.lastChild.textContent;lbl.lastChild.textContent=old+' (cargando…)';
+    try{lazy[id]=await build();}catch(err){console.warn(err);e.target.checked=false;lbl.lastChild.textContent=old+' (error)';return;}
+    lbl.lastChild.textContent=old;}
+  if(e.target.checked)lazy[id].addTo(map);};}
+let cellRects=[];
+function recolorCells(){const p95=(MAN&&MAN.cell_s_p95)||1;cellRects.forEach(r=>{const q=r._q;r.setStyle({fillColor:cellColor((SC?q.s+q.sb:q.s)/p95)});});}
+lazyToggle('L_cells',async()=>{const g=L.layerGroup();const p95=MAN.cell_s_p95||1;
+  const all=await Promise.all(Object.values(MAN.cells).map(c=>get(c.file)));
+  const dy=50/110540,dx=50/(111320*Math.cos(25.7*Math.PI/180));
+  all.forEach(fc=>fc.features.forEach(f=>{const [lon,lat]=f.geometry.coordinates,q=f.properties;
+    const r=L.rectangle([[lat-dy,lon-dx],[lat+dy,lon+dx]],{renderer:canvas,stroke:q.sm>0,color:'#0b5cb0',weight:2,fillColor:cellColor((SC?q.s+q.sb:q.s)/p95),fillOpacity:.7})
+     .bindPopup('<div class="pp"><b>Celda 100 m</b> · score base <b>'+q.s+'</b><table><tr><td>Anclas ≤150 m (pond.)</td><td>+'+q.a+'</td></tr><tr><td>Semáforos/altos/paradas ≤100 m</td><td>+'+q.t+'</td></tr><tr><td>Flujo: vía OSM clase '+(q.fi||'—')+'/5 ≤60 m <span class="mut">(proxy)</span></td><td>+'+q.f+'</td></tr><tr><td>Competencia ≤300 m ('+q.nc+')</td><td>−'+q.c+'</td></tr></table><div class="mut">× (0.5 + score base colonia/100)</div><div class="links"><a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+lat+','+lon+'">Google Maps</a></div></div>').addTo(g);r._q=q;cellRects.push(r);}));
+  return g;});
+lazyToggle('L_scout',async()=>{const fc=await get('scout_marks_v3.geojson');
+  const col={modelorama:'#f0a500',purificadora:'#d32f2f',alto:'#e53935',escuela:'#00838f',express:'#2e7d32',iglesia:'#1565c0',otro:'#757575',empeno:'#795548',favorito:'#fbc02d',lock:'#7b1fa2'};
+  return L.geoJSON(fc,{pointToLayer:(f,ll)=>L.circleMarker(ll,{renderer:canvas,radius:f.properties.k==='lock'||f.properties.k==='favorito'?7:4,weight:2,color:'#0b5cb0',fillColor:col[f.properties.k]||'#999',fillOpacity:.9}),
+    onEachFeature:(f,l)=>l.bindPopup('<div class="pp"><b>Scout · '+esc(KIND_LBL[f.properties.k]||f.properties.k)+'</b><br>'+esc(f.properties.n)+'<br><span class="mut">Evidencia de campo (no entra al ranking base)</span></div>')});});
+lazyToggle('L_traf',async()=>{const fc=await get('trafico_vias.geojson');
+  const col={1:'#bcbddc',2:'#9e9ac8',3:'#fdae6b',4:'#f16913',5:'#a50f15'},w={1:1.5,2:2,3:3,4:4.5,5:6};
+  return L.geoJSON(fc,{renderer:canvas,style:f=>({color:col[f.properties.i],weight:w[f.properties.i],opacity:.85}),
+    onEachFeature:(f,l)=>l.bindPopup('<div class="pp"><b>'+esc(f.properties.n||f.properties.r||'(sin nombre)')+'</b><br>OSM highway=<b>'+f.properties.h+'</b><br>Índice (proxy): <b>'+f.properties.i+'/5</b><div class="mut">Clase de vía, no aforo vehicular.</div></div>')});});
+lazyToggle('L_anc',async()=>{const fc=await get('anclas_v3.geojson');
+  const c={cerveza:'#f0a500',express:'#2e7d32',oxxo:'#d32f2f',banco_bienestar_azteca:'#6a1b9a',iglesia:'#1565c0',escuela:'#00838f',tortilleria:'#8d6e63',farmacia:'#43a047',parada:'#546e7a'};
+  return L.geoJSON(fc,{pointToLayer:(f,ll)=>L.circleMarker(ll,{renderer:canvas,radius:4,weight:1,color:'#fff',fillColor:c[f.properties.c]||'#999',fillOpacity:.9}),
+    onEachFeature:(f,l)=>l.bindPopup('<div class="pp">'+esc(ANC_LBL[f.properties.c]||f.properties.c)+'<br>'+esc(f.properties.n)+'<br><span class="mut">fuente: '+esc(f.properties.s)+'</span></div>')});});
+lazyToggle('L_comp',async()=>{const fc=await get('competencia_v3.geojson');
+  return L.geoJSON(fc,{pointToLayer:(f,ll)=>L.circleMarker(ll,{renderer:canvas,radius:5,weight:2,color:'#b71c1c',fillColor:'#ff5252',fillOpacity:.8}),
+    onEachFeature:(f,l)=>l.bindPopup('<div class="pp"><b>Purificadora</b><br>'+esc(f.properties.n)+'<br><span class="mut">fuente: '+esc(f.properties.s)+'</span></div>')});});
+lazyToggle('L_sema',async()=>{const fc=await get('semaforos_altos_v3.geojson');
+  return L.geoJSON(fc,{pointToLayer:(f,ll)=>{const se=/semaforo/.test(f.properties.k);return L.circleMarker(ll,{renderer:canvas,radius:3,weight:1,color:'#fff',fillColor:se?'#43a047':'#e53935',fillOpacity:.9});},
+    onEachFeature:(f,l)=>l.bindPopup('<div class="pp">'+(/semaforo/.test(f.properties.k)?'Semáforo':'Alto')+' · OSM</div>')});});
+lazyToggle('L_metro',async()=>{const a=await get('metro_estaciones.json');const g=L.layerGroup();
+  a.forEach(s=>L.circleMarker([s.lat,s.lon],{radius:5+s.i*9,color:'#fff',weight:1.5,fillColor:'#c62828',fillOpacity:.75})
+    .bindPopup('<div class="pp"><b>Metro '+esc(s.n)+'</b> <span class="mut">'+esc(s.l)+'</span><br>Índice de afluencia: <b>'+f2(s.i)+'</b> <span class="mut">(accesos/día hábil nov-2025 ÷ máx. red; STC Metrorrey, vía B3)</span><div class="mut">Informativo: no entra al score. Que la afluencia Metro sirva para recarga de garrafón es SUPUESTO.</div></div>').addTo(g));
+  return g;});
+// estaciones sugeridas (capa)
+(async()=>{try{const fc=await get('estaciones_sugeridas.geojson');
+  const g=L.geoJSON(fc,{pointToLayer:(f,ll)=>L.circleMarker(ll,{renderer:canvas,radius:f.properties.i===1?5:4,weight:1.5,color:'#fff',fillColor:'#0b5cb0',fillOpacity:.95}),
+   onEachFeature:(f,l)=>{const p=f.properties;l.bindPopup('<div class="pp"><b>'+esc(p.c)+'</b> · estación sugerida '+p.i+' de '+p.n+'<br><span class="mut">'+esc(MS(p.m))+' · colonia base #'+p.rb+' · celda '+f2(p.s,1)+'<br>Sep. ≥600 m entre estaciones de la misma colonia [SUPUESTO]</span></div>');}});
+  lazy.L_est=g;if($('L_est').checked)g.addTo(map);}catch(e){console.warn(e);}})();
+$('L_est').onchange=e=>{const g=lazy.L_est;if(!g)return;e.target.checked?g.addTo(map):map.removeLayer(g);};
+})();
+</script>
+</body>
+</html>
