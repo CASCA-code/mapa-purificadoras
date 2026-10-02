@@ -1,5 +1,7 @@
 # v2 vs v3 base: por qué los rankings no coinciden (y cuál rige)
 
+> **⚠ RECOMENDACIÓN PENDIENTE DE NICOLÁS (no es decisión):** «v3 base para ZMM; v2/estudio para foco de campo Escobedo» es solo una **recomendación** del análisis. Nicolás aún no la ha aprobado ni rechazado; ningún ranking, mapa ni `index.html` cambia hasta que él decida.
+
 Todo sale de `data/colonias.geojson` (lo que lee el hub), `v2/data/colonias_v3.csv` y `/workspace/colonias_v2_scored.csv`. Script reproducible: `scripts/analisis_v2_vs_v3.py` (sin red). Tabla por colonia: `v2/data/comparacion_v2_vs_v3.csv` (167 filas). No se tocó ningún ranking ni `index.html`.
 
 ## 1. Resumen

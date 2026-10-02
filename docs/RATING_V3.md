@@ -1,5 +1,7 @@
 # Rating v3 · heat por celda · proxy de tráfico (mapa v2)
 
+> **⚠ RECOMENDACIÓN PENDIENTE DE NICOLÁS (no es decisión):** «v3 base para ZMM; v2/estudio para foco de campo Escobedo» es solo una **recomendación** del análisis. Nicolás aún no la ha aprobado ni rechazado; ningún ranking, mapa ni `index.html` cambia hasta que él decida.
+
 **Mapa:** https://casca-code.github.io/mapa-purificadoras/v2/ (versión separada; el mapa actual `/` y `scout.html` no se tocan).
 **Build:** `python3 scripts/build_v3_rating.py` (colonias + celdas + capas de puntos) y
 `python3 scripts/build_trafico_vias_v3.py` (vías OSM; única descarga, Overpass, paso offline).
