@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Competencia ≤300 m · capa INTERNA (indicativo)</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../vendor/leaflet.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1d2330}
+#map{position:absolute;inset:0}
+#panel{position:absolute;z-index:1000;top:10px;left:10px;width:330px;max-width:calc(100% - 20px);background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.25);padding:10px 12px}
+#panel h1{font-size:15px;margin:0 0 4px}.sub{color:#667085;font-size:12px;margin-bottom:6px}
+.warn{background:#fff7e0;border:1px solid #f0d78c;border-radius:8px;padding:6px 8px;font-size:12px;margin:6px 0}
+label.tg{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer;font-size:13px}
+.leg{margin-top:8px}.leg div{display:flex;align-items:center;gap:6px;font-size:12px;margin:2px 0}.leg i{display:inline-block;width:22px;height:12px;border:1px solid rgba(0,0,0,.25)}
+.note{font-size:11px;color:#667085}
+#stats{font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">
+  <h1>Competencia de garrafón ≤300 m</h1>
+  <div class="sub">Capa <b>interna</b> · celdas de 100 m · conteo de competidores a ≤300 m del centro de celda</div>
+  <div class="warn"><b>Indicativo, competencia subcontada.</b> Sólo DENUE 312112 + Places (competencia_v3) + OSM agua (nuevos &gt;30 m). Informales y puestos sin ficha no se ven: un «0» no prueba que no haya competencia (ver docs/COMPETENCIA_CERO.md).</div>
+  <label class="tg"><input type="checkbox" id="tHeat" checked> Celdas de competencia</label>
+  <label class="tg"><input type="checkbox" id="tCero" checked> Celdas con 0 en colonias +300 m (verde claro)</label>
+  <label class="tg"><input type="checkbox" id="tCol" checked> Contorno de las 167 colonias</label>
+  <label class="tg"><input type="checkbox" id="tPts"> Puntos competidores (competencia_v3)</label>
+  <label class="tg"><input type="checkbox" id="tOsm" checked> Puntos OSM agua (nuevos)</label>
+  <div class="leg" id="leg"></div>
+  <div id="stats" class="note">Cargando…</div>
+  <div class="note" style="margin-top:6px">Base: Esri World Street Map. Datos: DENUE/INEGI, Google Places (competencia_v3), © OpenStreetMap contributors (ODbL). Página no enlazada desde el hub.</div>
+</div>
+<script src="../vendor/leaflet.js"></script>
+<script>
+(function(){
+var map=L.map('map',{preferCanvas:true}).setView([25.72,-100.30],11);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'}).addTo(map);
+var COLORS={0:'rgba(120,200,120,0.18)',1:'rgba(255,230,80,0.60)',2:'rgba(255,170,40,0.70)',3:'rgba(240,90,40,0.75)',4:'rgba(190,20,40,0.80)'};
+function colorFor(n){return COLORS[n>=4?4:n];}
+var leg=document.getElementById('leg');
+[[0,'0 (en colonias +300 m)'],[1,'1 competidor ≤300 m'],[2,'2'],[3,'3'],[4,'4 o más']].forEach(function(a){var d=document.createElement('div');d.innerHTML='<i style="background:'+COLORS[a[0]]+'"></i>'+a[1];leg.appendChild(d);});
+var cells=[],DLAT=50/110574,DLON=50/(111320*Math.cos(25.7*Math.PI/180));
+var showHeat=true,showCero=true;
+var Heat=L.GridLayer.extend({createTile:function(c){
+  var t=document.createElement('canvas'),s=this.getTileSize();t.width=s.x;t.height=s.y;var x=t.getContext('2d');
+  var nw=map.unproject(c.scaleBy(s),c.z),se=map.unproject(c.scaleBy(s).add([s.x,s.y]),c.z);
+  var o=c.scaleBy(s),i,p,q,r;
+  for(i=0;i<cells.length;i++){r=cells[i];
+    if(r[0]+DLAT<se.lat||r[0]-DLAT>nw.lat||r[1]+DLON<nw.lng||r[1]-DLON>se.lng)continue;
+    if(r[2]===0&&!showCero)continue;
+    p=map.project([r[0]+DLAT,r[1]-DLON],c.z);q=map.project([r[0]-DLAT,r[1]+DLON],c.z);
+    x.fillStyle=colorFor(r[2]);x.fillRect(Math.floor(p.x-o.x),Math.floor(p.y-o.y),Math.ceil(q.x-p.x)+1,Math.ceil(q.y-p.y)+1);}
+  return t;}});
+var heat=new Heat({pane:'overlayPane',opacity:1,zIndex:400,tileSize:256});
+var colLayer=L.layerGroup(),ptsLayer=L.layerGroup(),osmLayer=L.layerGroup();
+function csv(txt){var L_=txt.trim().split(/\r?\n/);L_.shift();return L_.map(function(l){var a=l.split(',');return [parseFloat(a[0]),parseFloat(a[1]),parseInt(a[2],10),parseInt(a[3],10),parseInt(a[4],10),a[5]||''];});}
+function jget(u){return fetch(u).then(function(r){if(!r.ok)throw new Error(u+' '+r.status);return r.json();});}
+fetch('data/heat_competencia_300m.csv').then(function(r){if(!r.ok)throw new Error('csv '+r.status);return r.text();}).then(function(t){
+  cells=csv(t);heat.addTo(map);
+  var n0=0,n1=0;cells.forEach(function(c){if(c[2]===0)n0++;else n1++;});
+  document.getElementById('stats').textContent=cells.length.toLocaleString('es-MX')+' celdas · '+n1.toLocaleString('es-MX')+' con ≥1 competidor · '+n0.toLocaleString('es-MX')+' con 0 (en colonias +300 m).';
+}).catch(function(e){document.getElementById('stats').textContent='Error cargando celdas: '+e.message;});
+jget('data/colonias_v3.geojson').then(function(g){L.geoJSON(g,{style:{color:'#1d4f91',weight:1,fill:false,opacity:.8},onEachFeature:function(f,l){var p=f.properties;l.bindTooltip((p.colonia||'')+' · rank base '+p.rank_base+' · comp ≤300 m: '+(p.comp_n_300m!=null?p.comp_n_300m:'?'),{sticky:true});}}).addTo(colLayer);colLayer.addTo(map);}).catch(function(e){console.warn('colonias',e.message);});
+jget('data/competencia_v3.geojson').then(function(g){g.features.forEach(function(f){var c=f.geometry.coordinates;L.circleMarker([c[1],c[0]],{radius:3,color:'#222',weight:1,fillColor:'#fff',fillOpacity:.9}).bindTooltip((f.properties.n||'')+' ('+f.properties.s+')').addTo(ptsLayer);});});
+jget('data/osm_agua_zmm.geojson').then(function(g){g.features.forEach(function(f){var p=f.properties;if(p.clase!=='competidor'||!p.nuevo_vs_v3_30m)return;var c=f.geometry.coordinates;L.circleMarker([c[1],c[0]],{radius:6,color:'#7a1fa2',weight:2,fillColor:'#d9a5f0',fillOpacity:.9}).bindTooltip('OSM '+p.osm+' · '+(p.name||p.criterio)).addTo(osmLayer);});osmLayer.addTo(map);});
+function bind(id,fn){document.getElementById(id).addEventListener('change',function(e){fn(e.target.checked);});}
+bind('tHeat',function(v){if(v)heat.addTo(map);else map.removeLayer(heat);});
+bind('tCero',function(v){showCero=v;heat.redraw();});
+bind('tCol',function(v){if(v)colLayer.addTo(map);else map.removeLayer(colLayer);});
+bind('tPts',function(v){if(v)ptsLayer.addTo(map);else map.removeLayer(ptsLayer);});
+bind('tOsm',function(v){if(v)osmLayer.addTo(map);else map.removeLayer(osmLayer);});
+})();
+</script>
+</body>
+</html>
