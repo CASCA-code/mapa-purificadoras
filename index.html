@@ -1075,11 +1075,7 @@ const muniLayer = L.geoJSON(MUNI, {style: muniStyle, interactive:false});
 /* Streets on MX cellular: Carto Voyager (HTTPS CDN) as primary — often more reliable than
  * tile.openstreetmap.org on mobile carriers. Keep Esri imagery. If primary tiles error in a burst,
  * fall back to OSM raster then Esri World Street Map. Attribution follows the active layer. */
-const cartoStreets = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-  maxZoom: 20,
-  subdomains: 'abcd',
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-});
+const cartoStreets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap contributors'});  /* Esri primario: CARTO raster ahora exige API key */
 const osmRaster = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap'});
 const esriStreets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'Tiles &copy; Esri'});
 const esriImg = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'Imagery &copy; Esri'});
