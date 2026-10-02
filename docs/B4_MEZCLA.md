@@ -27,6 +27,8 @@ Consecuencia: **las «fórmulas v3» ya estaban dentro de la página B2**; B3 no
 
 Filas del ranking, popup y mapa (relleno de colonia y tooltip) usan solo ese número y etiqueta. La confianza (alta/media/baja) es un punto de color con texto chico. El ranking va ordenado solo por esa calificación. El rango p10–p90 («puesto probable»), el puesto, el ancho de banda y las probabilidades quedan en «Detalle del puntaje» del popup. El orden alterno (mediana, prob. top 30), el filtro de confianza y el interruptor Scout siguen en «Más opciones > Orden y filtros (avanzado)»; con Scout encendido el número pasa a ser el puntaje con Scout.
 
+**Topografía (2026-10-02).** Etiqueta «cuesta arriba» y puntaje ajustado aparte en «Dónde poner», ficha y estaciones; ver `docs/B4_TOPOGRAFIA.md`. No cambia el score base.
+
 ## 1. Tomado de B2 (`v2/index.html`)
 
 1. **Estructura y flujo de UI**: panel lateral (escritorio) / hoja inferior (móvil), pestañas Ranking · Dónde poner · Capas · Cambios, ficha de colonia en popup, lista Top 20 con clic → zoom, botón «☰ Panel» en móvil.
