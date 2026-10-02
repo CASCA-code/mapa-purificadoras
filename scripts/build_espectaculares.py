@@ -37,6 +37,10 @@ PARAMS = {
     "station_cluster_m": 200,
     "nms_m": 200,              # one candidate per site in the ranking
     "top_n": 100,
+    # Metro: peso propio = W_MAX * indice de afluencia (accesos/dia habil nov-2025 / maximo), en vez del peso de juicio 3.0.
+    # W_MAX=6 (doble del 3.0 anterior: el maximo (estacion mas usada) pesa 6; es ESCALA de juicio, no calibrada). Sin match => se mantiene 3.0 (marcado).
+    "metro_afluencia": {"w_max": 6.0, "match_m": 250, "col": "accesos_dia_habil_nov2025",
+                        "raw_csv": "/home/box/geo/personas_export/metro_estaciones_afluencia.csv"},
 }
 CLASS_IDX = {"motorway": 5, "trunk": 5, "primary": 4, "secondary": 3, "tertiary": 2}  # same as v2 (links=1)
 LAT0 = 25.70
@@ -158,6 +162,49 @@ for pass_src in ("osm", "places"):
 for s in allstops: s["p"] = px(s["lon"], s["lat"])
 print("stops merged:", len(allstops), "stations clusters:", n_station_clusters, "dedupe:", drop)
 
+# ---------------- Metro afluencia (STC Metrorrey, accesos/dia nov-2025; INTERNO: se publica solo el indice normalizado) ----------------
+import unicodedata
+def _nm(x):
+    x = unicodedata.normalize("NFD", str(x or "")).encode("ascii", "ignore").decode().lower()
+    for w_ in ("estacion", "metro", "(", ")", "."): x = x.replace(w_, " ")
+    return " ".join(x.split())
+AFL_PUB = os.path.join(OUT, "metro_afluencia_indice.csv")     # derivado publico: estacion, linea, lat, lon, indice 0-1 (sin conteos)
+AFL = PARAMS["metro_afluencia"]; afl_st = []
+if os.path.exists(AFL["raw_csv"]):
+    rows_ = list(csv.DictReader(open(AFL["raw_csv"], newline="", encoding="utf-8")))
+    mxv = max(float(r[AFL["col"]]) for r in rows_)
+    afl_st = [dict(estacion=r["estacion"], linea=r["linea"], lat=float(r["lat"]), lon=float(r["lon"]), idx=round(float(r[AFL["col"]]) / mxv, 4)) for r in rows_]
+elif os.path.exists(AFL_PUB):
+    afl_st = [dict(estacion=r["estacion"], linea=r["linea"], lat=float(r["lat"]), lon=float(r["lon"]), idx=float(r["indice_afluencia"])) for r in csv.DictReader(open(AFL_PUB, encoding="utf-8"))]
+    print("WARN: afluencia raw no disponible; uso indice derivado publico", file=sys.stderr)
+else:
+    print("WARN: sin afluencia; Metro conserva peso de juicio 3.0", file=sys.stderr)
+afl_report = {"stations": len(afl_st), "matched_stops": 0, "stations_unmatched": [], "metro_stops_unmatched": [], "name_agree": 0, "name_disagree": []}
+metro_stops = [s for s in allstops if s["type"] == "metro"]
+for s in metro_stops: s["afl_idx"] = None
+for st in afl_st:
+    sp_ = px(st["lon"], st["lat"])
+    cand = sorted(((hav_ok(sp_, s["p"]), s) for s in metro_stops if hav_ok(sp_, s["p"]) <= AFL["match_m"]), key=lambda r: r[0])
+    if not cand: afl_report["stations_unmatched"].append(st["estacion"]); st["n_stops"] = 0; continue
+    st["n_stops"] = len(cand)
+    for d_, s in cand:   # varios elementos (cluster OSM + Places) de la misma estacion reciben el mismo indice; el mas cercano a UNA estacion manda
+        if s["afl_idx"] is None or d_ < s["afl_d"]:
+            s["afl_idx"], s["afl_d"], s["afl_name"] = st["idx"], d_, st["estacion"]
+    n0 = _nm(cand[0][1]["name"]); n1 = _nm(st["estacion"])
+    if n0 and (n1 in n0 or n0 in n1): afl_report["name_agree"] += 1
+    else: afl_report["name_disagree"].append(f'{st["estacion"]} <-> "{cand[0][1]["name"]}" a {cand[0][0]:.0f} m')
+for s in metro_stops:
+    if s["afl_idx"] is None: afl_report["metro_stops_unmatched"].append(f'{s["name"] or "(sin nombre)"} [{s["src"]}] ({s["lat"]:.4f},{s["lon"]:.4f})')
+    else: s["w_self"] = AFL["w_max"] * s["afl_idx"]
+afl_report["matched_stops"] = sum(1 for s in metro_stops if s["afl_idx"] is not None)
+afl_report["metro_stops_total"] = len(metro_stops)
+print("afluencia:", json.dumps({k: (v if not isinstance(v, list) else len(v)) for k, v in afl_report.items()}))
+if afl_st and os.path.exists(AFL["raw_csv"]):
+    with open(AFL_PUB, "w", newline="", encoding="utf-8") as fh:
+        w_ = csv.writer(fh); w_.writerow(["estacion", "linea", "lat", "lon", "indice_afluencia", "n_elementos_mapa_<=250m", "nota"])
+        for st in afl_st: w_.writerow([st["estacion"], st["linea"], round(st["lat"], 5), round(st["lon"], 5), st["idx"], st.get("n_stops", 0),
+                                       "indice = accesos/dia habil nov-2025 / maximo de la red (0-1); fuente STC Metrorrey (conteos crudos no se publican)"])
+
 # ---------------- anchors (people) ----------------
 anch = []
 for f in json.load(open(J("data", "anclas.geojson")))["features"]:
@@ -248,7 +295,7 @@ for i, s in enumerate(allstops):
     cnt = {}
     for k in np.nonzero(mask)[0]: cnt[A_t[k]] = cnt.get(A_t[k], 0) + 1
     s["anchors"] = cnt
-    s["raw_density"] = (PARAMS["w_stop_self"][s["type"]] + PARAMS["w_other_stop"] * min(s["n_other_stops"], PARAMS["cap_other_stops"])
+    s["raw_density"] = (s.get("w_self", PARAMS["w_stop_self"][s["type"]]) + PARAMS["w_other_stop"] * min(s["n_other_stops"], PARAMS["cap_other_stops"])
                         + sum(PARAMS["w_anchor"][t] * min(n, PARAMS["cap_anchors"]) for t, n in cnt.items()))
     s["muni"] = muni_of(s["lon"], s["lat"]) or "fuera núcleo ZMM"
     s["mult"], s["mult_tomtom"] = mult_of(s["muni"])
@@ -320,6 +367,8 @@ for rank, i in enumerate(chosen, 1):
     if s["src"] == "osm" and s["type"] == "bus": flags.append("OSM_parcial")
     if not s["mult_tomtom"]: flags.append("municipio_sin_TomTom(usa_total_ZMM)")
     if s["type"] == "metro" and s["src"] == "places": flags.append("Places_transit_station_sin_match_OSM")
+    if s["type"] == "metro":
+        flags.append(f'metro_afluencia_idx={s["afl_idx"]:.2f}({s["afl_name"]})' if s.get("afl_idx") is not None else "metro_sin_afluencia(peso_juicio=3)")
     if top is None: flags.append("sin_via_mayor_en_radio")
     if s["pie"] is None: flags.append("sin_segmento_EG-personas<80m")
     others = [{"n": a["name"] or a["ref"], "clase": IDXTXT[a["idx"]], "d_m": round(a["dist"])} for a in s["adj"][1:4]]
@@ -330,7 +379,7 @@ for rank, i in enumerate(chosen, 1):
              "otras_vias": others, "score": s["score"], "personas": round(s["people"], 3), "personas_densidad_pct": round(s["people_idx"], 3),
              "pie_modelo": s["pie"][0] if s["pie"] else None, "otras_paradas_150m": s["n_other_stops"], "anclas_150m": s["anchors"],
              "autos": round(s["cars"], 3), "mult_muni": s["mult"], "mult_fuente": "TomTom indicativo" if s["mult_tomtom"] else "total ZMM TomTom (muni sin dato)",
-             "paradas_fusionadas_200m": s.get("merged", 0),
+             "paradas_fusionadas_200m": s.get("merged", 0), "afluencia_idx": s.get("afl_idx"),
              "gmaps": f"https://www.google.com/maps/search/?api=1&query={lat:.6f},{lon:.6f}",
              "streetview": f"https://www.google.com/maps/@?api=1&map_action=pano&viewpoint={lat:.6f},{lon:.6f}", "flags": flags}
     feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(lon, 6), round(lat, 6)]}, "properties": props})
@@ -362,7 +411,7 @@ manifest = {"generated_by": "scripts/build_espectaculares.py", "params": PARAMS,
             "stops_by_type": {t: sum(1 for s in allstops if s["type"] == t) for t in ("bus", "brt", "metro", "terminal")},
             "stops_by_source": {k: sum(1 for s in allstops if s["src"] == k) for k in ("osm", "anclas_osm", "places")},
             "n_station_clusters": n_station_clusters, "anchors": len(anch), "road_edges": {"osm_major": n_major, "local": len(road_geoms) - n_major},
-            "tomtom_aggregates_by_municipio": tt_pub, "tomtom_note": "TomTom indicativo, 1 día (mar 2026-10-06 perfil histórico), uso interno. OD industriales, NO conteos por vía.",
+            "tomtom_aggregates_by_municipio": tt_pub, "metro_afluencia": {k: v for k, v in afl_report.items()}, "tomtom_note": "TomTom indicativo, 1 día (mar 2026-10-06 perfil histórico), uso interno. OD industriales, NO conteos por vía.",
             "osm_snapshot": json.load(open("/workspace/downloads/osm_paradas_raw.json")).get("osm3s", {}).get("timestamp_osm_base")}
 json.dump(manifest, open(os.path.join(OUT, "manifest.json"), "w"), ensure_ascii=False, indent=1)
 print(json.dumps(manifest["stops_by_type"]), manifest["stops_by_source"], "tt:", tt)

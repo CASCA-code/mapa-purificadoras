@@ -27,7 +27,13 @@
   "dedupe_cross_source_m": 20,
   "station_cluster_m": 200,
   "nms_m": 200,
-  "top_n": 100
+  "top_n": 100,
+  "metro_afluencia": {
+   "w_max": 6.0,
+   "match_m": 250,
+   "col": "accesos_dia_habil_nov2025",
+   "raw_csv": "/home/box/geo/personas_export/metro_estaciones_afluencia.csv"
+  }
  },
  "n_stops_merged": 2114,
  "n_stop_total": 2114,
@@ -158,6 +164,37 @@
    "f0700": 1.134,
    "f1800": 1.248
   }
+ },
+ "metro_afluencia": {
+  "stations": 38,
+  "matched_stops": 38,
+  "stations_unmatched": [],
+  "metro_stops_unmatched": [
+   "Parque Fundidora [osm] (25.6742,-100.2901)",
+   "Churubusco [osm] (25.6861,-100.2672)",
+   "Lindavista [osm] (25.6886,-100.2586)",
+   "Libertad [osm] (25.6912,-100.2496)",
+   "Bonifacio Salinas [osm] (25.6937,-100.2406)",
+   "San Rafael [osm] (25.6964,-100.2313)",
+   "La Victoria [osm] (25.7041,-100.2248)",
+   "La Talaverna [osm] (25.7101,-100.2218)",
+   "La Fe [osm] (25.7200,-100.2164)",
+   "Ginecología [osm] (25.6694,-100.2966)",
+   "Puente del Papa [osm] (25.6644,-100.3154)",
+   "Macroplaza [osm] (25.6632,-100.3091)",
+   "Serafin Pena [osm] (25.6670,-100.3303)",
+   "Pino Suárez [osm] (25.6656,-100.3222)",
+   "Fuerza Civil [osm] (25.6686,-100.3391)",
+   "Obispado / Torre Rise [osm] (25.6707,-100.3471)",
+   "Barrio Antiguo [osm] (25.6658,-100.3033)",
+   "Estación OSM sin nombre [osm] (25.7748,-100.1160)"
+  ],
+  "name_agree": 36,
+  "name_disagree": [
+   "Ruiz Cortines <-> \"Ruiz Cortinez\" a 249 m",
+   "Parque Fundidora <-> \"Arena Monterrey\" a 16 m"
+  ],
+  "metro_stops_total": 56
  },
  "tomtom_note": "TomTom indicativo, 1 día (mar 2026-10-06 perfil histórico), uso interno. OD industriales, NO conteos por vía.",
  "osm_snapshot": "2026-07-28T02:16:18Z"
