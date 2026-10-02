@@ -1,6 +1,6 @@
-# B4 (BORRADOR): qué se tomó de B2 y de B3
+# B4: qué se tomó de B2 y de B3
 
-**Página:** https://casca-code.github.io/mapa-purificadoras/b4/ — `noindex`, etiqueta visible «BORRADOR B4», **sin enlace desde el hub**. Archivos nuevos: `b4/index.html`, `b4/data/*`, `docs/B4_ECONOMIA.md`, `docs/B4_MEZCLA.md`, `data/b4_escenarios.csv`, `data/b4_escalonado.csv`, `scripts/build_b4.py`. No se tocó `index.html` del hub, `scout.html`, ni `v2/` / `v3_espectaculares/`.
+**Página:** https://casca-code.github.io/mapa-purificadoras/b4/ — `noindex`, **sin enlace desde el hub**. Sin etiqueta «BORRADOR» en la página (feedback de Nicolás, 2026-10-02). Archivos nuevos: `b4/index.html`, `b4/data/*`, `docs/B4_ECONOMIA.md`, `docs/B4_MEZCLA.md`, `data/b4_escenarios.csv`, `data/b4_escalonado.csv`, `scripts/build_b4.py`. No se tocó `index.html` del hub, `scout.html`, ni `v2/` / `v3_espectaculares/`.
 
 ## 0. Cómo interpreté «B2» y «B3» (hallazgo importante)
 
@@ -13,6 +13,8 @@ Pedido de Nicolás vía Yamil: «B4 = lo mejor de B2 y B3; le gusta el UI de B2;
 | **B3** | `v3_espectaculares/index.html` (+ README, `docs/BANDA_CONFIANZA.md`, `docs/V2_VS_V3.md`) | Mapa de **espectaculares/paradas**: `score = personas × autos` por parada (Metro con afluencia STC nov-2025, sentido vial, TomTom indicativo, top 100 paradas). **No** puntúa colonias. Su UI es la más pulida (escala 4/8, 44 px, focus visible). La banda de confianza y la comparación v2/v3 viven en docs/datos de la línea v3, no en una página. |
 
 Consecuencia: **las «fórmulas v3» ya estaban dentro de la página B2**; B3 no tiene una fórmula alternativa de colonias que comparar. Lo que B3/línea-v3 aporta de nuevo y **sí encaja** es la banda de confianza, el índice de afluencia Metro y el tratamiento de «0 competidores = no verificado». Si Nicolás se refería a otra cosa por B2/B3, hay que corregirlo.
+
+**Cambio de UI 2026-10-02 (feedback de Nicolás: «menos cargado»).** Pestañas visibles: Ranking · Dónde poner · Economía. Un solo orden por defecto (puntaje). Todo lo demás sigue ahí, plegado en «Más opciones»: orden por puesto típico o prob. top 30, filtro de confianza, interruptor Scout, las 10 capas del mapa con leyenda, Cambios v2→v3, datos y notas. En la vista principal el rango p10–p90 se muestra como «puesto probable 3 a 9» y la banda como «confianza alta/media/baja»; p10/p50/p90, ancho de banda y probabilidades quedan en «Detalle del puntaje» de cada colonia. La fórmula, los datos y las estaciones sugeridas no cambiaron.
 
 ## 1. Tomado de B2 (`v2/index.html`)
 
