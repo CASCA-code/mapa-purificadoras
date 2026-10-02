@@ -1,3 +1,5 @@
+> **Nota (2026-10-01):** este documento es el escenario Croc (4,149 garr/mes en un medidor, ósmosis 50 %, Cat. 2). La reconciliación con el $2.50/garrafón a 80 % de Nicolás (por recuperación 50/65/80 %, tarifa Cat. 2/Cat. 6 oficial sept 2026, y margen por estación) está en [`UNIT_ECONOMICS_RECONCILIADO.md`](UNIT_ECONOMICS_RECONCILIADO.md). Los cálculos de abajo no se modificaron.
+
 # Costo de agua SADM (referencia Croc)
 
 Fecha conversación: 2026-09-12  

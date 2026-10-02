@@ -1,0 +1,21 @@
+escenario,tarifa,recuperacion,garr_mes,m3_comprados,m3_facturados,agua_mes_mxn,agua_por_garrafon,margen_mes_peor,margen_mes_mejor,estaciones_meta_peor,estaciones_meta_mejor
+estacion_900,cat2,0.5,900,34.2,35,1594.16,1.771,,,,
+estacion_900,cat6,0.5,900,34.2,35,2458.04,2.731,,,,
+estacion_900,cat2,0.65,900,26.31,27,954.93,1.061,,,,
+estacion_900,cat6,0.65,900,26.31,27,1453.23,1.615,,,,
+estacion_900,cat2,0.8,900,21.38,22,625.62,0.695,,,,
+estacion_900,cat6,0.8,900,21.38,22,1046.72,1.163,,,,
+croc_4149,cat2,0.5,4149,157.66,158,22936.93,5.528,,,,
+croc_4149,cat6,0.5,4149,157.66,158,27215.39,6.56,,,,
+croc_4149,cat2,0.65,4149,121.28,122,10716.88,2.583,,,,
+croc_4149,cat6,0.65,4149,121.28,122,15696.35,3.783,,,,
+croc_4149,cat2,0.8,4149,98.54,99,7848.77,1.892,,,,
+croc_4149,cat6,0.8,4149,98.54,99,11598.61,2.796,,,,
+margen_estacion,"**BASE: $2.50 @ 80 % [NICOLÁS]** (plano, sin tarifa)",,900,,,2250.0,2.5,6785,7280,4,3
+margen_estacion,Cat. 2 doméstica @ 80 % [OFICIAL+calc],,900,,,625.62,0.695,8409,8904,3,3
+margen_estacion,Cat. 6 comercial @ 80 % [OFICIAL+calc],,900,,,1046.72,1.163,7988,8483,3,3
+margen_estacion,Cat. 2 doméstica @ 65 % [OFICIAL+calc],,900,,,954.93,1.061,8080,8575,3,3
+margen_estacion,Cat. 6 comercial @ 65 % [OFICIAL+calc],,900,,,1453.23,1.615,7582,8077,3,3
+margen_estacion,Cat. 2 doméstica @ 50 % [OFICIAL+calc],,900,,,1594.16,1.771,7441,7936,3,3
+margen_estacion,Cat. 6 comercial @ 50 % [OFICIAL+calc],,900,,,2458.04,2.731,6577,7072,4,4
+margen_estacion,"$5.53 @ 50 % Croc/1 medidor (cifra de `COSTO_AGUA_SADM.md`, **no** aplicable a 1 estación)",,900,,,4977.0,5.53,4058,4553,6,5
