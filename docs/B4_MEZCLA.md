@@ -29,6 +29,13 @@ Filas del ranking, popup y mapa (relleno de colonia y tooltip) usan solo ese nú
 
 **Topografía (2026-10-02).** Etiqueta «cuesta arriba» y puntaje ajustado aparte en «Dónde poner», ficha y estaciones; ver `docs/B4_TOPOGRAFIA.md`. No cambia el score base.
 
+**Pedidos de Nicolás sobre /b4/ (2026-10-02, tercera ronda).** Solo `b4/index.html`:
+1. **Zoom animado**: al tocar una colonia del Top 10 el mapa vuela (`flyToBounds`, 0.7 s) a esa colonia y abre la ficha al terminar. Con «reducir movimiento» del sistema, salto directo.
+2. **Tooltip con nombre**: colonia · municipio · calificación y etiqueta al pasar el cursor (escritorio) o al tocar (móvil; se cierra a los 3 s). Igual en estaciones sugeridas (con colonia y municipio), Metro, anclas, purificadoras, semáforos/altos, Scout, vías y celdas de 100 m. Arreglo de un bug: un 2.º canvas vacío (por círculos de las estaciones y Metro) tapaba el hover de las colonias después de abrir una ficha; ahora hay un solo canvas para todos los vectores.
+3. **Economía fuera de la UI**: sin pestaña, tarjetas, escenarios ni enlaces a `B4_ECONOMIA` (el doc, `data/economia.json` y los CSV siguen en el repo, sin uso en la página).
+4. **Fuera «Cambios v2→v3» y la pestaña «Dónde poner»** como lista aparte (también la fila «Mapa anterior (v2)» de la ficha). Se conserva en la ficha de colonia: «Estaciones sugeridas: N», cada estación con coordenadas exactas, punto, pendiente / «cuesta arriba», enlace a Maps, y los pines + círculo de 300 m en el mapa. Única pestaña: Ranking; Capas va dentro de «Más opciones».
+5. **«Agarrarte el UI original, mostrar mucho» (interpretación, incierta)**: (a) el ranking ahora puede mostrar la lista completa de 167 colonias con el botón «Ver todas (167)» / «Ver menos»; por defecto sigue el Top 10 (antes 5 en móvil); (b) «Más opciones» abre con «Capas del mapa» ya desplegado, con las capas del UI de `/v2/` en su mismo orden (colonias, calor por celda, Scout, tráfico, anclas, purificadoras, semáforos/altos, satélite) más las dos de B4 (estaciones sugeridas, Metro). Se mantiene calificación única, etiqueta de color y punto de confianza.
+
 ## 1. Tomado de B2 (`v2/index.html`)
 
 1. **Estructura y flujo de UI**: panel lateral (escritorio) / hoja inferior (móvil), pestañas Ranking · Dónde poner · Capas · Cambios, ficha de colonia en popup, lista Top 20 con clic → zoom, botón «☰ Panel» en móvil.
