@@ -1,6 +1,6 @@
 # B4 · Economía con máquina real ($87,000): payback, 3–4 estaciones, SADM
 
-**Etiquetas:** **[DATO]** = cifra dada o verificada. **[SUPUESTO]** = decisión/estimación mía o del doc de origen, no medida. **[ABIERTO]** = falta el dato. Todo es **BORRADOR B4**; no sustituye `UNIT_ECONOMICS_RECONCILIADO.md` ni `COSTO_AGUA_SADM.md` (no se editaron).
+**Etiquetas:** **[DATO]** = cifra dada o verificada. **[SUPUESTO]** = decisión/estimación mía o del doc de origen, no medida. **[ABIERTO]** = falta el dato. Todo es una estimación con supuestos; no sustituye `UNIT_ECONOMICS_RECONCILIADO.md` ni `COSTO_AGUA_SADM.md` (no se editaron).
 Reproducir: `python3 scripts/build_b4.py` (sin red) → `data/b4_escenarios.csv`, `data/b4_escalonado.csv`, `b4/data/economia.json`.
 
 ## 1. Entradas

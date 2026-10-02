@@ -16,6 +16,17 @@ Consecuencia: **las «fórmulas v3» ya estaban dentro de la página B2**; B3 no
 
 **Cambio de UI 2026-10-02 (feedback de Nicolás: «menos cargado»).** Pestañas visibles: Ranking · Dónde poner · Economía. Un solo orden por defecto (puntaje). Todo lo demás sigue ahí, plegado en «Más opciones»: orden por puesto típico o prob. top 30, filtro de confianza, interruptor Scout, las 10 capas del mapa con leyenda, Cambios v2→v3, datos y notas. En la vista principal el rango p10–p90 se muestra como «puesto probable 3 a 9» y la banda como «confianza alta/media/baja»; p10/p50/p90, ancho de banda y probabilidades quedan en «Detalle del puntaje» de cada colonia. La fórmula, los datos y las estaciones sugeridas no cambiaron.
 
+**Calificación única (2026-10-02, segundo feedback de Nicolás).** Cada colonia muestra un solo número 0–100: el `score_base` del rating v3 (fórmula 0.40/0.30/0.30, sin cambios), más una etiqueta con color. Cortes fijos sobre ese número (SUPUESTO de presentación, no vienen del modelo; con los datos actuales dan 22 / 29 / 44 / 72 colonias):
+
+| Etiqueta | Calificación | Color |
+|---|---|---|
+| Excelente | 60 o más | verde oscuro |
+| Buena | 50 a 59.9 | verde claro |
+| Regular | 40 a 49.9 | amarillo |
+| Baja | menos de 40 | rosa |
+
+Filas del ranking, popup y mapa (relleno de colonia y tooltip) usan solo ese número y etiqueta. La confianza (alta/media/baja) es un punto de color con texto chico. El ranking va ordenado solo por esa calificación. El rango p10–p90 («puesto probable»), el puesto, el ancho de banda y las probabilidades quedan en «Detalle del puntaje» del popup. El orden alterno (mediana, prob. top 30), el filtro de confianza y el interruptor Scout siguen en «Más opciones > Orden y filtros (avanzado)»; con Scout encendido el número pasa a ser el puntaje con Scout.
+
 ## 1. Tomado de B2 (`v2/index.html`)
 
 1. **Estructura y flujo de UI**: panel lateral (escritorio) / hoja inferior (móvil), pestañas Ranking · Dónde poner · Capas · Cambios, ficha de colonia en popup, lista Top 20 con clic → zoom, botón «☰ Panel» en móvil.
