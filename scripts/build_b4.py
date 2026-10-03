@@ -36,6 +36,33 @@ json.dump(metro, open(J('b4', 'data', 'metro_estaciones.json'), 'w', encoding='u
 
 # ---------- colonias_b4.geojson ----------
 src = json.load(open(J('v2', 'data', 'colonias_v3.geojson'), encoding='utf-8'))
+# ---------- SCORE B4 (competencia SUMA) ----------
+# score_b4 = 100 x (0.40*Demanda* + 0.30*Anclas* + 0.30*Comp_bonus*)   (docs/B4_FORMULA.md)
+# Comp_bonus* = min(P, CAP_P)/CAP_P, P = percentil de purificadoras a <=300 m por 1,000 viviendas (= C_star de v3, 0 comp => 0).
+# SUPUESTO: tope en p80 (CAP_P = 0.80). La formula anterior (competencia RESTA: 1-C_star) queda como score_prev / rank_prev.
+W_D, W_A, W_C = 0.40, 0.30, 0.30
+CAP_P = 0.80            # SUPUESTO
+def comp_bonus(c): return min(c, CAP_P) / CAP_P
+def rank_by(feats, key, tie):
+    order = sorted(feats, key=lambda p: (-p[key], p[tie]))
+    for i, p in enumerate(order): p['_r_'+key] = i + 1
+for ft in src['features']:
+    p = ft['properties']
+    p['score_prev'] = p['score_base']; p['rank_prev'] = p['rank_base']
+    p['score_with_scout_prev'] = p['score_with_scout']; p['rank_with_scout_prev'] = p['rank_with_scout']
+    p['Cb_star'] = round(comp_bonus(p['C_star']), 4)
+    p['score_base'] = round(100 * (W_D*p['D_star'] + W_A*p['A_star'] + W_C*comp_bonus(p['C_star'])), 2)
+    p['score_with_scout'] = round(100 * (W_D*p['D_star'] + W_A*p['A_star_scout'] + W_C*comp_bonus(p['C_star_scout'])), 2)
+    p['sin_verificar'] = p['comp_n_300m'] == 0     # 0 competidores => bonus 0 y marca 'sin verificar'
+_P = [ft['properties'] for ft in src['features']]
+rank_by(_P, 'score_base', 'rank_prev'); rank_by(_P, 'score_with_scout', 'rank_with_scout_prev')
+for p in _P:
+    p['rank_base'] = p.pop('_r_score_base'); p['rank_with_scout'] = p.pop('_r_score_with_scout')
+    p['scout_bonus'] = round(p['score_with_scout'] - p['score_base'], 2)
+    p['delta_rank_v2_to_base'] = p['v2_rank'] - p['rank_base']
+    p['delta_rank_base_to_scout'] = p['rank_base'] - p['rank_with_scout']
+    p['delta_rank_prev_to_b4'] = p['rank_prev'] - p['rank_base']
+
 sites_fc = []
 dist_n = collections.Counter()
 for ft in src['features']:

@@ -16,7 +16,7 @@ Consecuencia: **las «fórmulas v3» ya estaban dentro de la página B2**; B3 no
 
 **Cambio de UI 2026-10-02 (feedback de Nicolás: «menos cargado»).** Pestañas visibles: Ranking · Dónde poner · Economía. Un solo orden por defecto (puntaje). Todo lo demás sigue ahí, plegado en «Más opciones»: orden por puesto típico o prob. top 30, filtro de confianza, interruptor Scout, las 10 capas del mapa con leyenda, Cambios v2→v3, datos y notas. En la vista principal el rango p10–p90 se muestra como «puesto probable 3 a 9» y la banda como «confianza alta/media/baja»; p10/p50/p90, ancho de banda y probabilidades quedan en «Detalle del puntaje» de cada colonia. La fórmula, los datos y las estaciones sugeridas no cambiaron.
 
-**Calificación única (2026-10-02, segundo feedback de Nicolás).** Cada colonia muestra un solo número 0–100: el `score_base` del rating v3 (fórmula 0.40/0.30/0.30, sin cambios), más una etiqueta con color. Cortes fijos sobre ese número (SUPUESTO de presentación, no vienen del modelo; con los datos actuales dan 22 / 29 / 44 / 72 colonias):
+**Calificación única (2026-10-02, segundo feedback de Nicolás).** Cada colonia muestra un solo número 0–100: el `score_base` del rating v3 (fórmula 0.40/0.30/0.30; **reemplazada el 2026-10-03**, ver arriba), más una etiqueta con color. Cortes fijos sobre ese número (SUPUESTO de presentación, no vienen del modelo; con los datos actuales dan 22 / 29 / 44 / 72 colonias):
 
 | Etiqueta | Calificación | Color |
 |---|---|---|
@@ -35,6 +35,8 @@ Filas del ranking, popup y mapa (relleno de colonia y tooltip) usan solo ese nú
 3. **Economía fuera de la UI**: sin pestaña, tarjetas, escenarios ni enlaces a `B4_ECONOMIA` (el doc, `data/economia.json` y los CSV siguen en el repo, sin uso en la página).
 4. **Fuera «Cambios v2→v3» y la pestaña «Dónde poner»** como lista aparte (también la fila «Mapa anterior (v2)» de la ficha). Se conserva en la ficha de colonia: «Estaciones sugeridas: N», cada estación con coordenadas exactas, punto, pendiente / «cuesta arriba», enlace a Maps, y los pines + círculo de 300 m en el mapa. Única pestaña: Ranking; Capas va dentro de «Más opciones».
 5. **«Agarrarte el UI original, mostrar mucho» (interpretación, incierta)**: (a) el ranking ahora puede mostrar la lista completa de 167 colonias con el botón «Ver todas (167)» / «Ver menos»; por defecto sigue el Top 10 (antes 5 en móvil); (b) «Más opciones» abre con «Capas del mapa» ya desplegado, con las capas del UI de `/v2/` en su mismo orden (colonias, calor por celda, Scout, tráfico, anclas, purificadoras, semáforos/altos, satélite) más las dos de B4 (estaciones sugeridas, Metro). Se mantiene calificación única, etiqueta de color y punto de confianza.
+
+**Competencia suma (2026-10-03).** `score_base` de B4 ya no es el de v3: `100·(0.40·Demanda* + 0.30·Anclas* + 0.30·Comp_bonus*)`, con bonus por purificadoras a ≤300 m por 1,000 viviendas, tope en p80 (SUPUESTO) y 0 competidores ⇒ 0 bonus «sin verificar». La fórmula anterior queda como `score_prev` / `rank_prev`. Cortes 60/50/40 sin cambio (con la fórmula nueva dan 31 / 33 / 26 / 77 colonias). Detalle y limitaciones en `docs/B4_FORMULA.md`.
 
 ## 1. Tomado de B2 (`v2/index.html`)
 
@@ -74,7 +76,7 @@ Filas del ranking, popup y mapa (relleno de colonia y tooltip) usan solo ese nú
 | Tráfico de autos como factor de score | B3 | B2 ya trae el proxy de clase de vía en celdas; sin aforos no mejora. |
 | Segmentos peatonales EG-personas, todas las paradas | B3 | Capas de contexto de un modelo distinto, 100 KB+ y sin validación para recarga. Sólo se tomó Metro. |
 | Metro como **puntos** del score | B3 | La afluencia Metro no está calibrada contra ventas de garrafón; demanda de recarga es residencial. W_MAX = 6 es de juicio. Queda informativa. |
-| **Competencia como bonus con tope** | pedido | **No existe en v3**: en v3 la competencia **resta** (`1−Comp*`, 30 %). Sin base en el repo, no se inventó. |
+| ~~Competencia como bonus con tope~~ | pedido | **Actualización 2026-10-03:** ya implementado a pedido de Nicolás («la competencia es buena»): ver `docs/B4_FORMULA.md` (bonus con tope p80, SUPUESTO). Antes no se había hecho por falta de base en el repo. |
 | Ponderación por densidad (`score_dens`) y viviendas Censo | BANDA/SENSIBILIDAD | Es sensibilidad (MODELO), no ranking; ya está reflejada en la banda (p10–p90). Cambiar el titular sin ventas reales no es justificable. |
 | Pestaña de diseño v2 viejo (`score_100` 0.40/0.25/0.20/0.15, Canibal\* constante) | hub | Se reemplaza por v3; la canibalización queda como **separación de 600 m**, no como término. |
 | Heat de competencia 300 m (`v2/competencia_heat.html`) | B2 (página aparte) | Página separada; no se integró (la capa de purificadoras ya está). |

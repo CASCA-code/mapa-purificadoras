@@ -148,6 +148,7 @@ label.mut{display:flex;flex-direction:column;gap:var(--s1)}
         <p class="mut">Datos fijos del repo (DENUE, CONAPO, Places, OSM, Scout, Metrorrey). Sin consultas en vivo. Lo que es supuesto va marcado SUPUESTO. Places trae máximo 60 por zona: en zonas densas pueden faltar negocios.</p>
         <p class="mut">«Sin verificar» = 0 purificadoras detectadas, pero DENUE y Places no ven las informales.</p>
         <p class="mut" id="stat"></p>
+        <p class="mut"><b>Calificación:</b> 100 × (0.40·Demanda + 0.30·Anclas + 0.30·Bonus de competencia). La competencia suma: más purificadoras a ≤300 m por 1,000 viviendas dan más bonus, hasta un tope en el percentil 80 (SUPUESTO; idea de absorber clientes con recarga a $12). 0 detectadas = sin bonus y «sin verificar». Pesos y tope son SUPUESTO, sin calibrar con ventas. La fórmula anterior (competencia resta) se conserva como «fórmula anterior» en la ficha. Cortes de etiqueta sin cambio: 60 / 50 / 40. La banda de «puesto probable» aún es de la fórmula anterior. Detalle: <a href="https://github.com/CASCA-code/mapa-purificadoras/blob/main/docs/B4_FORMULA.md" target="_blank" rel="noopener">B4_FORMULA</a>.</p>
         <p class="mut">«Cuesta arriba» = pendiente media a 300 m mayor a 8 % (SUPUESTO; muy empinada, más de 12 %), según el modelo de elevación Copernicus de 30 m. Sólo marca la estación: el orden no cambia. Entre estaciones de una colonia hay al menos 600 m (SUPUESTO: el doble de lo que se camina, 300 m).</p>
         <p class="mut"><a href="https://github.com/CASCA-code/mapa-purificadoras/blob/main/docs/B4_MEZCLA.md" target="_blank" rel="noopener">Qué tomó de cada versión</a> · <a href="data/colonias_b4.geojson" download>GeoJSON</a></p>
       </div></details>
@@ -157,7 +158,7 @@ label.mut{display:flex;flex-direction:column;gap:var(--s1)}
 <script src="../vendor/leaflet.js"></script>
 <script>
 (function(){
-const V='20261002-b4c';
+const V='20261003-b4d';
 const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 const canvas=L.canvas({padding:0.3});
 // UN solo canvas para todos los vectores: un 2.º canvas vacío encima bloqueaba el hover de colonias
@@ -222,16 +223,16 @@ function popupHtml(p){
   const mc=p.metro_cerca?'<tr><td>Metro a ≤1 km</td><td>'+esc(p.metro_cerca.n)+' · '+p.metro_cerca.d+' m</td></tr>':'';
   return '<div class="pp"><div class="big">'+esc(p.colonia)+'</div><div class="mut">'+esc(p.municipio)+' · marginación '+esc(p.grado)+' · ~'+p.viviendas_est+' viviendas</div>'+
    '<div class="score">'+scChip(p)+'<span class="mut">Calificación 0–100<br>'+confBadge(p)+'</span></div>'+
-   (p.comp_cero_desconocido?'<div class="mut">Competencia sin verificar (0 detectadas).</div>':'')+
+   (p.sin_verificar?'<div class="mut">Competencia sin verificar (0 detectadas): sin bonus de competencia.</div>':'')+
    '<div>'+hill(p.pend_clase,p.pend_media)+'</div>'+
    '<div class="sp"><b>Estaciones sugeridas: '+(p.n_est_sugeridas||0)+'</b>'+((p.n_est_sugeridas||0)>(p.n_est_plana==null?99:p.n_est_plana)?' <span class="mut">('+(p.n_est_sugeridas-p.n_est_plana)+' con cuesta)</span>':'')+'</div><table>'+el+'</table>'+
    '<details class="dt"><summary>Detalle del puntaje</summary>'+
-   '<table><tr><td>Pendiente de la colonia (media · p90)</td><td>'+(p.pend_media==null?'—':f2(p.pend_media,1)+' % · '+f2(p.pend_p90,1)+' %')+'</td></tr><tr><td>Puesto en el ranking</td><td><b>#'+p.rank_base+'</b></td></tr><tr><td>Puesto probable (p10–p90)</td><td>'+rangeTxt(p)+'</td></tr></table><div>'+covBadge(p)+'</div>'+
+   '<table><tr><td>Pendiente de la colonia (media · p90)</td><td>'+(p.pend_media==null?'—':f2(p.pend_media,1)+' % · '+f2(p.pend_p90,1)+' %')+'</td></tr><tr><td>Puesto en el ranking</td><td><b>#'+p.rank_base+'</b></td></tr><tr><td>Puesto probable (p10–p90) <span class="mut">(banda de la fórmula anterior)</span></td><td>'+rangeTxt(p)+'</td></tr><tr><td>Fórmula anterior (competencia resta)</td><td>'+f2(p.score_prev,1)+' · #'+p.rank_prev+'</td></tr></table><div>'+covBadge(p)+'</div>'+
    '<table><tr><td>Demanda ×0.40</td><td>'+f2(p.D_star)+' → '+f2(40*p.D_star,1)+'</td></tr>'+
    '<tr><td>Anclas ×0.30 <span class="mut">('+f2(p.anclas_por_1000viv,1)+'/1000 viv)</span></td><td>'+f2(p.A_star)+' → '+f2(30*p.A_star,1)+'</td></tr>'+
-   '<tr><td>Poca competencia ×0.30 <span class="mut">('+p.comp_n_300m+' a ≤300 m)</span></td><td>'+f2(1-p.C_star)+' → '+f2(30*(1-p.C_star),1)+'</td></tr>'+
+   '<tr><td>Competencia suma ×0.30 <span class="mut">('+p.comp_n_300m+' a ≤300 m · '+f2(p.comp_por_1000viv,1)+'/1000 viv · tope p80, SUPUESTO)</span></td><td>'+f2(p.Cb_star)+' → '+f2(30*p.Cb_star,1)+'</td></tr>'+
    ''+mc+'</table>'+
-   '<div class="tb"><b>Banda de confianza</b> <span class="mut">(modelo, no pronóstico)</span><table><tr><td>Rango p10 · p50 · p90</td><td>#'+p.rank_p10+' · #'+p.rank_p50+' · #'+p.rank_p90+'</td></tr><tr><td>Ancho de banda ('+esc(p.banda)+')</td><td>'+p.ancho_banda+' puestos</td></tr><tr><td>Prob. top 30 (con estrés)</td><td>'+f2(p.prob_top30*100,0)+' % ('+f2(p.prob_top30_estres*100,0)+' %)</td></tr></table></div>'+
+   '<div class="tb"><b>Banda de confianza</b> <span class="mut">(modelo, no pronóstico; calculada con la fórmula anterior)</span><table><tr><td>Rango p10 · p50 · p90</td><td>#'+p.rank_p10+' · #'+p.rank_p50+' · #'+p.rank_p90+'</td></tr><tr><td>Ancho de banda ('+esc(p.banda)+')</td><td>'+p.ancho_banda+' puestos</td></tr><tr><td>Prob. top 30 (con estrés)</td><td>'+f2(p.prob_top30*100,0)+' % ('+f2(p.prob_top30_estres*100,0)+' %)</td></tr></table></div>'+
    '<div class="tb"><b>Scout (campo, aparte)</b><table><tr><td>Marcas Scout</td><td>'+p.scout_marks+'</td></tr><tr><td>Con Scout</td><td>'+f2(p.score_with_scout,1)+' · #'+p.rank_with_scout+' ('+sg(p.scout_bonus)+')</td></tr></table></div>'+
    '<div class="mut">Anclas en la colonia + 100 m:</div><table>'+anc+'</table></details></div>';
 }
