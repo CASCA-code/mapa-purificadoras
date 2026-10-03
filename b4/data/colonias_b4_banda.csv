@@ -1,0 +1,168 @@
+cve_col,colonia,municipio,rank_p10,rank_p50,rank_p90,ancho_banda,banda,confianza,prob_top10,prob_top30,prob_top30_estres,comp_cero_desconocido
+19039_0725,Tierra Y Libertad,Monterrey,1,2,3,2,estrecha,alta,1.0,1.0,1.0,False
+19031_0154,Rancho Viejo,Juárez,1,2,3,2,estrecha,media,1.0,1.0,1.0,False
+19039_0167,Croc,Monterrey,1,3,16,15,estrecha,alta,0.87,0.976,0.976,False
+19039_0041,Ampliacion Municipal,Monterrey,3,5,7,4,estrecha,alta,0.99,1.0,1.0,True
+19021_0052,Eulalio Villarreal,General Escobedo,3,5,8,5,estrecha,media,0.968,1.0,1.0,False
+19006_0361,Prados de La Cieneguita,Apodaca,4,5,11,7,estrecha,media,0.898,1.0,1.0,False
+19031_0108,Los Valles,Juárez,6,8,11,5,estrecha,media,0.871,1.0,1.0,False
+19039_0666,San Bernabe 1Er Sector,Monterrey,4,10,40,36,media,baja,0.507,0.79,0.807,False
+19039_0288,Fomerrey 110 (San Bernabe 15),Monterrey,7,10,15,8,estrecha,media,0.598,1.0,1.0,False
+19018_0002,Ampl Los Nogales ( El Polvorin ),García,9,12,17,8,estrecha,media,0.255,1.0,1.0,False
+19039_0289,Fomerrey 112 (San Bernabe 9),Monterrey,6,12,29,23,estrecha,media,0.418,0.912,0.94,True
+19039_0284,Fomerrey 1 ( Reforma ),Monterrey,9,15,31,22,estrecha,alta,0.217,0.9,0.892,False
+19018_0077,Los Nogales,García,10,16,25,15,estrecha,media,0.102,0.983,0.941,False
+19021_0248,Santa Lucia,General Escobedo,10,16,26,16,estrecha,media,0.119,0.962,0.97,False
+19039_0663,San Angel Norte,Monterrey,11,16,24,13,estrecha,media,0.081,0.987,0.982,False
+19048_0195,Puerta del Sol,Santa Catarina,12,17,23,11,estrecha,media,0.028,0.998,0.998,False
+19026_0160,Garza Melo,Guadalupe,11,18,30,19,estrecha,media,0.077,0.908,0.908,False
+19031_0116,Monte Kristal,Juárez,10,21,37,27,estrecha,media,0.155,0.742,0.706,False
+19006_0406,Pueblo Nuevo 4To Sector,Apodaca,9,21,37,28,estrecha,media,0.131,0.806,0.816,True
+19006_0403,Pueblo Nuevo 1Er Sector,Apodaca,10,22,39,29,estrecha,media,0.128,0.768,0.772,True
+19031_0009,Arboledas de Los Naranjos,Juárez,17,22,29,12,estrecha,media,0.0,0.94,0.93,False
+19048_0220,San Gilberto,Santa Catarina,9,22,42,33,media,baja,0.176,0.68,0.655,False
+19006_0407,Pueblo Nuevo 5To Sector,Apodaca,11,23,36,25,estrecha,media,0.073,0.74,0.724,False
+19026_0220,Josefa Zozaya 2Do Sector,Guadalupe,18,24,36,18,estrecha,media,0.0,0.788,0.69,False
+19021_0056,Fomerrey 36,General Escobedo,16,24,33,17,estrecha,media,0.001,0.797,0.806,False
+19039_0741,Unidad Pedreras ( Fomerrey 106 ),Monterrey,11,26,42,31,media,media,0.072,0.593,0.603,False
+19021_0057,Fomerrey 9 (Solidaridad Social),General Escobedo,22,27,33,11,estrecha,media,0.0,0.755,0.754,False
+19039_0112,Carmen Serdan,Monterrey,19,27,34,15,estrecha,media,0.0,0.735,0.74,False
+19039_0296,Fomerrey 24,Monterrey,14,28,42,28,estrecha,alta,0.044,0.594,0.643,True
+19039_0518,Niño Artillero,Monterrey,22,28,34,12,estrecha,media,0.0,0.68,0.472,False
+19046_0080,Floridos Bosques del Nogalar,San Nicolás de los Garza,16,30,47,31,media,baja,0.032,0.504,0.557,True
+19048_0065,Hacienda Santa Catarina (Fomerrey 29),Santa Catarina,26,32,38,12,estrecha,media,0.0,0.361,0.374,False
+19026_0236,La Playa,Guadalupe,17,33,50,33,media,baja,0.025,0.432,0.488,True
+19039_0002,10 de Marzo,Monterrey,22,34,44,22,estrecha,media,0.0,0.353,0.264,False
+19039_0287,Fomerrey 109 (San Bernabe 14),Monterrey,25,36,45,20,estrecha,media,0.0,0.268,0.244,False
+19021_0251,Serranias,General Escobedo,30,39,53,23,estrecha,media,0.0,0.127,0.091,False
+19048_0058,Fama Iii,Santa Catarina,20,40,60,40,media,baja,0.0,0.27,0.278,False
+19039_0316,Fray Servando Teresa de Mier (Fomerrey 6 ),Monterrey,32,41,50,18,estrecha,media,0.0,0.071,0.074,False
+19048_0216,Rincon de Las Mitras (Fomerrey 2),Santa Catarina,25,41,54,29,estrecha,media,0.001,0.171,0.22,True
+19039_0318,Garza Nieto,Monterrey,37,42,47,10,estrecha,media,0.0,0.002,0.001,False
+19021_0040,Colinas del Topo Chico,General Escobedo,36,43,53,17,estrecha,media,0.0,0.007,0.003,False
+19046_0207,Paseo del Nogalar,San Nicolás de los Garza,30,45,58,28,estrecha,media,0.0,0.102,0.128,True
+19039_0430,Lazaro Cardenas,Monterrey,33,46,62,29,estrecha,media,0.0,0.058,0.083,True
+19039_0295,Fomerrey 23 ( Laderas de Topo Chico),Monterrey,32,46,62,30,estrecha,alta,0.0,0.074,0.094,True
+19039_0727,Topo Chico,Monterrey,32,46,57,25,estrecha,alta,0.0,0.088,0.096,False
+19021_0177,Nuevo Leon Estado de Progreso (Alianza Real),General Escobedo,12,47,79,67,ancha,baja,0.082,0.272,0.3,False
+19026_0070,Campestre La Silla,Guadalupe,40,49,57,17,estrecha,media,0.0,0.001,0.0,False
+19026_0291,Miguel Hidalgo,Guadalupe,37,49,62,25,estrecha,media,0.0,0.015,0.024,True
+19039_0314,Francisco Villa,Monterrey,32,49,64,32,media,media,0.0,0.089,0.108,False
+19039_0637,Revolucion Proletaria,Monterrey,38,50,66,28,estrecha,media,0.0,0.001,0.0,False
+19021_0247,San Miguel Residencial,General Escobedo,14,51,83,69,ancha,baja,0.052,0.223,0.272,True
+19048_0151,Paseo de Las Minas,Santa Catarina,34,52,72,38,media,baja,0.0,0.068,0.099,True
+19039_0321,Gloria Mendiola,Monterrey,28,52,74,46,media,media,0.002,0.116,0.155,True
+19039_0656,Riveras del Rio,Monterrey,16,53,82,66,ancha,baja,0.027,0.191,0.217,False
+19046_0147,Lagos de Chapultepec,San Nicolás de los Garza,45,54,65,20,estrecha,media,0.0,0.0,0.0,False
+19039_0298,Fomerrey 35 (Tierra Propia),Monterrey,39,55,71,32,media,baja,0.0,0.036,0.041,True
+19048_0071,Indeco La Fama 1,Santa Catarina,40,55,74,34,media,baja,0.0,0.006,0.008,True
+19026_0457,Valles del Sol,Guadalupe,49,55,62,13,estrecha,media,0.0,0.0,0.0,False
+19039_0684,San Martin,Monterrey,49,60,73,24,estrecha,media,0.0,0.0,0.0,False
+19039_0104,Burocratas Municipales,Monterrey,40,62,85,45,media,baja,0.0,0.044,0.034,False
+19018_0003,Ampliacion Cerritos,García,51,62,73,22,estrecha,media,0.0,0.0,0.0,False
+19039_0291,Fomerrey 114 (San Bernabe 13),Monterrey,45,63,86,41,media,baja,0.0,0.006,0.006,True
+19031_0097,Los Encinos,Juárez,52,63,73,21,estrecha,media,0.0,0.0,0.0,False
+19039_0292,Fomerrey 115 (San Bernabe 12),Monterrey,46,64,85,39,media,baja,0.0,0.006,0.008,True
+19039_0293,Fomerrey 116 (San Bernabe 8),Monterrey,48,64,87,39,media,baja,0.0,0.0,0.0,False
+19026_0434,Union Modelo,Guadalupe,49,65,86,37,media,baja,0.0,0.0,0.0,True
+19048_0120,Lomas del Poniente 1Er Sector,Santa Catarina,57,65,72,15,estrecha,media,0.0,0.0,0.0,False
+19031_0117,Monte Kristal 4To Sector,Juárez,56,65,73,17,estrecha,media,0.0,0.0,0.0,False
+19039_0250,El Porvenir,Monterrey,54,67,85,31,media,media,0.0,0.0,0.0,False
+19026_0432,Unidad Piloto,Guadalupe,51,70,90,39,media,baja,0.0,0.004,0.007,True
+19031_0219,Villas de San Jose 7 Sector,Juárez,55,71,93,38,media,baja,0.0,0.0,0.0,True
+19039_0297,Fomerrey 25,Monterrey,55,72,88,33,media,baja,0.0,0.0,0.0,False
+19039_0508,Moctezuma,Monterrey,57,73,90,33,media,baja,0.0,0.0,0.0,True
+19026_0021,31 de Diciembre,Guadalupe,64,74,87,23,estrecha,media,0.0,0.0,0.0,False
+19039_0300,Fomerrey 51,Monterrey,62,76,91,29,estrecha,media,0.0,0.0,0.0,False
+19006_0404,Pueblo Nuevo 2Do Sector,Apodaca,63,76,89,26,estrecha,media,0.0,0.0,0.0,False
+19006_0310,Noria Norte,Apodaca,70,77,87,17,estrecha,media,0.0,0.0,0.0,False
+19021_0250,Santa Martha,General Escobedo,63,78,91,28,estrecha,media,0.0,0.0,0.0,False
+19039_0784,Venustiano Carranza,Monterrey,64,78,97,33,media,baja,0.0,0.0,0.0,False
+19039_0039,America 2,Monterrey,72,79,88,16,estrecha,media,0.0,0.0,0.0,False
+19039_0521,Nogales de La Sierra,Monterrey,70,80,91,21,estrecha,media,0.0,0.0,0.0,False
+19021_0174,Nueva Esperanza,General Escobedo,64,81,94,30,estrecha,media,0.0,0.0,0.0,False
+19026_0013,2 de Mayo,Guadalupe,73,84,96,23,estrecha,media,0.0,0.0,0.0,False
+19006_0312,Novapodaca,Apodaca,72,84,100,28,estrecha,media,0.0,0.0,0.0,False
+19026_0017,25 de Noviembre,Guadalupe,65,85,101,36,media,baja,0.0,0.0,0.0,True
+19039_0345,Industrial,Monterrey,75,88,94,19,estrecha,media,0.0,0.0,0.0,False
+19018_0010,Brisas Residencial,García,79,88,102,23,estrecha,media,0.0,0.0,0.0,False
+19039_0299,Fomerrey 45,Monterrey,66,88,109,43,media,baja,0.0,0.0,0.0,False
+19048_0014,Arboledas de Las Mitras (Carlos Salinas de Gortari),Santa Catarina,75,88,98,23,estrecha,media,0.0,0.0,0.0,False
+19048_0115,Lomas de La Fama,Santa Catarina,71,90,102,31,media,baja,0.0,0.0,0.0,False
+19039_0626,Rene Alvarez,Monterrey,70,90,106,36,media,baja,0.0,0.0,0.0,True
+19048_0021,Balcones de Santa Catarina ( Fomerrey 134),Santa Catarina,76,91,105,29,estrecha,media,0.0,0.0,0.0,False
+19039_0739,Unidad del Pueblo,Monterrey,68,93,108,40,media,baja,0.0,0.0,0.0,False
+19026_0072,Cañada Blanca,Guadalupe,79,94,101,22,estrecha,media,0.0,0.0,0.0,False
+19039_0290,Fomerrey 113 (San Bernabe 9),Monterrey,79,95,109,30,estrecha,alta,0.0,0.0,0.0,False
+19048_0056,Eugenio Canavati,Santa Catarina,76,97,116,40,media,baja,0.0,0.0,0.0,True
+19021_0239,Rivera de Los Naranjos,General Escobedo,82,97,106,24,estrecha,media,0.0,0.0,0.0,False
+19039_0381,La Altamira,Monterrey,76,98,111,35,media,baja,0.0,0.0,0.0,False
+19039_0711,Sierra Ventana,Monterrey,89,100,109,20,estrecha,media,0.0,0.0,0.0,False
+19021_0280,Villas de San Francisco,General Escobedo,66,100,124,58,media,media,0.0,0.001,0.003,True
+19039_0343,Independencia,Monterrey,69,100,120,51,media,baja,0.0,0.0,0.0,False
+19048_0032,Cerro de Las Mitras (Raul Salinas Lozano),Santa Catarina,81,101,121,40,media,baja,0.0,0.0,0.0,True
+19039_0770,Valle de Santa Lucia (Granja Sanitaria),Monterrey,94,104,111,17,estrecha,alta,0.0,0.0,0.0,False
+19039_0257,Emiliano Zapata,Monterrey,89,104,121,32,media,baja,0.0,0.0,0.0,True
+19046_0081,Fomerrey 129 (Mirador San Nicolas),San Nicolás de los Garza,92,105,118,26,estrecha,media,0.0,0.0,0.0,False
+19026_0460,Vicente Ferrer,Guadalupe,97,105,111,14,estrecha,media,0.0,0.0,0.0,False
+19039_0384,La Condesa,Monterrey,97,106,116,19,estrecha,media,0.0,0.0,0.0,False
+19039_0550,Paseo de San Bernabe,Monterrey,91,107,119,28,estrecha,media,0.0,0.0,0.0,True
+19006_0405,Pueblo Nuevo 3Er Sector,Apodaca,93,111,127,34,media,baja,0.0,0.0,0.0,True
+19046_0021,Azteca,San Nicolás de los Garza,95,113,127,32,media,baja,0.0,0.0,0.0,True
+19021_0175,Nuevo Escobedo,General Escobedo,105,113,120,15,estrecha,media,0.0,0.0,0.0,False
+19039_0319,Genaro Vazquez Rojas,Monterrey,105,114,122,17,estrecha,media,0.0,0.0,0.0,False
+19018_0146,Renacimiento,García,103,115,125,22,estrecha,media,0.0,0.0,0.0,False
+19021_0002,18 de Octubre,General Escobedo,105,116,127,22,estrecha,media,0.0,0.0,0.0,False
+19021_0183,Pedregal del Topo Chico [19021_0183],General Escobedo,109,117,125,16,estrecha,alta,0.0,0.0,0.0,False
+19039_0433,Libertadores de America,Monterrey,96,117,136,40,media,baja,0.0,0.0,0.0,True
+19039_0664,San Angel Sur ( Los Remates ),Monterrey,110,118,126,16,estrecha,media,0.0,0.0,0.0,False
+19039_0383,La Campana,Monterrey,112,119,127,15,estrecha,media,0.0,0.0,0.0,False
+19021_0103,La Unidad,General Escobedo,111,120,129,18,estrecha,media,0.0,0.0,0.0,False
+19026_0461,Vicente Guerrero,Guadalupe,100,120,135,35,media,baja,0.0,0.0,0.0,True
+19026_0049,Atoyac de Alvarez,Guadalupe,91,121,141,50,media,baja,0.0,0.0,0.0,True
+19048_0033,Cimas de Las Mitras (Ampl Raul Salinas Lozano),Santa Catarina,103,121,134,31,media,baja,0.0,0.0,0.0,True
+19031_0109,Los Valles 2Do Sector,Juárez,102,122,135,33,media,baja,0.0,0.0,0.0,True
+19021_0055,Fernando Amilpa,General Escobedo,104,123,134,30,estrecha,media,0.0,0.0,0.0,True
+19026_0183,Ignacio Zaragoza,Guadalupe,107,123,135,28,estrecha,media,0.0,0.0,0.0,False
+19021_0006,Agropecuaria Emiliano Zapata (Col Nueva Esperanza),General Escobedo,116,126,134,18,estrecha,media,0.0,0.0,0.0,False
+19039_0156,Constituyentes del 57,Monterrey,106,126,133,27,estrecha,media,0.0,0.0,0.0,True
+19026_0426,Tierra Propia 2Do Sector,Guadalupe,118,128,135,17,estrecha,media,0.0,0.0,0.0,False
+19021_0113,Las Malvinas,General Escobedo,119,128,134,15,estrecha,media,0.0,0.0,0.0,False
+19031_0057,Hector Caballero,Juárez,110,129,137,27,estrecha,media,0.0,0.0,0.0,True
+19039_0061,Argentina,Monterrey,112,130,141,29,estrecha,media,0.0,0.0,0.0,True
+19046_0292,Valle del Mezquital,San Nicolás de los Garza,124,132,139,15,estrecha,media,0.0,0.0,0.0,False
+19021_0061,Gloria Mendiola,General Escobedo,118,132,141,23,estrecha,media,0.0,0.0,0.0,False
+19031_0010,Arboledas de San Roque,Juárez,115,133,143,28,estrecha,media,0.0,0.0,0.0,True
+19006_0235,Lomas del Pedregal,Apodaca,128,134,139,11,estrecha,media,0.0,0.0,0.0,False
+19046_0300,Vicente Guerrero 3 Sector,San Nicolás de los Garza,117,134,141,24,estrecha,media,0.0,0.0,0.0,True
+19039_0091,Bosques de La Estanzuela,Monterrey,128,134,139,11,estrecha,media,0.0,0.0,0.0,False
+19021_0281,Villas de San Francisco 2Do Sector,General Escobedo,121,137,144,23,estrecha,media,0.0,0.0,0.0,True
+19039_0525,Nueva Estanzuela,Monterrey,131,137,141,10,estrecha,media,0.0,0.0,0.0,False
+19026_0310,Nuevo Almaguer,Guadalupe,122,139,147,25,estrecha,media,0.0,0.0,0.0,True
+19039_0030,Alfonso Reyes,Monterrey,127,141,148,21,estrecha,media,0.0,0.0,0.0,True
+19026_0448,Valle Soleado,Guadalupe,136,141,145,9,estrecha,media,0.0,0.0,0.0,False
+19026_0316,Nuevo San Rafael,Guadalupe,139,142,145,6,estrecha,media,0.0,0.0,0.0,False
+19046_0036,Carmen Romano,San Nicolás de los Garza,140,143,146,6,estrecha,media,0.0,0.0,0.0,False
+19046_0052,Const de Queretaro 1 Sec,San Nicolás de los Garza,135,146,154,19,estrecha,media,0.0,0.0,0.0,True
+19039_0085,Bella Vista,Monterrey,144,147,149,5,estrecha,media,0.0,0.0,0.0,False
+19021_0071,"Hacienda San Miguel, Sector Palmiras",General Escobedo,142,147,150,8,estrecha,media,0.0,0.0,0.0,False
+19039_0038,Alvaro Obregon,Monterrey,147,150,153,6,estrecha,media,0.0,0.0,0.0,False
+19018_0076,Los Encinos Residencial,García,147,150,153,6,estrecha,media,0.0,0.0,0.0,False
+19026_0381,Riberas de La Silla,Guadalupe,147,150,153,6,estrecha,media,0.0,0.0,0.0,False
+19021_0206,Privadas de Camino Real Ii,General Escobedo,141,151,155,14,estrecha,media,0.0,0.0,0.0,True
+19046_0187,Nogalar,San Nicolás de los Garza,150,153,155,5,estrecha,media,0.0,0.0,0.0,False
+19021_0184,Pedregal del Topo Chico [19021_0184],General Escobedo,144,153,159,15,estrecha,media,0.0,0.0,0.0,True
+19048_0232,Sarabia,Santa Catarina,145,154,158,13,estrecha,media,0.0,0.0,0.0,True
+19006_0327,Parque Industrial Intermex Industrial Campus Apodaca,Apodaca,147,155,161,14,estrecha,media,0.0,0.0,0.0,True
+19031_0133,Portal de Vaquerias,Juárez,155,158,160,5,estrecha,media,0.0,0.0,0.0,False
+19021_0224,Puerta del Sol,General Escobedo,150,158,163,13,estrecha,media,0.0,0.0,0.0,True
+19031_0067,Joaquin Garza Y Garza,Juárez,155,158,160,5,estrecha,media,0.0,0.0,0.0,False
+19031_0111,Mirador del Parque,Juárez,159,161,163,4,estrecha,media,0.0,0.0,0.0,False
+19021_0188,Portal de San Francisco Sector 20 de Noviembre,General Escobedo,154,162,165,11,estrecha,media,0.0,0.0,0.0,True
+19048_0129,Martires de Cananea,Santa Catarina,160,162,164,4,estrecha,media,0.0,0.0,0.0,False
+19048_0237,Union de Colonos,Santa Catarina,155,163,166,11,estrecha,media,0.0,0.0,0.0,True
+19018_0055,Hacienda Renacimiento,García,155,164,167,12,estrecha,media,0.0,0.0,0.0,True
+19039_0553,Paseo del Vergel 1Er Sector,Monterrey,156,164,167,11,estrecha,media,0.0,0.0,0.0,True
+19006_0251,Los Fresnos 1Er Sector,Apodaca,162,164,166,4,estrecha,media,0.0,0.0,0.0,False
+19006_0345,Pimsa Sur,Apodaca,156,164,167,11,estrecha,media,0.0,0.0,0.0,True
+19046_0057,Constituyentes de Queretaro 4 Sec,San Nicolás de los Garza,157,165,167,10,estrecha,media,0.0,0.0,0.0,True

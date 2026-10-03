@@ -26,7 +26,7 @@ for f in sorted(glob.glob(J('v2', 'data', 'cells_*.geojson'))):
         cells[p['k']].append((p['s'], lat, lon))
 
 # ---------- banda de confianza ----------
-band = {r['cve_col']: r for r in csv.DictReader(open(J('v2', 'data', 'colonias_v3_banda_confianza.csv'), encoding='utf-8'))}
+band = None   # se carga tras correr scripts/banda_confianza_b4.py (ver bloque SCORE B4)
 
 # ---------- metro (v3_espectaculares) ----------
 metro = []
@@ -36,32 +36,54 @@ json.dump(metro, open(J('b4', 'data', 'metro_estaciones.json'), 'w', encoding='u
 
 # ---------- colonias_b4.geojson ----------
 src = json.load(open(J('v2', 'data', 'colonias_v3.geojson'), encoding='utf-8'))
-# ---------- SCORE B4 (competencia SUMA) ----------
-# score_b4 = 100 x (0.40*Demanda* + 0.30*Anclas* + 0.30*Comp_bonus*)   (docs/B4_FORMULA.md)
-# Comp_bonus* = min(P, CAP_P)/CAP_P, P = percentil de purificadoras a <=300 m por 1,000 viviendas (= C_star de v3, 0 comp => 0).
-# SUPUESTO: tope en p80 (CAP_P = 0.80). La formula anterior (competencia RESTA: 1-C_star) queda como score_prev / rank_prev.
-W_D, W_A, W_C = 0.40, 0.30, 0.30
-CAP_P = 0.80            # SUPUESTO
-def comp_bonus(c): return min(c, CAP_P) / CAP_P
+# ---------- SCORE B4 (competencia: 0 comp = excluida; con comp = bono chico solo-suma) ----------
+# Ver docs/B4_FORMULA.md y scripts/b4_formula.py.
+#   0 competidores detectados : score = 100*(0.45*D + 0.45*A)/0.90            ('mercado sin atender', sin penalizacion ni neutro)
+#   con competidores          : score = max(renormalizado, 100*(0.45*D + 0.45*A + 0.10*Cb))   (solo suma; bono <= 10 pts)
+#   Cb = min(P, CAP_P)/CAP_P, P = percentil de purificadoras <=300 m por 1,000 viv (= C_star de v3).  CAP_P = 0.80 SUPUESTO.
+import subprocess, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import b4_formula as F
+from shapely.geometry import shape as _shape
+subprocess.run([sys.executable, J('scripts', 'banda_confianza_b4.py')], check=True)     # banda p10/p50/p90 con la formula nueva
+band = {r['cve_col']: r for r in csv.DictReader(open(J('b4', 'data', 'colonias_b4_banda.csv'), encoding='utf-8'))}
+def hav_km(a, b):
+    la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+    h = math.sin((la2-la1)/2)**2 + math.cos(la1)*math.cos(la2)*math.sin((lo2-lo1)/2)**2
+    return 2*6371.0088*math.asin(math.sqrt(h))
 def rank_by(feats, key, tie):
     order = sorted(feats, key=lambda p: (-p[key], p[tie]))
     for i, p in enumerate(order): p['_r_'+key] = i + 1
+def old_e7d1ecc(d, a, c, n):        # formula e7d1ecc: 100*(0.40D+0.30A+0.30*Cb), 0 comp => bonus 0
+    return round(100 * (0.40*d + 0.30*a + 0.30*(0 if n == 0 else min(c, 0.80)/0.80)), 2)
 for ft in src['features']:
     p = ft['properties']
-    p['score_prev'] = p['score_base']; p['rank_prev'] = p['rank_base']
+    p['score_prev'] = p['score_base']; p['rank_prev'] = p['rank_base']                      # v3 original (competencia resta)
     p['score_with_scout_prev'] = p['score_with_scout']; p['rank_with_scout_prev'] = p['rank_with_scout']
-    p['Cb_star'] = round(comp_bonus(p['C_star']), 4)
-    p['score_base'] = round(100 * (W_D*p['D_star'] + W_A*p['A_star'] + W_C*comp_bonus(p['C_star'])), 2)
-    p['score_with_scout'] = round(100 * (W_D*p['D_star'] + W_A*p['A_star_scout'] + W_C*comp_bonus(p['C_star_scout'])), 2)
-    p['sin_verificar'] = p['comp_n_300m'] == 0     # 0 competidores => bonus 0 y marca 'sin verificar'
+    p['score_prev2'] = old_e7d1ecc(p['D_star'], p['A_star'], p['C_star'], p['comp_n_300m'])  # e7d1ecc (0.40/0.30/0.30, 0 comp => 0)
+    p['score_with_scout_prev2'] = old_e7d1ecc(p['D_star'], p['A_star_scout'], p['C_star_scout'], p['comp_n_300m_with_scout'])
+    cb = F.comp_bonus(p['C_star'], p['comp_n_300m'])
+    p['Cb_star'] = None if cb is None else round(cb, 4)
+    p['score_base'] = F.score(p['D_star'], p['A_star'], p['C_star'], p['comp_n_300m'])
+    p['score_sin_comp'] = round(100 * (F.W_D*p['D_star'] + F.W_A*p['A_star']) / (F.W_D+F.W_A), 2)
+    p['bono_comp_pts'] = round(p['score_base'] - p['score_sin_comp'], 2)
+    p['score_with_scout'] = F.score(p['D_star'], p['A_star_scout'], p['C_star_scout'], p['comp_n_300m_with_scout'])
+    p['sin_verificar'] = p['comp_n_300m'] == 0          # DENUE/Places no ven informales: 0 = 'no detectada'
+    p['mercado_sin_atender'] = p['comp_n_300m'] == 0    # 0 detectadas => competencia excluida (no penaliza)
+    c = _shape(ft['geometry']).centroid
+    p['cen_lat'] = round(c.y, 6); p['cen_lon'] = round(c.x, 6)
+    p['dist_casa_km'] = round(hav_km(F.CASA, (c.y, c.x)), 1)   # linea recta casa -> centroide del poligono (informativo, no entra al score)
 _P = [ft['properties'] for ft in src['features']]
+rank_by(_P, 'score_prev2', 'rank_prev'); rank_by(_P, 'score_with_scout_prev2', 'rank_with_scout_prev')
 rank_by(_P, 'score_base', 'rank_prev'); rank_by(_P, 'score_with_scout', 'rank_with_scout_prev')
 for p in _P:
+    p['rank_prev2'] = p.pop('_r_score_prev2'); p['rank_with_scout_prev2'] = p.pop('_r_score_with_scout_prev2')
     p['rank_base'] = p.pop('_r_score_base'); p['rank_with_scout'] = p.pop('_r_score_with_scout')
     p['scout_bonus'] = round(p['score_with_scout'] - p['score_base'], 2)
     p['delta_rank_v2_to_base'] = p['v2_rank'] - p['rank_base']
     p['delta_rank_base_to_scout'] = p['rank_base'] - p['rank_with_scout']
     p['delta_rank_prev_to_b4'] = p['rank_prev'] - p['rank_base']
+    p['delta_rank_prev2_to_b4'] = p['rank_prev2'] - p['rank_base']
 
 sites_fc = []
 dist_n = collections.Counter()
@@ -74,7 +96,7 @@ for ft in src['features']:
         for c in ('rank_p10', 'rank_p50', 'rank_p90', 'ancho_banda'):
             p[c] = int(float(b[c]))
         p['banda'] = b['banda']; p['confianza'] = b['confianza']
-        p['prob_top30'] = float(b['prob_top30']); p['prob_top30_estres'] = float(b['prob_top30_estres'])
+        p['prob_top30'] = float(b['prob_top30']); p['prob_top30_estres'] = float(b['prob_top30_estres']); p['prob_top10'] = float(b['prob_top10'])
         p['comp_cero_desconocido'] = b['comp_cero_desconocido'] == 'True'
     # estaciones sugeridas
     cl = sorted(cells.get(k, []), reverse=True)
