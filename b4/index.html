@@ -159,7 +159,7 @@ label.mut{display:flex;flex-direction:column;gap:var(--s1)}
 <script src="../vendor/leaflet.js"></script>
 <script>
 (function(){
-const V='20261003-b4e';
+const V='20261003-b4f';
 const RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 const canvas=L.canvas({padding:0.3});
 // UN solo canvas para todos los vectores: un 2.º canvas vacío encima bloqueaba el hover de colonias
@@ -254,7 +254,7 @@ function sortedList(){
   else a.sort((x,y)=>y.prob_top30-x.prob_top30||x.rank_base-y.rank_base);
   return a;
 }
-let ALL=false;
+let ALL=false,PEND=null;
 function renderTop(){
   const vals=COLP.map(sc);smin=Math.min(...vals);smax=Math.max(...vals);colLayer.setStyle(styleFor);
   const by=$('sortBy').value;
@@ -267,10 +267,15 @@ function renderTop(){
   top.forEach((p,n)=>{const li=document.createElement('li');li.tabIndex=0;li.setAttribute('role','button');
     const num=by==='score'?rk(p):(n+1);
     li.innerHTML='<span class="rk">'+num+'</span><span class="nm"><b>'+esc(p.colonia)+'</b><em>'+esc(MS(p.municipio))+' · Estaciones sugeridas: '+(p.n_est_sugeridas||0)+dcTxt(p)+'</em>'+confBadge(p)+hill(p.pend_clase,p.pend_media)+'</span>'+scChip(p);
-    const go=()=>{const l=byKey[p.cve_col];closeIfNarrow();map.closePopup();const b=l.getBounds();
-      let done=false;const open=()=>{if(done)return;done=true;l.openPopup();};
+    const go=()=>{const l=byKey[p.cve_col];closeIfNarrow();
+      // cancela el «abrir ficha» pendiente de un toque anterior: si no, su moveend viejo abría otra ficha en pleno autopan y daba TypeError (layerPointToContainerPoint de null)
+      if(PEND){PEND();PEND=null;}
+      map.closePopup();const b=l.getBounds();
+      let done=false,tm=0;const cancel=()=>{done=true;clearTimeout(tm);map.off('moveend',open);};
+      const open=()=>{if(done)return;cancel();if(l._map)l.openPopup();};
+      PEND=cancel;
       if(RM){map.fitBounds(b,{maxZoom:16});open();return;}
-      map.once('moveend',open);setTimeout(open,1100);
+      map.on('moveend',open);tm=setTimeout(open,1100);
       const pad=narrow()?{padding:[20,20]}:{paddingTopLeft:[430,20],paddingBottomRight:[20,20]};
       map.flyToBounds(b,Object.assign({maxZoom:16},FLY,pad));};
     li.onclick=go;li.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};ol.appendChild(li);});
